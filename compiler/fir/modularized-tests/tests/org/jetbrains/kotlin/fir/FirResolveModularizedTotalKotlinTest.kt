@@ -30,9 +30,9 @@ import java.io.PrintStream
 
 private const val FAIL_FAST = true
 
-private const val FIR_DUMP_PATH = "tmp/firDump"
-private const val FIR_HTML_DUMP_PATH = "tmp/firDump-html"
-const val FIR_LOGS_PATH = "tmp/fir-logs"
+private const val FIR_DUMP_PATH = "C:/fir_tmp/firDump"
+private const val FIR_HTML_DUMP_PATH = "C:/fir_tmp/firDump-html"
+const val FIR_LOGS_PATH = "C:/fir_tmp/fir-logs"
 
 private val DUMP_FIR = System.getProperty("fir.bench.dump", "true") == "true"
 internal val PASSES = System.getProperty("fir.bench.passes")?.toInt() ?: 3
