@@ -118,8 +118,7 @@ abstract class AbstractModularizedTest : KtUsefulTestCase() {
         val filterRegex = (System.getProperty("fir.bench.filter") ?: ".*").toRegex()
         val modules =
             root.listFiles().sortedBy { it.lastModified() }.map { loadModule(it) }
-                .filter { it.outputDir.matches(filterRegex) }
-                .filter { !it.isCommon }
+        //.filter { it.qualifiedName == "kotlin.idea.main" }
 
 
         for (module in modules.progress(step = 0.0) { "Analyzing ${it.qualifiedName}" }) {
