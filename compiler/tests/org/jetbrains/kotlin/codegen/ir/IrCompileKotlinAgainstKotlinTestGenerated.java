@@ -113,6 +113,11 @@ public class IrCompileKotlinAgainstKotlinTestGenerated extends AbstractIrCompile
         runTest("compiler/testData/compileKotlinAgainstKotlin/defaultLambdaRegeneration2.kt");
     }
 
+    @TestMetadata("delegationAndAnnotations.kt")
+    public void testDelegationAndAnnotations() throws Exception {
+        runTest("compiler/testData/compileKotlinAgainstKotlin/delegationAndAnnotations.kt");
+    }
+
     @TestMetadata("doublyNestedClass.kt")
     public void testDoublyNestedClass() throws Exception {
         runTest("compiler/testData/compileKotlinAgainstKotlin/doublyNestedClass.kt");
