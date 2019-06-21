@@ -91,7 +91,7 @@ abstract class AbstractFirDiagnosticsSmokeTest : BaseDiagnosticsTest() {
         }
 
         val failure: AssertionError? = try {
-            doFirResolveTestBench(firFiles, FirTotalResolveTransformer().transformers, gc = false)
+            doFirResolveTestBench(firFiles, FirTotalResolveTransformer().transformers, gc = false, unresolvedTypesAllowed = false)
             null
         } catch (e: AssertionError) {
             e
