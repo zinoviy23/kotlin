@@ -16,22 +16,29 @@
 
 package org.jetbrains.kotlin.idea.caches.resolve
 
+import com.google.common.collect.ImmutableMap
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.IndexNotReadyException
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Getter
+import com.intellij.openapi.util.ModificationTracker
 import com.intellij.psi.PsiElement
-import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.*
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.container.ComponentProvider
 import org.jetbrains.kotlin.container.get
 import org.jetbrains.kotlin.context.GlobalContext
 import org.jetbrains.kotlin.context.withModule
 import org.jetbrains.kotlin.context.withProject
+import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.diagnostics.Diagnostic
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
 import org.jetbrains.kotlin.frontend.di.createContainerForLazyBodyResolve
 import org.jetbrains.kotlin.idea.caches.project.getModuleInfo
+import org.jetbrains.kotlin.idea.caches.trackers.cleanInBlockModificationCount
+import org.jetbrains.kotlin.idea.caches.trackers.inBlockModificationCount
 import org.jetbrains.kotlin.idea.project.IdeaModuleStructureOracle
 import org.jetbrains.kotlin.idea.project.TargetPlatformDetector
 import org.jetbrains.kotlin.idea.project.findAnalyzerServices
@@ -39,8 +46,14 @@ import org.jetbrains.kotlin.idea.project.languageVersionSettings
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.parentsWithSelf
 import org.jetbrains.kotlin.resolve.*
+import org.jetbrains.kotlin.resolve.diagnostics.Diagnostics
+import org.jetbrains.kotlin.resolve.diagnostics.SimpleDiagnostics
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.resolve.lazy.ResolveSession
+import org.jetbrains.kotlin.resolve.source.getPsi
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.util.slicedMap.ReadOnlySlice
+import org.jetbrains.kotlin.util.slicedMap.WritableSlice
 import java.util.*
 
 internal class PerFileAnalysisCache(val file: KtFile, componentProvider: ComponentProvider) {
@@ -50,15 +63,15 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
     private val codeFragmentAnalyzer = componentProvider.get<CodeFragmentAnalyzer>()
     private val bodyResolveCache = componentProvider.get<BodyResolveCache>()
 
-    private val cache = HashMap<PsiElement, AnalysisResult>()
+    private val cache = HashMap<PsiElement, CachedValue<AnalysisResult>>()
 
-    private fun lookUp(analyzableElement: KtElement): AnalysisResult? {
+    private fun lookUp(analyzableElement: KtElement): CachedValue<AnalysisResult>? {
         // Looking for parent elements that are already analyzed
         // Also removing all elements whose parents are already analyzed, to guarantee consistency
         val descendantsOfCurrent = arrayListOf<PsiElement>()
         val toRemove = hashSetOf<PsiElement>()
 
-        var result: AnalysisResult? = null
+        var result: CachedValue<AnalysisResult>? = null
         for (current in analyzableElement.parentsWithSelf) {
             val cached = cache[current]
             if (cached != null) {
@@ -66,6 +79,8 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
                 toRemove.addAll(descendantsOfCurrent)
                 descendantsOfCurrent.clear()
             }
+
+            if (isModified(current)) break
 
             descendantsOfCurrent.add(current)
         }
@@ -75,22 +90,138 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
         return result
     }
 
+    private fun isModified(current: PsiElement): Boolean {
+        // Modified KtNamedFunction provides its own AnalysisResult
+        // TODO: could be generalized as well for other cases those could provide incremental analysis
+
+        return current is KtNamedFunction && current.inBlockModificationCount > 0
+    }
+
     fun getAnalysisResults(element: KtElement): AnalysisResult {
         assert(element.containingKtFile == file) { "Wrong file. Expected $file, but was ${element.containingKtFile}" }
 
         val analyzableParent = KotlinResolveDataProvider.findAnalyzableParent(element)
 
+        // cache does not contain AnalysisResult per each kt/psi element
+        // instead it looks up analysis for its parents - see lookUp(analyzableElement)
+
+        // top element (ktFile) always contains analysis for entire file
+        // cache contains analysis of one of parents if
+        // that parent (e.g. ktNamedFunction) is modified and could provide incremental analysis
+        // - in this case top element has details about what item performed incremental analysis (its parent ctx, parent diagnostics etc)
+
         return synchronized<AnalysisResult>(this) {
-
             val cached = lookUp(analyzableParent)
-            if (cached != null) return@synchronized cached
+            if (cached != null) return@synchronized cached.value
 
-            val result = analyze(analyzableParent)
+            val result =
+                // TODO: could be generalized as well for other cases those could provide incremental analysis
+                if (analyzableParent is KtNamedFunction) {
+                    CachedValuesManager.getManager(file.project).createCachedValue(
+                        {
+                            val calculatedAnalysisResult: AnalysisResult =
+                                if (analyzableParent.inBlockModificationCount != 0L) {
+                                    val result = analyze(analyzableParent)
 
+                                    val parentCache = cache[file] as SimpleCachedValue
+                                    val parentAnalysis = parentCache.value
+                                    val newBindingCtx = mergeContexts(result, parentAnalysis, analyzableParent)
+
+                                    val newParentAnalysis = if (parentAnalysis.isError())
+                                        AnalysisResult.internalError(newBindingCtx, parentAnalysis.error)
+                                    else AnalysisResult.success(
+                                        newBindingCtx,
+                                        parentAnalysis.moduleDescriptor,
+                                        parentAnalysis.shouldGenerateCode
+                                    )
+                                    cache[file] = SimpleCachedValue(newParentAnalysis)
+
+                                    newParentAnalysis
+                                } else {
+                                    cache[file]?.value ?: analyze(analyzableParent)
+                                }
+
+                            val dependencies = ModificationTracker { analyzableParent.inBlockModificationCount }
+                            CachedValueProvider.Result.create(calculatedAnalysisResult, dependencies)
+                        }, false
+                    )
+                } else {
+                    SimpleCachedValue(analyze(analyzableParent))
+                }
             cache[analyzableParent] = result
 
-            return@synchronized result
+            return@synchronized result.value
         }
+    }
+
+    private fun findAllChildren(element: KtElement): Set<PsiElement> {
+        val set = mutableSetOf<PsiElement>()
+        val visitor = object : KtTreeVisitor<Unit>() {
+            override fun visitKtElement(ktElement: KtElement, data: Unit): Void? {
+                set.add(ktElement)
+                return super.visitKtElement(ktElement, Unit)
+            }
+        }
+        element.acceptChildren(visitor, Unit)
+        return set.toSet()
+    }
+
+    private fun mergeContexts(
+        analysisResult: AnalysisResult,
+        parentAnalysis: AnalysisResult,
+        element: KtElement
+    ): BindingContext {
+        val parentCtx = parentAnalysis.bindingContext
+        val thisCtx = analysisResult.bindingContext
+
+        val thisDiagnosticsAll = thisCtx.diagnostics.all()
+
+        val sameElementParentCtx: StackedCompositeBindingContext? =
+            if (parentCtx is StackedCompositeBindingContext) {
+                if (parentCtx.element == element) parentCtx else {
+                    // clean up cached analysis result for prev element as it is incorporated into this one
+                    cache.remove(parentCtx.element)
+                    // have to clean up modification traces
+                    if (parentCtx.element is KtNamedFunction) parentCtx.element.cleanInBlockModificationCount()
+
+                    null
+                }
+            } else null
+
+        // parentDiagnostics contains only diagnostic outside of this element
+        // no reason to re-evaluate parentDiagnosticsAll if it is the same element
+        val parentDiagnostics: List<Diagnostic> = sameElementParentCtx?.parentDiagnostics ?: run {
+            // parentCtx diagnostics can have potentially outdated psi elements
+            // so far - traverse from children to parent (expensive) to identify that it is out of this element diagnostic
+            val parentDiagnosticsAll = parentCtx.diagnostics.all()
+            parentDiagnosticsAll.filter { d ->
+                // do not copy diagnostic that is built on a top level as it could be outdated
+                for (diagnosticParent in generateSequence(d.psiElement) { it.parent }) {
+                    if (diagnosticParent == element) {
+                        break
+                    }
+                    if (diagnosticParent is KtFile) return@filter true
+                }
+                return@filter false
+            }.toList()
+        }
+
+        val diagnostics = parentDiagnostics + thisDiagnosticsAll // copy all diagnostics those belongs to `element`
+
+        // how long it could be a list of delegates ? is it worth to perform full analysis when we got too deep ?
+        val depth = when (parentCtx) {
+            is StackedCompositeBindingContext -> if (parentCtx.element == element) parentCtx.depth else (parentCtx.depth + 1)
+            else -> 1
+        }
+
+        val ctx = sameElementParentCtx?.parentContext ?: parentCtx
+
+        return StackedCompositeBindingContext(
+            depth,
+            element, findAllChildren(element),
+            thisCtx, ctx,
+            parentDiagnostics, SimpleDiagnostics(diagnostics)
+        )
     }
 
     private fun analyze(analyzableElement: KtElement): AnalysisResult {
@@ -120,6 +251,71 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
             return AnalysisResult.internalError(BindingContext.EMPTY, e)
         }
     }
+}
+
+private class SimpleCachedValue<T>(private val value: T) : CachedValue<T> {
+    override fun getValue(): T = value
+
+    override fun getUpToDateOrNull(): Getter<T> = throw UnsupportedOperationException()
+
+    override fun hasUpToDateValue(): Boolean = throw UnsupportedOperationException()
+
+    override fun getValueProvider(): CachedValueProvider<T> = throw UnsupportedOperationException()
+}
+
+private class StackedCompositeBindingContext(
+    val depth: Int, // depth of stack over original ktFile bindingContext
+    val element: KtElement,
+    val children: Set<PsiElement>,
+    val elementContext: BindingContext,
+    val parentContext: BindingContext,
+    val parentDiagnostics: List<Diagnostic>,
+    private val diagnostics: Diagnostics
+) : BindingContext {
+
+    val delegates = listOf(elementContext, parentContext)
+
+    private fun ctx(ktElement: PsiElement?): BindingContext? =
+        when {
+            ktElement != null -> if (children.contains(ktElement)) elementContext else parentContext
+            else -> null
+        }
+
+    override fun getType(expression: KtExpression): KotlinType? {
+        return ctx(expression)!!.getType(expression)
+    }
+
+    override fun <K, V> get(slice: ReadOnlySlice<K, V>?, key: K?): V? {
+        val element: PsiElement? = when (key) {
+            is PsiElement -> key
+            is Call -> key.callElement
+            is DeclarationDescriptorWithSource -> key.source.getPsi()
+            else -> null
+        }
+
+        if (element != null) {
+            return ctx(element)!![slice, key]
+        }
+        val value = delegates.asSequence().map { it[slice, key] }.firstOrNull { it != null }
+        return value
+    }
+
+    override fun <K, V> getKeys(slice: WritableSlice<K, V>?): Collection<K> {
+        return delegates.flatMap { it.getKeys(slice) }
+    }
+
+    override fun <K, V> getSliceContents(slice: ReadOnlySlice<K, V>): ImmutableMap<K, V> {
+        //we need intermediate map cause ImmutableMap doesn't support same entries obtained from different slices
+        val map = hashMapOf<K, V>()
+        delegates.forEach { map.putAll(it.getSliceContents(slice)) }
+        return ImmutableMap.builder<K, V>().putAll(map).build()
+    }
+
+    override fun getDiagnostics(): Diagnostics {
+        return diagnostics
+    }
+
+    override fun addOwnDataTo(trace: BindingTrace, commitDiagnostics: Boolean) = throw UnsupportedOperationException()
 }
 
 private object KotlinResolveDataProvider {

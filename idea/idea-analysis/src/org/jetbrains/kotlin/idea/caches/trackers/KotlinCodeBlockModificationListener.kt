@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.idea.caches.trackers
 
+import com.intellij.lang.ASTNode
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.ModificationTracker
@@ -16,10 +17,7 @@ import com.intellij.pom.event.PomModelEvent
 import com.intellij.pom.event.PomModelListener
 import com.intellij.pom.tree.TreeAspect
 import com.intellij.pom.tree.events.TreeChangeEvent
-import com.intellij.psi.PsiDirectory
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiManager
-import com.intellij.psi.PsiTreeChangeEvent
+import com.intellij.psi.*
 import com.intellij.psi.impl.PsiManagerImpl
 import com.intellij.psi.impl.PsiModificationTrackerImpl
 import com.intellij.psi.impl.PsiTreeChangeEventImpl
@@ -27,8 +25,10 @@ import com.intellij.psi.impl.PsiTreeChangeEventImpl.PsiEventType.CHILD_MOVED
 import com.intellij.psi.impl.PsiTreeChangeEventImpl.PsiEventType.PROPERTY_CHANGED
 import com.intellij.psi.impl.PsiTreeChangePreprocessor
 import com.intellij.psi.util.PsiModificationTracker
+import com.intellij.psi.util.parents
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 import org.jetbrains.kotlin.psi.psiUtil.getTopmostParentOfType
 import org.jetbrains.kotlin.psi.psiUtil.isAncestor
 
@@ -91,7 +91,15 @@ class KotlinCodeBlockModificationListener(
                 val changedElements = changeSet.changedElements
                 // When a code fragment is reparsed, Intellij doesn't do an AST diff and considers the entire
                 // contents to be replaced, which is represented in a POM event as an empty list of changed elements
-                if (changedElements.any { getInsideCodeBlockModificationScope(it.psi) == null } || changedElements.isEmpty()) {
+                val outOfBlockChange =
+                    changedElements.any { getInsideCodeBlockModificationScope(it.psi) == null } || changedElements.isEmpty()
+
+                val inBlockChange = if (!outOfBlockChange) {
+                    // ignore formatting (whitespaces etc)
+                    if (!isFormattingChange(changeSet)) incInBlockModificationCount(changedElements) else false
+                } else false
+
+                if (outOfBlockChange || !inBlockChange) {
                     messageBusConnection.deliverImmediately()
 
                     if (ktFile.isPhysical && !isReplLine(ktFile.virtualFile)) {
@@ -155,6 +163,9 @@ class KotlinCodeBlockModificationListener(
         }
 
         private fun incOutOfBlockModificationCount(file: KtFile) {
+            file.collectDescendantsOfType<KtNamedFunction>(canGoInside = { it !is KtNamedFunction })
+                .forEach { it.cleanInBlockModificationCount() }
+
             val count = file.getUserData(FILE_OUT_OF_BLOCK_MODIFICATION_COUNT) ?: 0
             file.putUserData(FILE_OUT_OF_BLOCK_MODIFICATION_COUNT, count + 1)
         }
@@ -164,6 +175,35 @@ class KotlinCodeBlockModificationListener(
                 ?: file.putUserDataIfAbsent(PER_FILE_MODIFICATION_TRACKER, SimpleModificationTracker())
             tracker.incModificationCount()
         }
+
+        private fun incInBlockModificationCount(elements: Array<ASTNode>): Boolean {
+            val inBlockElements = mutableSetOf<KtNamedFunction>()
+            for (element in elements) {
+                for (parent in element.psi.parents()) {
+                    // support chain of KtNamedFunction -> KtClassBody -> KtClass -> KtFile
+                    // TODO: could be generalized as well for other cases those could provide incremental analysis
+                    if (parent is KtNamedFunction && ((parent.parent?.parent?.parent ?: null) is KtFile)) {
+                        inBlockElements.add(parent)
+                        break
+                    }
+                    if (parent is KtFile) break
+                }
+            }
+            if (inBlockElements.isNotEmpty()) {
+                inBlockElements.forEach { incInBlockModificationCount(it) }
+            }
+            return inBlockElements.isNotEmpty()
+        }
+
+        private fun incInBlockModificationCount(namedFunction: KtNamedFunction) {
+            val count = namedFunction.getUserData(IN_BLOCK_MODIFICATION_COUNT) ?: 0
+            namedFunction.putUserData(IN_BLOCK_MODIFICATION_COUNT, count + 1)
+        }
+
+        fun isFormattingChange(changeSet: TreeChangeEvent): Boolean =
+            changeSet.changedElements.all {
+                changeSet.getChangesByElement(it).affectedChildren.all { c -> (c is PsiWhiteSpace || c is PsiComment) }
+            }
 
         fun getInsideCodeBlockModificationScope(element: PsiElement): KtElement? {
             val lambda = element.getTopmostParentOfType<KtLambdaExpression>()
@@ -231,6 +271,13 @@ val KtFile.perFileModificationTracker: ModificationTracker
 
 private val FILE_OUT_OF_BLOCK_MODIFICATION_COUNT = Key<Long>("FILE_OUT_OF_BLOCK_MODIFICATION_COUNT")
 
-val KtFile.outOfBlockModificationCount: Long
-    get() = getUserData(FILE_OUT_OF_BLOCK_MODIFICATION_COUNT) ?: 0
+private val IN_BLOCK_MODIFICATION_COUNT = Key<Long>("IN_BLOCK_MODIFICATION_COUNT")
 
+val KtFile.outOfBlockModificationCount: Long by NotNullableUserDataProperty(FILE_OUT_OF_BLOCK_MODIFICATION_COUNT, 0)
+
+val KtNamedFunction.inBlockModificationCount: Long by NotNullableUserDataProperty(IN_BLOCK_MODIFICATION_COUNT, 0)
+
+fun KtNamedFunction.cleanInBlockModificationCount() {
+    if ((getUserData(IN_BLOCK_MODIFICATION_COUNT) ?: 0) > 0)
+        putUserData(IN_BLOCK_MODIFICATION_COUNT, 0)
+}

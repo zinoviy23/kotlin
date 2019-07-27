@@ -23,12 +23,15 @@ import org.jetbrains.kotlin.psi.psiUtil.parents
 
 class KotlinChangeLocalityDetector : ChangeLocalityDetector {
     override fun getChangeHighlightingDirtyScopeFor(element: PsiElement): PsiElement? {
-        val parent = element.parent
-        if (element is KtBlockExpression && parent is KtNamedFunction && parent.name != null) {
-            if (parent.parents.all { it is KtClassBody || it is KtClassOrObject || it is KtFile || it is KtScript }) {
-                return parent
-            }
-        }
+        // TODO: [VD] change within a block could lead to re-highlight file outside of the block
+        // e.g. referring to unused so far method
+
+//        val parent = element.parent
+//        if (element is KtBlockExpression && parent is KtNamedFunction && parent.name != null) {
+//            if (parent.parents.all { it is KtClassBody || it is KtClassOrObject || it is KtFile || it is KtScript }) {
+//                return parent
+//            }
+//        }
 
         return null
     }
