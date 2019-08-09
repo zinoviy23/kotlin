@@ -152,6 +152,9 @@ dependencies {
     gradleToolingModel(project(":noarg-ide-plugin")) { isTransitive = false }
     gradleToolingModel(project(":allopen-ide-plugin")) { isTransitive = false }
 
+    val x = "/Users/sergey.rostov/Downloads/gradle-6.0-branch-eskatos_kotlin_dsl_multi_scripts_resolver-20190919115959+0000/lib/gradle-kotlin-dsl-tooling-models-6.0.jar"
+    gradleToolingModel(files(x))
+
     jpsPlugin(project(":kotlin-jps-plugin")) { isTransitive = false }
 }
 
