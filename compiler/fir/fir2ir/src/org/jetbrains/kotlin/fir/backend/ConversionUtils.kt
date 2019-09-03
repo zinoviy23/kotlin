@@ -62,6 +62,7 @@ fun ConeKotlinType.toIrType(session: FirSession, declarationStorage: Fir2IrDecla
             // TODO: add intersectionTypeApproximation
             intersectedTypes.first().toIrType(session, declarationStorage)
         }
+        is ConeStubType -> createErrorType()
     }
 }
 

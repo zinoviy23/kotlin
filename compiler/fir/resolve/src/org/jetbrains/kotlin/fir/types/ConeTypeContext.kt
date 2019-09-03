@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.declarations.expandedConeType
 import org.jetbrains.kotlin.fir.declarations.superConeTypes
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.ConeInferenceContext
+import org.jetbrains.kotlin.fir.resolve.calls.ConeTypeVariable
 import org.jetbrains.kotlin.fir.resolve.calls.ConeTypeVariableTypeConstructor
 import org.jetbrains.kotlin.fir.resolve.calls.hasNullableSuperType
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
@@ -67,6 +68,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
             is ConeDefinitelyNotNullType -> this
             is ConeIntersectionType -> this
             is ConeFlexibleType -> null
+            is ConeStubType -> this
             else -> error("Unknown simpleType: $this")
         }
     }
@@ -134,6 +136,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
                 ?: ErrorTypeConstructor("Failed to expand alias: ${this}")
             is ConeLookupTagBasedType -> this.lookupTag.toSymbol(session) ?: ErrorTypeConstructor("Unresolved: ${this.lookupTag}")
             is ConeIntersectionType -> this
+            is ConeStubType -> (variable as ConeTypeVariable).typeConstructor
             else -> error("?: ${this}")
         }
 
@@ -353,6 +356,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         if (this is ConeCapturedType) return true
         if (this is ConeTypeVariableType) return false
         if (this is ConeIntersectionType) return false
+        if (this is ConeStubType) return true
         require(this is ConeLookupTagBasedType)
         val typeConstructor = this.typeConstructor()
         return typeConstructor is FirClassSymbol ||
@@ -368,7 +372,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun SimpleTypeMarker.isStubType(): Boolean {
-        return false // TODO
+        return this is StubTypeMarker
     }
 
     override fun intersectTypes(types: List<SimpleTypeMarker>): SimpleTypeMarker {
