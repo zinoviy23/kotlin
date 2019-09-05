@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.transformers.firUnsafe
 import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.symbols.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
@@ -231,6 +232,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
             is ConeTypeVariableTypeConstructor -> emptyList()
             is FirTypeParameterSymbol -> fir.bounds.map { it.coneTypeUnsafe() }
             is FirClassSymbol -> fir.superConeTypes
+            is FirAnonymousObjectSymbol -> fir.superConeTypes
             is FirTypeAliasSymbol -> listOfNotNull(fir.expandedConeType)
             is ConeCapturedTypeConstructor -> supertypes!!
             is ConeIntersectionType -> intersectedTypes
@@ -365,7 +367,8 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         require(this is ConeLookupTagBasedType)
         val typeConstructor = this.typeConstructor()
         return typeConstructor is FirClassSymbol ||
-                typeConstructor is FirTypeParameterSymbol
+                typeConstructor is FirTypeParameterSymbol ||
+                typeConstructor is FirAnonymousObjectSymbol
     }
 
     override fun captureFromExpression(type: KotlinTypeMarker): KotlinTypeMarker? {
