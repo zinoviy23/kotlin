@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.fir.scopes.impl.*
 import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.symbols.ConeClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -23,9 +24,18 @@ fun lookupSuperTypes(
     deep: Boolean,
     useSiteSession: FirSession
 ): List<ConeClassLikeType> {
+    return lookupSuperTypes(klass.symbol, lookupInterfaces, deep, useSiteSession)
+}
+
+fun lookupSuperTypes(
+    symbol: ConeClassifierSymbol,
+    lookupInterfaces: Boolean,
+    deep: Boolean,
+    useSiteSession: FirSession
+): List<ConeClassLikeType> {
     return mutableListOf<ConeClassLikeType>().also {
-        if (lookupInterfaces) klass.symbol.collectSuperTypes(it, deep, useSiteSession)
-        else klass.symbol.collectSuperClasses(it, useSiteSession)
+        if (lookupInterfaces) symbol.collectSuperTypes(it, deep, useSiteSession)
+        else symbol.collectSuperClasses(it, useSiteSession)
     }
 }
 
@@ -56,6 +66,10 @@ fun FirRegularClass.buildUseSiteScope(useSiteSession: FirSession, builder: Scope
     return symbolProvider.getClassUseSiteMemberScope(this.classId, useSiteSession, builder)
 }
 
+fun FirAnonymousObject.buildUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope? {
+    return buildDefaultUseSiteScope(useSiteSession, builder)
+}
+
 fun FirTypeAlias.buildUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope? {
     val type = expandedTypeRef.coneTypeUnsafe<ConeClassLikeType>()
     return type.scope(useSiteSession, builder)?.let {
@@ -63,22 +77,40 @@ fun FirTypeAlias.buildUseSiteScope(useSiteSession: FirSession, builder: ScopeSes
     }
 }
 
-fun FirRegularClass.buildDefaultUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope {
+private fun buildDefaultUseSiteScope(
+    symbol: ConeClassifierSymbol,
+    useSiteSession: FirSession,
+    builder: ScopeSession,
+    declaredMemberScope: () -> FirClassDeclaredMemberScope
+): FirScope {
     return builder.getOrBuild(symbol, USE_SITE) {
-
-        val declaredScope = builder.getOrBuild(this.symbol, DECLARED) { declaredMemberScope(this) }
-        val scopes = lookupSuperTypes(this, lookupInterfaces = true, deep = false, useSiteSession = useSiteSession)
+        val declaredScope = builder.getOrBuild(symbol, DECLARED) { declaredMemberScope() }
+        val scopes = lookupSuperTypes(symbol, lookupInterfaces = true, deep = false, useSiteSession = useSiteSession)
             .mapNotNull { useSiteSuperType ->
                 if (useSiteSuperType is ConeClassErrorType) return@mapNotNull null
-                val symbol = useSiteSuperType.lookupTag.toSymbol(useSiteSession)
-                if (symbol is FirClassSymbol) {
-                    val useSiteScope = symbol.fir.buildUseSiteScope(useSiteSession, builder)!!
-                    useSiteSuperType.wrapSubstitutionScopeIfNeed(useSiteSession, useSiteScope, symbol.fir, builder)
+                val useSiteSuperTypeSymbol = useSiteSuperType.lookupTag.toSymbol(useSiteSession)
+                if (useSiteSuperTypeSymbol is FirClassSymbol) {
+                    val useSiteScope = useSiteSuperTypeSymbol.fir.buildUseSiteScope(useSiteSession, builder)!!
+                    useSiteSuperType.wrapSubstitutionScopeIfNeed(useSiteSession, useSiteScope, useSiteSuperTypeSymbol.fir, builder)
                 } else {
                     null
                 }
             }
         FirClassUseSiteScope(useSiteSession, FirSuperTypeScope(useSiteSession, scopes), declaredScope)
+    }
+}
+
+
+fun FirAnonymousObject.buildDefaultUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope {
+    return buildDefaultUseSiteScope(symbol, useSiteSession, builder) {
+        declaredMemberScope(this)
+    }
+}
+
+
+fun FirRegularClass.buildDefaultUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope {
+    return buildDefaultUseSiteScope(symbol, useSiteSession, builder) {
+        declaredMemberScope(this)
     }
 }
 
@@ -130,6 +162,22 @@ private tailrec fun ConeClassifierSymbol.collectSuperClasses(
     }
 }
 
+private fun FirClass.collectSuperTypes(
+    list: MutableList<ConeClassLikeType>,
+    deep: Boolean,
+    useSiteSession: FirSession
+) {
+    val superClassTypes = superConeTypes.mapNotNull { it.computePartialExpansion(useSiteSession) }
+    list += superClassTypes
+    if (deep) {
+        superClassTypes.forEach {
+            if (it !is ConeClassErrorType) {
+                it.lookupTag.toSymbol(useSiteSession)?.collectSuperTypes(list, deep, useSiteSession)
+            }
+        }
+    }
+}
+
 private fun ConeClassifierSymbol.collectSuperTypes(
     list: MutableList<ConeClassLikeType>,
     deep: Boolean,
@@ -137,15 +185,10 @@ private fun ConeClassifierSymbol.collectSuperTypes(
 ) {
     when (this) {
         is FirClassSymbol -> {
-            val superClassTypes =
-                fir.superConeTypes.mapNotNull { it.computePartialExpansion(useSiteSession) }
-            list += superClassTypes
-            if (deep)
-                superClassTypes.forEach {
-                    if (it !is ConeClassErrorType) {
-                        it.lookupTag.toSymbol(useSiteSession)?.collectSuperTypes(list, deep, useSiteSession)
-                    }
-                }
+            fir.collectSuperTypes(list, deep, useSiteSession)
+        }
+        is FirAnonymousObjectSymbol -> {
+            fir.collectSuperTypes(list, deep, useSiteSession)
         }
         is FirTypeAliasSymbol -> {
             val expansion = fir.expandedConeType?.computePartialExpansion(useSiteSession) ?: return

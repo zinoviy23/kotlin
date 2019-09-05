@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.scope
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -82,6 +83,13 @@ class ImplicitDispatchReceiverValue(
         symbolProvider.getClassUseSiteMemberScope(companionObject.classId, useSiteSession, scopeSession)
     }
 }
+
+class ImplicitDispatchReceiverValueForAnonymous(
+    boundSymbol: FirAnonymousObjectSymbol,
+    type: ConeKotlinType,
+    useSiteSession: FirSession,
+    scopeSession: ScopeSession
+) : ImplicitReceiverValue<FirAnonymousObjectSymbol>(boundSymbol, type, useSiteSession, scopeSession)
 
 class ImplicitExtensionReceiverValue(
     boundSymbol: FirCallableSymbol<*>,

@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.symbols.impl
 
+import org.jetbrains.kotlin.fir.declarations.FirAnonymousObject
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
@@ -22,6 +23,12 @@ sealed class FirClassLikeSymbol<D : FirClassLikeDeclaration<D>>(
 
 class FirClassSymbol(classId: ClassId) : FirClassLikeSymbol<FirRegularClass>(classId), ConeClassSymbol {
     override fun toLookupTag(): ConeClassLikeLookupTag = ConeClassLikeLookupTagImpl(classId)
+}
+
+class FirAnonymousObjectSymbol : AbstractFirBasedSymbol<FirAnonymousObject>(), ConeClassifierSymbol {
+    private val lookupTag = ConeAnonymousObjectLookupTag(this)
+
+    override fun toLookupTag(): ConeAnonymousObjectLookupTag = lookupTag
 }
 
 class FirTypeAliasSymbol(override val classId: ClassId) : FirClassLikeSymbol<FirTypeAlias>(classId), ConeTypeAliasSymbol {

@@ -85,6 +85,7 @@ fun ConeClassifierLookupTag.toSymbol(useSiteSession: FirSession): ConeClassifier
     when (this) {
         is ConeClassLikeLookupTag -> toSymbol(useSiteSession)
         is ConeTypeParameterLookupTag -> this.symbol
+        is ConeAnonymousObjectLookupTag -> this.symbol
         else -> error("sealed ${this::class}")
     }
 

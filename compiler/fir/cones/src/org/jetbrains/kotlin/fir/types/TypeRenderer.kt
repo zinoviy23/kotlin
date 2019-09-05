@@ -27,6 +27,9 @@ fun ConeKotlinType.render(): String {
                 }
             }
         }
+        is ConeAnonymousObjectType -> {
+            lookupTag.name.asString()
+        }
         is ConeTypeParameterType -> {
             lookupTag.name.asString()
         }

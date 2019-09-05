@@ -23,6 +23,14 @@ data class ConeTypeParameterLookupTag(val typeParameterSymbol: ConeTypeParameter
 
 }
 
+data class ConeAnonymousObjectLookupTag(val anonymousObjectSymbol: ConeClassifierSymbol) : ConeClassifierLookupTagWithFixedSymbol() {
+    override val name: Name
+        get() = Name.special("<anonymous>")
+
+    override val symbol: ConeClassifierSymbol
+        get() = anonymousObjectSymbol
+}
+
 abstract class ConeClassLikeLookupTag : ConeClassifierLookupTag() {
     abstract val classId: ClassId
 
@@ -31,8 +39,6 @@ abstract class ConeClassLikeLookupTag : ConeClassifierLookupTag() {
 }
 
 abstract class ConeTypeAliasLookupTag : ConeClassLikeLookupTag()
-
-abstract class ConeClassLookupTag : ConeClassLikeLookupTag()
 
 class ConeClassLikeLookupTagImpl(override val classId: ClassId) : ConeClassLikeLookupTag() {
     var boundSymbol: Pair<*, ConeClassifierSymbol?>? = null

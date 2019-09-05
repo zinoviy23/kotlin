@@ -67,13 +67,14 @@ abstract class AbstractConeSubstitutor : ConeSubstitutor() {
 
     private fun ConeKotlinType.substituteRecursive(): ConeKotlinType? {
         return when (this) {
-            is ConeClassErrorType -> return null
+            is ConeClassErrorType -> null
             is ConeClassType -> this.substituteArguments()
+            is ConeAnonymousObjectType -> null
             is ConeAbbreviatedType -> this.substituteArguments()
-            is ConeTypeParameterType -> return null
-            is ConeTypeVariableType -> return null
+            is ConeTypeParameterType -> null
+            is ConeTypeVariableType -> null
             is ConeFlexibleType -> this.substituteBounds()
-            is ConeCapturedType -> return null
+            is ConeCapturedType -> null
             is ConeDefinitelyNotNullType -> this.substituteOriginal()
             is ConeIntersectionType -> this.substituteIntersectedTypes()
         }

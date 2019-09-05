@@ -9,11 +9,17 @@ import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.VisitedSupertype
 import org.jetbrains.kotlin.fir.expressions.impl.FirUnknownTypeExpression
+import org.jetbrains.kotlin.fir.symbols.FirSymbolOwner
+import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 
-abstract class FirAnonymousObject(psi: PsiElement?) : @VisitedSupertype FirClass, FirUnknownTypeExpression(psi) {
+abstract class FirAnonymousObject(
+    psi: PsiElement?
+) : @VisitedSupertype FirClass, FirDeclaration, FirSymbolOwner<FirAnonymousObject>, FirUnknownTypeExpression(psi) {
     override val classKind: ClassKind
         get() = ClassKind.OBJECT
+
+    abstract override val symbol: FirAnonymousObjectSymbol
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R =
         visitor.visitAnonymousObject(this, data)

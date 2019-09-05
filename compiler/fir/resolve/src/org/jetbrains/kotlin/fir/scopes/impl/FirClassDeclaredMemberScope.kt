@@ -5,9 +5,7 @@
 
 package org.jetbrains.kotlin.fir.scopes.impl
 
-import org.jetbrains.kotlin.fir.declarations.FirCallableMemberDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirConstructor
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.scopes.FirPosition
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
@@ -22,8 +20,8 @@ import org.jetbrains.kotlin.name.Name
 
 class FirClassDeclaredMemberScopeProvider {
 
-    val cache = mutableMapOf<FirRegularClass, FirClassDeclaredMemberScope>()
-    fun declaredMemberScope(klass: FirRegularClass): FirClassDeclaredMemberScope {
+    val cache = mutableMapOf<FirClass, FirClassDeclaredMemberScope>()
+    fun declaredMemberScope(klass: FirClass): FirClassDeclaredMemberScope {
         return cache.getOrPut(klass) {
             FirClassDeclaredMemberScope(klass)
         }
@@ -31,19 +29,20 @@ class FirClassDeclaredMemberScopeProvider {
 }
 
 fun declaredMemberScope(klass: FirRegularClass): FirClassDeclaredMemberScope {
-    return klass
-        .session
-        .service<FirClassDeclaredMemberScopeProvider>()
-        .declaredMemberScope(klass)
+    return klass.session.service<FirClassDeclaredMemberScopeProvider>().declaredMemberScope(klass)
 }
 
-class FirClassDeclaredMemberScope(klass: FirRegularClass) : FirScope() {
+fun declaredMemberScope(anonymousObject: FirAnonymousObject): FirClassDeclaredMemberScope {
+    return anonymousObject.session.service<FirClassDeclaredMemberScopeProvider>().declaredMemberScope(anonymousObject)
+}
+
+class FirClassDeclaredMemberScope(klass: FirClass) : FirScope() {
     private val callablesIndex: Map<Name, List<FirCallableSymbol<*>>> = run {
         val result = mutableMapOf<Name, MutableList<FirCallableSymbol<*>>>()
         for (declaration in klass.declarations) {
             when (declaration) {
                 is FirCallableMemberDeclaration<*> -> {
-                    val name = if (declaration is FirConstructor) klass.name else declaration.name
+                    val name = if (klass is FirRegularClass && declaration is FirConstructor) klass.name else declaration.name
                     result.getOrPut(name) { mutableListOf() } += declaration.symbol
                 }
                 is FirRegularClass -> {

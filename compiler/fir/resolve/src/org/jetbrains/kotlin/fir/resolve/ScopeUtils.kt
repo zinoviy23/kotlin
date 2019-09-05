@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve
 
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirAnonymousObject
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.resolve.transformers.firSafeNullable
 import org.jetbrains.kotlin.fir.scopes.FirScope
@@ -14,6 +15,7 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirCompositeScope
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.impl.ConeAnonymousObjectTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeClassTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 
@@ -28,6 +30,10 @@ fun ConeKotlinType.scope(useSiteSession: FirSession, scopeSession: ScopeSession)
             val fir = this.lookupTag.toSymbol(useSiteSession)?.firSafeNullable<FirRegularClass>() ?: return null
             wrapSubstitutionScopeIfNeed(useSiteSession, fir.buildUseSiteScope(useSiteSession, scopeSession)!!, scopeSession)
         }
+        is ConeAnonymousObjectType -> {
+            val fir = this.lookupTag.toSymbol(useSiteSession)?.firSafeNullable<FirAnonymousObject>() ?: return null
+            fir.buildUseSiteScope(useSiteSession, scopeSession)
+        }
         is ConeTypeParameterType -> {
             // TODO: support LibraryTypeParameterSymbol or get rid of it
             val fir = lookupTag.toSymbol().fir
@@ -39,7 +45,7 @@ fun ConeKotlinType.scope(useSiteSession: FirSession, scopeSession: ScopeSession)
         }
         is ConeFlexibleType -> lowerBound.scope(useSiteSession, scopeSession)
         is ConeIntersectionType -> FirCompositeScope(intersectedTypes.mapNotNullTo(mutableListOf()) { it.scope(useSiteSession, scopeSession) })
-        else -> error("Failed type ${this}")
+        is ConeTypeVariableType, is ConeCapturedType, is ConeDefinitelyNotNullType -> error("Failed type ${this}")
     }
 }
 
@@ -72,4 +78,8 @@ fun FirRegularClass.defaultType(): ConeClassTypeImpl {
         }.toTypedArray(),
         isNullable = false
     )
+}
+
+fun FirAnonymousObject.defaultType(): ConeAnonymousObjectTypeImpl {
+    return ConeAnonymousObjectTypeImpl(symbol.toLookupTag(), isNullable = false)
 }

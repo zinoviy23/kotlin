@@ -5,11 +5,12 @@
 
 package org.jetbrains.kotlin.fir.types.impl
 
+import org.jetbrains.kotlin.fir.symbols.ConeAnonymousObjectLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.types.*
 
-open class ConeClassTypeImpl(
+class ConeClassTypeImpl(
     override val lookupTag: ConeClassLikeLookupTag,
     override val typeArguments: Array<out ConeKotlinTypeProjection>,
     isNullable: Boolean
@@ -34,8 +35,15 @@ open class ConeClassTypeImpl(
         result = 31 * result + nullability.hashCode()
         return result
     }
+}
 
-
+class ConeAnonymousObjectTypeImpl(
+    override val lookupTag: ConeAnonymousObjectLookupTag,
+    isNullable: Boolean
+) : ConeAnonymousObjectType() {
+    override val nullability: ConeNullability = ConeNullability.create(isNullable)
+    override val typeArguments: Array<out ConeKotlinTypeProjection>
+        get() = emptyArray()
 }
 
 class ConeAbbreviatedTypeImpl(

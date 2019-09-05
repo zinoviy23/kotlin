@@ -7,14 +7,27 @@ package org.jetbrains.kotlin.fir.declarations.impl
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousObject
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
+import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
 import org.jetbrains.kotlin.fir.transformInplace
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 
-class FirAnonymousObjectImpl(psi: PsiElement?) : FirAnonymousObject(psi), FirModifiableClass {
+class FirAnonymousObjectImpl(
+    override val session: FirSession,
+    psi: PsiElement?,
+    override val symbol: FirAnonymousObjectSymbol
+) : FirAnonymousObject(psi), FirModifiableClass {
+    init {
+        symbol.bind(this)
+    }
+
+    override var resolvePhase = FirResolvePhase.RAW_FIR
+
     override val superTypeRefs = mutableListOf<FirTypeRef>()
 
     override val declarations = mutableListOf<FirDeclaration>()
