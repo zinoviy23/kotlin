@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.types
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.model.*
 
 sealed class ConeKotlinTypeProjection : TypeArgumentMarker {
@@ -194,11 +195,16 @@ fun ConeIntersectionType.mapTypes(func: (ConeKotlinType) -> ConeKotlinType): Con
     return ConeIntersectionType(intersectedTypes.map(func))
 }
 
-class ConeStubType(val variable: TypeVariableMarker, override val nullability: ConeNullability) : StubTypeMarker, ConeKotlinType() {
+class ConeStubType(val variable: ConeTypeVariable, override val nullability: ConeNullability) : StubTypeMarker, ConeKotlinType() {
     override val typeArguments: Array<out ConeKotlinTypeProjection>
         get() = emptyArray()
+}
 
-    override fun toString(): String {
-        return "stub type: $variable"
-    }
+open class ConeTypeVariable(name: String) : TypeVariableMarker {
+    val typeConstructor = ConeTypeVariableTypeConstructor(name)
+    val defaultType = ConeTypeVariableType(ConeNullability.NOT_NULL, typeConstructor)
+}
+
+class ConeTypeVariableTypeConstructor(val debugName: String) : ConeSymbol, ConeClassifierLookupTag(), TypeVariableTypeConstructorMarker {
+    override val name: Name get() = Name.identifier(debugName)
 }
