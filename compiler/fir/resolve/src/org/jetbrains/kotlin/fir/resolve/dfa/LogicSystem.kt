@@ -167,10 +167,13 @@ abstract class LogicSystem(private val context: DataFlowInferenceContext) {
     // ------------------------------- Util functions -------------------------------
 
     // TODO
-    protected fun <E> Collection<Collection<E>>.intersectSets(): Set<E> {
+    protected fun <E> Collection<Iterable<E>>.intersectSets(): Set<E> {
         if (isEmpty()) return emptySet()
         val iterator = iterator()
-        val result = HashSet<E>(iterator.next())
+        val result = HashSet<E>()
+        for (elem in iterator.next()) {
+            result += elem
+        }
         while (iterator.hasNext()) {
             result.retainAll(iterator.next())
         }

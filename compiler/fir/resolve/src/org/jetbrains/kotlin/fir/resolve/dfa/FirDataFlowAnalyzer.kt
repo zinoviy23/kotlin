@@ -718,7 +718,7 @@ class FirDataFlowAnalyzer(transformer: FirBodyResolveTransformer) : BodyResolveC
         return result
     }
 
-    private inner class LogicSystemImpl(context: DataFlowInferenceContext) : DelegatingLogicSystem(context) {
+    private inner class LogicSystemImpl(context: DataFlowInferenceContext) : PersistentLogicSystem(context) {
         override fun processUpdatedReceiverVariable(flow: Flow, variable: RealDataFlowVariable) {
             val symbol = (variable.fir as? FirSymbolOwner<*>)?.symbol ?: return
 
