@@ -43,6 +43,8 @@ interface FirDataFlowInfo {
     val isNotEmpty: Boolean
     val isEmpty: Boolean get() = !isNotEmpty
     fun invert(): FirDataFlowInfo
+
+    fun toMutableInfo(): MutableFirDataFlowInfo
 }
 
 data class MutableFirDataFlowInfo(
@@ -69,6 +71,8 @@ data class MutableFirDataFlowInfo(
     }
 
     fun copy(): MutableFirDataFlowInfo = MutableFirDataFlowInfo(exactType.toMutableSet(), exactNotType.toMutableSet())
+
+    override fun toMutableInfo(): MutableFirDataFlowInfo = this
 }
 
 operator fun FirDataFlowInfo.plus(other: FirDataFlowInfo?): FirDataFlowInfo = other?.let { this + other } ?: this
@@ -77,7 +81,7 @@ fun FirDataFlowInfo.toConditional(condition: Condition, variable: RealDataFlowVa
     ConditionalFirDataFlowInfo(condition, variable, this)
 
 fun MutableApprovedInfos.addInfo(variable: RealDataFlowVariable, info: FirDataFlowInfo) {
-    merge(variable, info as MutableFirDataFlowInfo) { existingInfo, newInfo ->
+    merge(variable, info.toMutableInfo()) { existingInfo, newInfo ->
         existingInfo.apply { this += newInfo }
     }
 }
