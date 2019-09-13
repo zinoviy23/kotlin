@@ -13,10 +13,13 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SkipWhenEmpty
 import org.gradle.process.ProcessForkOptions
 import org.gradle.process.internal.DefaultProcessForkOptions
+import org.jetbrains.kotlin.compilerRunner.konanVersion
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesClientSettings
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
 import org.jetbrains.kotlin.gradle.targets.native.internal.parseKotlinNativeStackTraceAsJvm
 import org.jetbrains.kotlin.gradle.tasks.KotlinTest
+import org.jetbrains.kotlin.konan.KonanVersion
+import org.jetbrains.kotlin.konan.MetaVersion
 import java.io.File
 
 open class KotlinNativeTest : KotlinTest() {
@@ -92,18 +95,33 @@ open class KotlinNativeTest : KotlinTest() {
         return TCServiceMessagesTestExecutionSpec(
             extendedForkOptions,
             cliArgs.toList(),
-            false,
+            true,
             clientSettings
         )
     }
 
-    private class CliArgs(
+    private inner class CliArgs(
         val testLogger: String? = null,
         val testGradleFilter: Set<String> = setOf(),
         val testNegativeGradleFilter: Set<String> = setOf(),
         val userArgs: List<String> = emptyList()
     ) {
+
+        // KonanVersion doesn't provide an API to compare versions,
+        // so we have to transform it to KotlinVersion first.
+        // Note: this check doesn't take into account the meta version (release, eap, dev).
+        private fun KonanVersion.isAtLeast(major: Int, minor: Int, patch: Int): Boolean =
+            KotlinVersion(this.major, this.minor, this.maintenance).isAtLeast(major, minor, patch)
+
         fun toList() = mutableListOf<String>().also {
+
+            // This flag was added in Kotlin 1.3.40.
+            // Corresponding K/N version is 1.3.0.
+            if (project.konanVersion.isAtLeast(1, 3, 0)) {
+                // Avoid returning a non-zero exit code in case of failed tests.
+                it.add("--ktest_no_exit_code")
+            }
+
             if (testLogger != null) {
                 it.add("--ktest_logger=$testLogger")
             }
