@@ -161,6 +161,8 @@ data class ExternalSystemTestTask(val testName: String, val externalSystemProjec
         fun fromStringRepresentation(line: String) =
             line.split("|").let { if (it.size == 3) ExternalSystemTestTask(it[0], it[1], it[2]) else null }
     }
+
+    override fun toString() = "$testName@$externalSystemProjectId [$targetName]"
 }
 
 class KotlinFacetSettings {
