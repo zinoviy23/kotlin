@@ -1250,7 +1250,7 @@ internal class Fir2IrVisitor(
                 )
             }
         }
-        return super.visitResolvedQualifier(resolvedQualifier, data)
+        return visitElement(resolvedQualifier, data)
     }
 
     override fun visitBinaryLogicExpression(binaryLogicExpression: FirBinaryLogicExpression, data: Any?): IrElement {

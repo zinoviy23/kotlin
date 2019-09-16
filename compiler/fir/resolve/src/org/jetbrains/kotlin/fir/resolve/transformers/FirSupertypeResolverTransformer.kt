@@ -8,11 +8,7 @@ package org.jetbrains.kotlin.fir.resolve.transformers
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.render
-import org.jetbrains.kotlin.fir.resolve.FirProvider
-import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.firSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.lookupSuperTypes
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.scopes.FirPosition
 import org.jetbrains.kotlin.fir.scopes.addImportingScopes
 import org.jetbrains.kotlin.fir.scopes.impl.FirNestedClassifierScope
@@ -31,7 +27,7 @@ class FirSupertypeResolverTransformer : FirAbstractTreeTransformer(phase = FirRe
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
         initFromFile(file)
-        return super.transformFile(file, data)
+        return transformElement(file, data)
     }
 
     fun initFromFile(file: FirFile) {
@@ -43,7 +39,7 @@ class FirSupertypeResolverTransformer : FirAbstractTreeTransformer(phase = FirRe
         val transformedClass = resolveSupertypesOrExpansions(regularClass) as? FirRegularClass ?: regularClass
 
         // resolve supertypes for nested classes
-        return super.transformRegularClass(transformedClass, data)
+        return transformElement(transformedClass, data)
     }
 
 
@@ -209,7 +205,7 @@ class FirSupertypeResolverTransformer : FirAbstractTreeTransformer(phase = FirRe
                 towerScope.scopes += FirNestedClassifierScope(classId, firProvider)
                 regularClass.addTypeParametersScope()
 
-                super.transformRegularClass(regularClass, data)
+                transformElement(regularClass, data)
             }
         }
     }

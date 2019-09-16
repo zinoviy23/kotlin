@@ -197,7 +197,7 @@ class FirResolveBench(val withProgress: Boolean) {
                             }
                         }
 
-                        super.visitFunctionCall(functionCall)
+                        visitElement(functionCall)
                     }
 
                     override fun visitQualifiedAccessExpression(qualifiedAccessExpression: FirQualifiedAccessExpression) {
@@ -209,7 +209,7 @@ class FirResolveBench(val withProgress: Boolean) {
                             }
                         }
 
-                        super.visitQualifiedAccessExpression(qualifiedAccessExpression)
+                        visitElement(qualifiedAccessExpression)
                     }
 
                     override fun visitTypeRef(typeRef: FirTypeRef) {
