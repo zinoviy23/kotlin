@@ -28,7 +28,10 @@ fun <D> AbstractFirBasedSymbol<D>.phasedFir(
             is ConeCallableSymbol -> provider.getFirCallableContainerFile(this)
             is ConeClassLikeSymbol -> provider.getFirClassifierContainerFile(this)
             else -> null
-        } ?: throw AssertionError("Cannot get container file by symbol: $this (${result.render()})")
+        } ?: run {
+            provider.getFirCallableContainerFile(this as ConeCallableSymbol)
+            throw AssertionError("Cannot get container file by symbol: $this (${result.render()})")
+        }
         containingFile.runResolve(toPhase = requiredPhase, fromPhase = availablePhase)
     }
     return result

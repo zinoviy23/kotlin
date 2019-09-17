@@ -49,15 +49,34 @@ class FirSupertypeResolverTransformer : FirAbstractTreeTransformer(phase = FirRe
     }
 
     // This and transformProperty functions are required to forbid supertype resolving for local classes
-    override fun transformDeclarationWithBody(
-        declarationWithBody: FirDeclarationWithBody,
+//    override fun transformDeclarationWithBody(
+//        declarationWithBody: FirDeclarationWithBody,
+//        data: Nothing?
+//    ): CompositeTransformResult<FirDeclaration> {
+//        return declarationWithBody.compose()
+//    }
+
+    override fun transformAnonymousInitializer(
+        anonymousInitializer: FirAnonymousInitializer,
         data: Nothing?
     ): CompositeTransformResult<FirDeclaration> {
-        return declarationWithBody.compose()
+        return anonymousInitializer.compose()
+    }
+
+    override fun transformConstructor(constructor: FirConstructor, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+        return constructor.compose()
+    }
+
+    override fun transformNamedFunction(namedFunction: FirNamedFunction, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+        return namedFunction.compose()
     }
 
     override fun transformProperty(property: FirProperty, data: Nothing?): CompositeTransformResult<FirDeclaration> {
         return property.compose()
+    }
+
+    override fun <F : FirFunction<F>> transformFunction(function: FirFunction<F>, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+        return function.compose()
     }
 
     private fun resolveSupertypesOrExpansions(classLikeDeclaration: FirClassLikeDeclaration<*>): FirDeclaration {
@@ -108,6 +127,10 @@ class FirSupertypeResolverTransformer : FirAbstractTreeTransformer(phase = FirRe
             }
 
             return resolveNestedClassesSupertypes(transformedClass, data)
+        }
+
+        override fun transformEnumEntry(enumEntry: FirEnumEntry, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+            return transformRegularClass(enumEntry, data)
         }
 
         private fun FirClassLikeDeclaration<*>.matchesRequestedDeclaration(): Boolean {

@@ -8,10 +8,7 @@ package org.jetbrains.kotlin.fir.resolve.transformers
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirNamedReference
 import org.jetbrains.kotlin.fir.FirResolvedCallableReference
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
-import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.expressions.FirWrappedArgumentExpression
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
 import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -36,6 +33,27 @@ internal object MapArguments : FirTransformer<Map<FirElement, FirElement>>() {
         data: Map<FirElement, FirElement>
     ): CompositeTransformResult<FirStatement> {
         return (wrappedArgumentExpression.transformChildren(this, data) as FirStatement).compose()
+    }
+
+    override fun transformLambdaArgumentExpression(
+        lambdaArgumentExpression: FirLambdaArgumentExpression,
+        data: Map<FirElement, FirElement>
+    ): CompositeTransformResult<FirStatement> {
+        return transformWrappedArgumentExpression(lambdaArgumentExpression, data)
+    }
+
+    override fun transformSpreadArgumentExpression(
+        spreadArgumentExpression: FirSpreadArgumentExpression,
+        data: Map<FirElement, FirElement>
+    ): CompositeTransformResult<FirStatement> {
+        return transformWrappedArgumentExpression(spreadArgumentExpression, data)
+    }
+
+    override fun transformNamedArgumentExpression(
+        namedArgumentExpression: FirNamedArgumentExpression,
+        data: Map<FirElement, FirElement>
+    ): CompositeTransformResult<FirStatement> {
+        return transformWrappedArgumentExpression(namedArgumentExpression, data)
     }
 }
 

@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.fir.transformInplace
 import org.jetbrains.kotlin.fir.transformSingle
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
+import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.name.Name
 
 open class FirMemberFunctionImpl : FirAbstractCallableMember<FirNamedFunction>, FirNamedFunction, FirModifiableFunction<FirNamedFunction> {

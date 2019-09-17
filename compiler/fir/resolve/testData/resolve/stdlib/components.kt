@@ -1,11 +1,5 @@
-data class D(val x: Int, val y: String)
+package elvis
 
-fun foo(list: List<D>) {
-    for ((x, y) in list) {
-    }
-    val (x, y) = list.first()
-    list.forEach { (x, y) ->
-        println(x)
-        println(y)
-    }
+class WithElvis(val value: String?) {
+    fun foo() = value ?: ""
 }

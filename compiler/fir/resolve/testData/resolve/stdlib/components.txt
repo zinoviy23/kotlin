@@ -1,44 +1,52 @@
 FILE: components.kt
-    public final data class D : R|kotlin/Any| {
-        public constructor(x: R|kotlin/Int|, y: R|kotlin/String|): R|D| {
+    public final class Value<T> : R|kotlin/Any| {
+        public constructor<T>(value: R|T| = (Null(null) as R|T|), text: R|kotlin/String?| = Null(null)): R|Value<T>| {
             super<R|kotlin/Any|>()
         }
 
-        public final val x: R|kotlin/Int| = R|<local>/x|
-            public get(): R|kotlin/Int|
+        public final var value: R|T| = R|<local>/value|
+            public get(): R|T|
+            public set(value: R|T|): R|kotlin/Unit|
 
-        public final val y: R|kotlin/String| = R|<local>/y|
-            public get(): R|kotlin/String|
+        public final var text: R|kotlin/String?| = R|<local>/text|
+            public get(): R|kotlin/String?|
+            public set(value: R|kotlin/String?|): R|kotlin/Unit|
 
-        public final fun component1(): R|kotlin/Int| {
-            ^component1 this@R|/D|.R|/D.x|
+    }
+    public final val <T> R|Value<T>|.additionalText: R|kotlin/Int|by R|/DVal.DVal|(R|/Value.Value|<R|T|>()::R|/Value.text|)
+        public get(): R|kotlin/Int| {
+            ^ D|/additionalText|.R|/DVal.getValue|(Null(null), ::R|/additionalText|)
+        }
+    public final val <T> R|Value<T>|.additionalValue: R|kotlin/Int|by R|/DVal.DVal|(R|/Value.Value|<R|T|>()::R|/Value.value|)
+        public get(): R|kotlin/Int| {
+            ^ D|/additionalValue|.R|/DVal.getValue|(Null(null), ::R|/additionalValue|)
+        }
+    public final class DVal : R|kotlin/Any| {
+        public constructor(kmember: R|kotlin/Any|): R|DVal| {
+            super<R|kotlin/Any|>()
         }
 
-        public final fun component2(): R|kotlin/String| {
-            ^component2 this@R|/D|.R|/D.y|
-        }
+        public final val kmember: R|kotlin/Any| = R|<local>/kmember|
+            public get(): R|kotlin/Any|
 
-        public final fun copy(x: R|kotlin/Int| = this@R|/D|.R|/D.x|, y: R|kotlin/String| = this@R|/D|.R|/D.y|): R|D| {
+        public final operator fun getValue(t: R|kotlin/Any?|, p: R|kotlin/Any|): R|kotlin/Int| {
+            ^getValue Int(42)
         }
 
     }
-    public final fun foo(list: R|kotlin/collections/List<D>|): R|kotlin/Unit| {
-        lval <range>: R|kotlin/collections/List<D>| = R|<local>/list|
-        lval <iterator>: R|kotlin/collections/Iterator<D>| = R|<local>/<range>|.R|FakeOverride<kotlin/collections/List.iterator: R|kotlin/collections/Iterator<D>|>|()
-        while(R|<local>/<iterator>|.R|kotlin/collections/Iterator.hasNext|()) {
-            lval <destruct>: R|D| = R|<local>/<iterator>|.R|FakeOverride<kotlin/collections/Iterator.next: R|D|>|()
-            lval x: R|kotlin/Int| = R|<local>/<destruct>|.R|/D.component1|()
-            lval y: R|kotlin/String| = R|<local>/<destruct>|.R|/D.component2|()
+    public final var recivier: R|kotlin/Any?| = String(fail)
+        public get(): R|kotlin/Any?|
+        public set(value: R|kotlin/Any?|): R|kotlin/Unit|
+    public final var value2: R|kotlin/Any?| = String(fail2)
+        public get(): R|kotlin/Any?|
+        public set(value: R|kotlin/Any?|): R|kotlin/Unit|
+    public final var <T> R|T|.bar: R|T|
+        public get(): R|T| {
+            ^ this#
         }
-
-        lval <destruct>: R|D| = R|<local>/list|.R|kotlin/collections/first|<R|D|>()
-        lval x: R|kotlin/Int| = R|<local>/<destruct>|.R|/D.component1|()
-        lval y: R|kotlin/String| = R|<local>/<destruct>|.R|/D.component2|()
-        R|<local>/list|.R|kotlin/collections/forEach|<R|D|>(<L> = forEach@fun <anonymous>(<destruct>: R|D|): R|kotlin/Unit| <kind=EXACTLY_ONCE>  {
-            lval x: R|kotlin/Int| = R|<local>/<destruct>|.R|/D.component1|()
-            lval y: R|kotlin/String| = R|<local>/<destruct>|.R|/D.component2|()
-            R|kotlin/io/println|(R|<local>/x|)
-            R|kotlin/io/println|(R|<local>/y|)
+        public set(value: R|T|): R|kotlin/Unit| {
+            R|/recivier| = this#
+            R|/value2| = R|<local>/value|
         }
-        )
-    }
+    public final val barRef: R|kotlin/String.Companion| = Q|kotlin/String|::R|/bar|
+        public get(): R|kotlin/String.Companion|
