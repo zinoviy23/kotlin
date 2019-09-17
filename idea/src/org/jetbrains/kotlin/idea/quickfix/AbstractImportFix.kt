@@ -268,7 +268,8 @@ internal abstract class OrdinaryImportFixBase<T : KtExpression>(expression: T, f
     }
 }
 
-internal class ImportFix(expression: KtSimpleNameExpression) : OrdinaryImportFixBase<KtSimpleNameExpression>(expression, MyFactory) {
+// This is required to be abstract to reduce bunch file size
+internal abstract class AbstractImportFix(expression: KtSimpleNameExpression, factory: Factory) : OrdinaryImportFixBase<KtSimpleNameExpression>(expression, factory) {
     override fun getCallTypeAndReceiver() = element?.let { CallTypeAndReceiver.detect(it) }
 
     private fun importNamesForMembers(): Collection<Name> {
@@ -371,11 +372,6 @@ internal class ImportFix(expression: KtSimpleNameExpression) : OrdinaryImportFix
             bindingContext,
             indicesHelper
         )
-    }
-
-    companion object MyFactory : Factory() {
-        override fun createImportAction(diagnostic: Diagnostic) =
-            (diagnostic.psiElement as? KtSimpleNameExpression)?.let(::ImportFix)
     }
 }
 
