@@ -71,10 +71,7 @@ benchmark {
             iterationTime = 1
             iterationTimeUnit = "sec"
             param("isIR", true)
-            param("size", 1000)
-
-            include("CommonCallsBenchmark")
-            //include("InferenceBaselineCallsBenchmark")
+            param("size", 100)
         }
     }
     targets {
