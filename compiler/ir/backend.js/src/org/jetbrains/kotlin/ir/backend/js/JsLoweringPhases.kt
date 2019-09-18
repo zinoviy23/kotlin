@@ -89,11 +89,11 @@ private val lateinitLoweringPhase = makeJsModulePhase(
     description = "Insert checks for lateinit field references"
 )
 
-private val stripTypeAliasDeclarationsPhase = makeJsModulePhase(
-    { StripTypeAliasDeclarationsLowering() },
-    name = "StripTypeAliasDeclarations",
-    description = "Strip typealias declarations"
-)
+//private val stripTypeAliasDeclarationsPhase = makeJsModulePhase(
+//    { StripTypeAliasDeclarationsLowering() },
+//    name = "StripTypeAliasDeclarations",
+//    description = "Strip typealias declarations"
+//)
 
 // TODO make all lambda-related stuff work with IrFunctionExpression and drop this phase
 private val provisionalFunctionExpressionPhase = makeJsModulePhase(
@@ -177,7 +177,7 @@ private val localDelegatedPropertiesLoweringPhase = makeJsModulePhase(
 )
 
 private val localDeclarationsLoweringPhase = makeJsModulePhase(
-    ::LocalDeclarationsLowering,
+    { context -> LocalDeclarationsLowering(context) },
     name = "LocalDeclarationsLowering",
     description = "Move local declarations into nearest declaration container",
     prerequisite = setOf(sharedVariablesLoweringPhase, localDelegatedPropertiesLoweringPhase)
@@ -393,7 +393,7 @@ val jsPhases = namedIrModulePhase(
     lower = validateIrBeforeLowering then
             testGenerationPhase then
             expectDeclarationsRemovingPhase then
-            stripTypeAliasDeclarationsPhase then
+            // stripTypeAliasDeclarationsPhase then
             arrayConstructorPhase then
             functionInliningPhase then
             provisionalFunctionExpressionPhase then

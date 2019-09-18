@@ -194,7 +194,7 @@ class JsIrBackendContext(
             override val returnIfSuspended = symbolTable.referenceSimpleFunction(getJsInternalFunction("returnIfSuspended"))
         }
 
-        override fun unfoldInlineClassType(irType: IrType): IrType? {
+        fun unfoldInlineClassType(irType: IrType): IrType? {
             return irType.getInlinedClass()?.typeWith()
         }
 
