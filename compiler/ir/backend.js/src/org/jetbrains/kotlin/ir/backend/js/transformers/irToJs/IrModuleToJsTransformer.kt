@@ -25,7 +25,8 @@ import org.jetbrains.kotlin.utils.DFS
 class IrModuleToJsTransformer(
     private val backendContext: JsIrBackendContext,
     private val mainFunction: IrSimpleFunction?,
-    private val mainArguments: List<String>?
+    private val mainArguments: List<String>?,
+    private val filePathPrefixes: List<String>
 ) {
     val moduleName = backendContext.configuration[CommonConfigurationKeys.MODULE_NAME]!!
     private val moduleKind = backendContext.configuration[JSConfigurationKeys.MODULE_KIND]!!
@@ -41,8 +42,12 @@ class IrModuleToJsTransformer(
         statements += preDeclarationBlock
 
         module.files.forEach {
-            statements.add(JsDocComment(mapOf("file" to it.path)).makeStmt())
-            statements.addAll(it.accept(IrFileToJsTransformer(), context).statements)
+            if (it.declarations.isNotEmpty()) {
+                val path0 = it.path
+                val path = filePathPrefixes.find { path0.startsWith(it) }?.let { path0.removePrefix(it)} ?: path0
+                statements.add(JsDocComment(mapOf("file" to path)).makeStmt())
+                statements.addAll(it.accept(IrFileToJsTransformer(), context).statements)
+            }
         }
 
         // sort member forwarding code

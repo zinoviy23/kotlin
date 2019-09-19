@@ -12,7 +12,10 @@ import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrLoop
 import org.jetbrains.kotlin.ir.types.isUnit
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.isEffectivelyExternal
+import org.jetbrains.kotlin.ir.util.isEnumClass
+import org.jetbrains.kotlin.ir.util.isInlined
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
@@ -257,14 +260,20 @@ class NameTables(packages: List<IrPackageFragment>) {
             parent = parent.parent
         }
 
+        return "\$error_name_s_${errorCounter++}"
         error("Can't find name for declaration ${declaration.fqNameWhenAvailable}")
     }
+
+    private var errorCounter = 0
 
     fun getNameForMemberField(field: IrField): String {
         val signature = fieldSignature(field)
         val name = memberNames.names[signature]
-        require(name != null) {
-            "Can't find name for member field $field"
+//        require(name != null) {
+//            "Can't find name for member field $field"
+//        }
+        if (name == null) {
+            return "\$error_name_mf_${errorCounter++}"
         }
         return name
     }
@@ -277,8 +286,11 @@ class NameTables(packages: List<IrPackageFragment>) {
         //       of `invoke` functions in FunctionN interfaces
         if (name == null && signature is ParameterTypeBasedSignature && signature.suggestedName.startsWith("invoke"))
             return signature.suggestedName
-        require(name != null) {
-            "Can't find name for member function ${function.render()}"
+//        require(name != null) {
+//            "Can't find name for member function ${function.render()}"
+//        }
+        if (name == null) {
+            return "\$error_name_mm_${errorCounter++}"
         }
         return name
     }

@@ -159,6 +159,8 @@ public fun jsIsType(obj: dynamic, jsClass: dynamic): Boolean {
     return false
 }
 
+// TODO
+//fun isNumber(a: dynamic) = jsTypeOf(a) == "number" || a.constructor.name == "Long" /*a is Long*/
 fun isNumber(a: dynamic) = jsTypeOf(a) == "number" || a is Long
 
 fun isComparable(value: dynamic): Boolean {

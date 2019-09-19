@@ -9,6 +9,7 @@ fun numberToByte(a: dynamic): Byte = toByte(numberToInt(a))
 
 fun numberToDouble(a: dynamic): Double = js("+a").unsafeCast<Double>()
 
+/// is Long
 fun numberToInt(a: dynamic): Int = if (a is Long) a.toInt() else doubleToInt(a)
 
 fun numberToShort(a: dynamic): Short = toShort(numberToInt(a))

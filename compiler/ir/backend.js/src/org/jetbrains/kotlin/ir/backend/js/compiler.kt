@@ -54,6 +54,8 @@ fun compile(
 
     val irFiles = dependencyModules.flatMap { it.files } + moduleFragment.files
 
+    val ownFiles = moduleFragment.files.toList()
+
     moduleFragment.files.clear()
     moduleFragment.files += irFiles
 
@@ -67,8 +69,25 @@ fun compile(
 
     moveBodilessDeclarationsToSeparatePlace(context, moduleFragment)
 
+    // TODO
+    val (runtime, other) = moduleFragment.files.partition {
+        it.fileEntry.name.contains("libraries/stdlib/js-ir/builtins/") ||
+            it.fileEntry.name.contains("core/builtins/") ||
+                it.fileEntry.name.contains("libraries/stdlib/js-ir/runtime/")
+    }
+//    removeUnreachables(ownFiles.filter { it != context.implicitDeclarationFile } + runtime, other, context, atStart = true)
+
     jsPhases.invokeToplevel(phaseConfig, context, moduleFragment)
 
-    val transformer = IrModuleToJsTransformer(context, mainFunction, mainArguments)
+//    val additionalPackages = with(context) {
+//        externalPackageFragment.values + listOf(
+//            bodilessBuiltInsPackageFragment,
+//            intrinsics.externalPackageFragment
+//        ) + packageLevelJsModules
+//    }
+
+    removeUnreachables(ownFiles.filter { it != context.implicitDeclarationFile }/* + additionalPackages*/, moduleFragment.files, context)
+
+    val transformer = IrModuleToJsTransformer(context, mainFunction, mainArguments, listOf(""))
     return transformer.generateModule(moduleFragment)
 }
