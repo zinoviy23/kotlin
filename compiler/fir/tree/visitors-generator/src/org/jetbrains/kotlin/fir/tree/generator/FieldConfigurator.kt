@@ -29,7 +29,7 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 object FieldConfigurator : AbstractFieldConfigurator() {
     fun configureFields() = with(FirTreeBuilder) {
         expression.configure {
-            +field(typeRef)
+            +field(typeRef, withReplace = true)
             +annotations
         }
 

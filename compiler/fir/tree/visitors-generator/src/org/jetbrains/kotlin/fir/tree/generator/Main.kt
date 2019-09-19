@@ -8,5 +8,6 @@ package org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tre
 
 fun main() {
     FieldConfigurator.configureFields()
+    ImplementationConfigurator.configureImplementations()
     printElements(FirTreeBuilder)
 }

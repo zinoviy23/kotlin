@@ -16,22 +16,19 @@ abstract class AbstractFirTreeBuilder {
         const val boolean = "Boolean"
     }
 
-    private val _elements = mutableListOf(baseFirElement)
-    private val _types = mutableListOf<Type>()
-
-    val elements: List<Element> get() = _elements
-    val types: List<Type> get() = _types
+    val elements = mutableListOf(baseFirElement)
+    val types = mutableListOf<Type>()
 
     fun type(type: String): Type = Type(
         type
-    ).also { _types += it }
+    ).also { types += it }
 
     fun element(name: String, vararg dependencies: Element, init: Element.() -> Unit = {}): Element =
         Element(name).apply(init).also {
-            it.parents.add(baseFirElement)
+            if (dependencies.isEmpty()) {
+                it.parents.add(baseFirElement)
+            }
             it.parents.addAll(dependencies)
-            _elements += it
+            elements += it
         }
-
-
 }

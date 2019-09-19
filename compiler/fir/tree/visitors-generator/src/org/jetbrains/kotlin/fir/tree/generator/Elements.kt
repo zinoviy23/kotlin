@@ -11,45 +11,28 @@ sealed class Field {
     abstract val name: String
     abstract val type: String
     abstract val nullable: Boolean
+    abstract val withReplace: Boolean
 }
 
 // ----------- Simple field -----------
 
-data class SimpleField(override val name: String, override val type: String, override val nullable: Boolean) : Field() {
-    constructor(name: String, type: Type, nullable: Boolean) : this(name, type.type, nullable)
-    constructor(type: Type, nullable: Boolean) : this(type.type.decapitalize(), type.type, nullable)
+data class SimpleField(
+    override val name: String,
+    override val type: String,
+    override val nullable: Boolean,
+    override val withReplace: Boolean
+) : Field()
+
+fun field(name: String, type: String, nullable: Boolean = false, withReplace: Boolean = false): Field {
+    return SimpleField(name, type, nullable, withReplace)
 }
 
-fun Element.field(name: String, type: String, nullable: Boolean = false) {
-    fields += SimpleField(name, type, nullable)
+fun field(name: String, type: Type, nullable: Boolean = false, withReplace: Boolean = false): Field {
+    return SimpleField(name, type.type, nullable, withReplace)
 }
 
-fun Element.field(name: String, type: Type, nullable: Boolean = false) {
-    fields += SimpleField(name, type, nullable)
-}
-
-fun Element.field(type: Type, nullable: Boolean = false) {
-    fields += SimpleField(type, nullable)
-}
-
-fun field(name: String, type: String, nullable: Boolean = false): Field {
-    return SimpleField(name, type, nullable)
-}
-
-fun field(name: String, type: Type, nullable: Boolean = false): Field {
-    return SimpleField(name, type, nullable)
-}
-
-fun field(type: Type, nullable: Boolean = false): Field {
-    return SimpleField(type, nullable)
-}
-
-// ----------- Fir field -----------
-
-data class FirField(override val name: String, val element: Element, override val nullable: Boolean = false) : Field() {
-    constructor(element: Element, nullable: Boolean) : this(element.name.decapitalize(), element, nullable)
-
-    override val type: String = element.type + if (nullable) "?" else ""
+fun field(type: Type, nullable: Boolean = false, withReplace: Boolean = false): Field {
+    return SimpleField(type.type.decapitalize(), type.type, nullable, withReplace)
 }
 
 fun booleanField(name: String): Field {
@@ -60,51 +43,45 @@ fun stringField(name: String): Field {
     return field(name, AbstractFirTreeBuilder.string)
 }
 
-fun Element.field(name: String, element: Element, nullable: Boolean = false) {
-    fields += FirField(name, element, nullable)
+// ----------- Fir field -----------
+
+data class FirField(
+    override val name: String,
+    val element: Element,
+    override val nullable: Boolean,
+    override val withReplace: Boolean
+) : Field() {
+    override val type: String = element.type + if (nullable) "?" else ""
 }
 
-fun Element.field(element: Element, nullable: Boolean = false) {
-    fields += FirField(element, nullable)
+fun field(name: String, element: Element, nullable: Boolean = false, withReplace: Boolean = false): Field {
+    return FirField(name, element, nullable, withReplace)
 }
 
-fun field(name: String, element: Element, nullable: Boolean = false): Field {
-    return FirField(name, element, nullable)
-}
-
-fun field(element: Element, nullable: Boolean = false): Field {
-    return FirField(element, nullable)
+fun field(element: Element, nullable: Boolean = false, withReplace: Boolean = false): Field {
+    return FirField(element.name.decapitalize(), element, nullable, withReplace)
 }
 
 // ----------- Field list -----------
 
-data class FieldList(override val name: String, val baseType: String) : Field() {
-    constructor(name: String, element: Element) : this(name, element.type)
-    constructor(baseType: String) : this(baseType.decapitalize() + "s", baseType)
+data class FieldList(
+    override val name: String,
+    val baseType: String
+) : Field() {
+    override val type: String = "List<$baseType>"
 
-    constructor(base: Element) : this(base.name.decapitalize() + "s", base.type)
+    override val withReplace: Boolean get() = false
 
-    override val type: String
-        get() = "List<$baseType>"
     override val nullable: Boolean
         get() = false
-
-}
-
-fun Element.fieldList(name: String, element: Element) {
-    fields += FieldList(name, element)
-}
-
-fun Element.fieldList(element: Element) {
-    fields += FieldList(element)
 }
 
 fun fieldList(name: String, element: Element): Field {
-    return FieldList(name, element)
+    return FieldList(name, element.type)
 }
 
 fun fieldList(element: Element): Field {
-    return FieldList(element)
+    return FieldList(element.name.decapitalize() + "s", element.type)
 }
 
 // ----------- Element -----------
@@ -113,6 +90,7 @@ class Element(val name: String) {
     val fields = mutableSetOf<Field>()
     val type: String = "Fir$name"
     val parents = mutableListOf<Element>()
+    var implementation: Implementation? = null
 
     val allFields: List<Field> by lazy {
         val result = LinkedHashSet<Field>()
@@ -121,6 +99,14 @@ class Element(val name: String) {
         }
         result.addAll(fields)
         result.toList()
+    }
+
+    val allFirFields: List<Field> by lazy {
+        allFields.filter { it is FirField || it is FieldList}
+    }
+
+    val allSimpleFields: List<SimpleField> by lazy {
+        allFields.filterIsInstance<SimpleField>()
     }
 }
 
@@ -146,3 +132,14 @@ infix fun FieldSet.with(set: FieldSet): FieldSet {
     return this
 }
 
+// ----------- Implementation -----------
+
+class Implementation(val element: Element, name: String?) {
+    init {
+        element.implementation = this
+    }
+
+    val type = name ?: element.type + "Impl"
+
+    val separateTransformations = mutableListOf<Field>()
+}
