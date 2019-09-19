@@ -11,21 +11,13 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.booleanField
 
 abstract class AbstractFieldConfigurator {
-    infix fun Element.has(fieldSet: FieldSet) {
-        fields.addAll(fieldSet.fields)
-    }
-
-    infix fun Element.has(field: Field) {
-        fields.add(field)
-    }
-
     inner class ConfigureContext(val element: Element) {
         operator fun FieldSet.unaryPlus() {
-            element has this
+            element.fields.addAll(this.fields)
         }
 
         operator fun Field.unaryPlus() {
-            element has this
+            element.fields.add(this)
         }
 
         fun generateBooleanFields(vararg names: String) {

@@ -33,20 +33,30 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +annotations
         }
 
-        block has fieldList(statement)
+        block.configure {
+            +fieldList(statement)
+        }
 
         binaryLogicExpression.configure {
             +field("leftOperand", expression)
             +field("rightOperand", expression)
         }
 
-        loopJump has field("target", jumpTargetType)
+        loopJump.configure {
+            +field("target", jumpTargetType)
+        }
 
-        label has field("name", AbstractFirTreeBuilder.string)
+        label.configure {
+            +field("name", AbstractFirTreeBuilder.string)
+        }
 
-        doWhileLoop has loopFields
+        doWhileLoop.configure {
+            +loopFields
+        }
 
-        whileLoop has loopFields
+        whileLoop.configure {
+            +loopFields
+        }
 
         catchClause.configure {
             +field("parameter", valueParameter)
@@ -59,7 +69,9 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +fieldList("catches", catchClause)
         }
 
-        constExpression has field("kind", constKindType)
+        constExpression.configure {
+            +field("kind", constKindType)
+        }
 
         functionCall.configure {
             +qualifiedAccess

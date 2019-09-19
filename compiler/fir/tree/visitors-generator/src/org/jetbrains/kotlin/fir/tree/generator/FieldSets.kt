@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tre
 
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.annotationCall
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.block
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.cfgReference
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.classKindType
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.declaration
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.declarationStatus
@@ -103,5 +104,9 @@ object FieldSets {
 
     val status = fieldSet(
         field("status", declarationStatus)
+    )
+
+    val controlFlowGraphReference = fieldSet(
+        field("controlFlowGraphReference", cfgReference, withReplace = true)
     )
 }
