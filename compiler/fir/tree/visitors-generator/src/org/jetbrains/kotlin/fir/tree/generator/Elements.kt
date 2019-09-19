@@ -66,22 +66,21 @@ fun field(element: Element, nullable: Boolean = false, withReplace: Boolean = fa
 
 data class FieldList(
     override val name: String,
-    val baseType: String
+    val baseType: String,
+    override val withReplace: Boolean
 ) : Field() {
     override val type: String = "List<$baseType>"
-
-    override val withReplace: Boolean get() = false
 
     override val nullable: Boolean
         get() = false
 }
 
-fun fieldList(name: String, element: Element): Field {
-    return FieldList(name, element.type)
+fun fieldList(name: String, element: Element, withReplace: Boolean = false): Field {
+    return FieldList(name, element.type, withReplace)
 }
 
-fun fieldList(element: Element): Field {
-    return FieldList(element.name.decapitalize() + "s", element.type)
+fun fieldList(element: Element, withReplace: Boolean = false): Field {
+    return FieldList(element.name.decapitalize() + "s", element.type, withReplace)
 }
 
 // ----------- Element -----------

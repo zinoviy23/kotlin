@@ -110,7 +110,14 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
             indent()
             println("override ${field.replaceFunctionDeclaration()} {")
             indent(2)
-            println("${field.name} = new${field.name.capitalize()}")
+            val newValue = "new${field.name.capitalize()}"
+            if (field is FieldList) {
+                println("${field.name}.clear()")
+                indent(2)
+                println("${field.name}.addAll($newValue)")
+            } else {
+                println("${field.name} = $newValue")
+            }
             indent()
             println("}")
         }
