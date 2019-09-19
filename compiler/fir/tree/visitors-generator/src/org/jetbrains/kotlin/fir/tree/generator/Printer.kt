@@ -5,15 +5,16 @@
 
 package org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator
 
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
 import java.io.File
 import java.io.PrintWriter
 
 private const val FIR_PATH =
-    "/home/demiurg/Programming/kotlin/kotlin-pill/compiler/fir/tree/visitors-generator/src/org/jetbrains/kotlin/fir/tree/generator/Result.kt"
-private const val VISITOR_PATH = "/home/demiurg/Programming/kotlin/kotlin-pill/compiler/fir/tree/visitors-generator/src/org/jetbrains/kotlin/fir/tree/generator/Visitor.kt"
+    "/home/demiurg/Programming/kotlin/kotlin-pill/compiler/fir/tree/visitors-generator/src/org/jetbrains/kotlin/fir/tree/generator/result/Result.kt"
+private const val VISITOR_PATH = "/home/demiurg/Programming/kotlin/kotlin-pill/compiler/fir/tree/visitors-generator/src/org/jetbrains/kotlin/fir/tree/generator/result/Visitor.kt"
 private const val INDENT = "    "
 
-fun printElements(builder: ElementsBuilder) {
+fun printElements(builder: AbstractFirTreeBuilder) {
     File(FIR_PATH).printWriter().use {
         builder.elements.forEach(it::printElement)
         builder.types.forEach(it::printType)
@@ -51,7 +52,7 @@ val Element.safeDecapitalizedName: String get() = if (name == "Class") "klass" e
 fun PrintWriter.printElement(element: Element) {
     fun Element.override() {
         indent()
-        if (this != ElementsBuilder.baseFirElement) {
+        if (this != AbstractFirTreeBuilder.baseFirElement) {
             print("override ")
         }
     }
