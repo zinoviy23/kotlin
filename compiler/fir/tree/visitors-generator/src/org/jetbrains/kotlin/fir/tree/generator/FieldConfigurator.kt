@@ -10,9 +10,12 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.body
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.calleeReference
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.classKind
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.controlFlowGraphReference
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.declarations
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.imports
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.initializer
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.loopFields
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.modality
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.name
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.qualifiedAccess
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.receiverTypeRef
@@ -23,6 +26,7 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.typeArguments
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.typeParameters
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.valueParameters
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.visibility
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.context.AbstractFieldConfigurator
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
 
@@ -103,12 +107,15 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         klass.configure {
-            +superTypeRefs
-            +classKind
-            +declarations
-            +annotations
             +symbol
-            +field("companionObject", klass)
+            +name
+            +visibility
+            +modality
+            +classKind
+            +superTypeRefs(withReplace = true)
+            +declarations
+            +field("companionObject", klass, nullable = true)
+            +annotations
         }
 
         anonymousFunction.configure {
@@ -118,7 +125,8 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +field(label, nullable = true)
             +valueParameters
             +body(nullable = true)
-            +field(invocationKindType, nullable = true)
+            +field(invocationKindType, nullable = true, withReplace = true)
+            +controlFlowGraphReference
         }
 
         typeParameter.configure {
@@ -165,6 +173,7 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +valueParameters
             +receiverTypeRef(nullable = true)
             +symbol
+            +annotations
         }
 
         declarationStatus.configure {
@@ -177,7 +186,7 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         anonymousObject.configure {
-            +superTypeRefs
+            +superTypeRefs(withReplace = true)
             +declarations
             +classKind
         }
@@ -187,11 +196,10 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +field(delegatedConstructorCall, nullable = true)
             +valueParameters
             +body(nullable = true)
-            +receiverTypeRef(nullable = true)
+            +controlFlowGraphReference
             +returnTypeRef
-            +typeParameters
             +status
-            +name
+            //+name Default name: <init>
             +annotations
         }
 
@@ -214,6 +222,25 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +symbol
             +field("delegate", expression, nullable = true)
             +field("delegateFieldSymbol", symbolType, nullable = true)
+        }
+
+        anonymousInitializer.configure {
+            +body(nullable = true)
+        }
+
+        file.configure {
+            +imports
+            +declarations
+        }
+
+        import.configure {
+            +field("importedFqName", fqNameType, nullable = true)
+            +field("aliasName", nameType, nullable = true)
+            generateBooleanFields("allUnder")
+        }
+
+        resolvedImport.configure {
+            +field("resolvedClassId", classIdType, nullable = true)
         }
     }
 }

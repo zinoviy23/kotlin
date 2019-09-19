@@ -17,5 +17,19 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
         impl(whenExpression) {
             sep("branches", "subject")
         }
+
+        impl(anonymousFunction) {
+            sep("valueParameters", "returnTypeRef")
+        }
+
+        impl(import)
+
+        elements.forEach { element ->
+            element.allFields.firstOrNull { it.name == "controlFlowGraphReference" }?.let {
+                impl(element) {
+                    sep(it)
+                }
+            }
+        }
     }
 }

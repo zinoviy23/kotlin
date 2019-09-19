@@ -89,7 +89,14 @@ class Element(val name: String) {
     val fields = mutableSetOf<Field>()
     val type: String = "Fir$name"
     val parents = mutableListOf<Element>()
-    var implementation: Implementation? = null
+    var defaultImplementation: Implementation? = null
+    val customImplementations = mutableListOf<Implementation>()
+
+    val allImplementations: List<Implementation> by lazy {
+        val implementations = customImplementations.toMutableList()
+        defaultImplementation?.let { implementations += it }
+        implementations
+    }
 
     val allFields: List<Field> by lazy {
         val result = LinkedHashSet<Field>()
@@ -133,12 +140,17 @@ infix fun FieldSet.with(set: FieldSet): FieldSet {
 
 // ----------- Implementation -----------
 
-class Implementation(val element: Element, name: String?) {
-    init {
-        element.implementation = this
-    }
-
+class Implementation(val element: Element, val name: String?) {
+    val isDefault = name == null
     val type = name ?: element.type + "Impl"
+
+    init {
+        if (isDefault) {
+            element.defaultImplementation = this
+        } else {
+            element.customImplementations += this
+        }
+    }
 
     val separateTransformations = mutableListOf<Field>()
 }

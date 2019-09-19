@@ -11,7 +11,11 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
     private val elementsWithImpl = mutableSetOf<Element>()
 
     fun impl(element: Element, name: String? = null, init: ImplementationContext.() -> Unit = {}) {
-        val implementation = element.implementation ?: Implementation(element, name)
+        val implementation = if (name == null) {
+            element.defaultImplementation
+        } else {
+            element.customImplementations.firstOrNull { it.name == name }
+        } ?: Implementation(element, name)
         val context = ImplementationContext(implementation)
         context.apply(init)
         elementsWithImpl += element
@@ -34,12 +38,16 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
 
     inner class ImplementationContext(private val implementation: Implementation) {
         fun sep(vararg names: String) {
-            for (name in names) {
-                val field = getField(name)
-                require(field is FirField || field is FieldList)
-                implementation.separateTransformations += field
-            }
+            val fields = names.map { name ->
+                getField(name).also { require(it is FirField || it is FieldList) }
+            }.toTypedArray()
+            sep(*fields)
         }
+
+        fun sep(vararg fields: Field) {
+            implementation.separateTransformations += fields
+        }
+
 
         private fun getField(name: String): Field {
             return implementation.element.allFields.first { it.name == name }

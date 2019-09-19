@@ -23,8 +23,9 @@ fun printElements(builder: AbstractFirTreeBuilder) {
         builder.types.forEach(it::printType)
     }
 
-    File(IMPL_PATH).printWriter().use {
-        builder.elements.mapNotNull { it.implementation }.forEach(it::printImplementation)
+    File(IMPL_PATH).printWriter().use { printer ->
+        builder.elements.flatMap { it.allImplementations }
+            .forEach(printer::printImplementation)
     }
     printVisitor(builder.elements)
     printTransformer(builder.elements)
@@ -247,7 +248,7 @@ fun PrintWriter.printElement(element: Element) {
             println(it.replaceFunctionDeclaration())
         }
 
-        implementation?.let {
+        allImplementations.firstOrNull()?.let {
             for (field in it.separateTransformations) {
                 println()
                 indent()

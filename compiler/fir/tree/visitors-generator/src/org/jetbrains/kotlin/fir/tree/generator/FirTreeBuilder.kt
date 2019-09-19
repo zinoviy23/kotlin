@@ -20,12 +20,19 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val nameType = type("Name")
     val visibilityType = type("Visibility")
     val modalityType = type("Modality")
+    val fqNameType = type("FqName")
+    val classIdType = type("ClassId")
 
     // ========================= Elements =========================
 
     val typeRef = element("TypeRef")
     val reference = element("Reference")
+    val cfgReference = element("ControlFlowGraphReference", reference)
     val label = element("Label")
+    val import = element("Import")
+    val resolvedImport = element("ResolvedImport", import)
+
+    val anonymousInitializer = element("AnonymousInitializer")
 
     val typeParameter = element("TypeParameter")
     val declarationStatus = element("DeclarationStatus")
@@ -41,6 +48,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val memberProperty = element("MemberProperty", declaration)
     val propertyAccessor = element("PropertyAccessor")
     val constructor = element("Constructor", declaration)
+    val file = element("File", declaration)
 
     val anonymousFunction = element("AnonymousFunction", declaration, expression)
     val anonymousObject = element("AnonymousObject", declaration, expression)

@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.declarationStatus
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.expression
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.label
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.modalityType
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.nameType
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.reference
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.symbolType
@@ -20,6 +21,7 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.typeProjection
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.typeRef
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.valueParameter
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.visibilityType
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
 
 object FieldSets {
@@ -94,8 +96,8 @@ object FieldSets {
         field("initializer", expression, nullable = true)
     )
 
-    val superTypeRefs = fieldSet(
-        fieldList("superTypeRefs", typeRef)
+    fun superTypeRefs(withReplace: Boolean = false) = fieldSet(
+        fieldList("superTypeRefs", typeRef, withReplace)
     )
 
     val classKind = fieldSet(
@@ -108,5 +110,17 @@ object FieldSets {
 
     val controlFlowGraphReference = fieldSet(
         field("controlFlowGraphReference", cfgReference, withReplace = true)
+    )
+
+    val visibility = fieldSet(
+        field(visibilityType)
+    )
+
+    val modality = fieldSet(
+        field(modalityType)
+    )
+
+    val imports = fieldSet(
+
     )
 }
