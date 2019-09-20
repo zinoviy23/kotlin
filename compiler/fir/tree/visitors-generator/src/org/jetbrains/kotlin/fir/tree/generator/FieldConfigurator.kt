@@ -240,7 +240,9 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         resolvedImport.configure {
+            +field("relativeClassName", fqNameType, nullable = true)
             +field("resolvedClassId", classIdType, nullable = true)
+            +field("importedName", nameType, nullable = true)
         }
     }
 }

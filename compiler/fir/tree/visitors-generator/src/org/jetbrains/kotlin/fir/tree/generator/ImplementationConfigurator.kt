@@ -24,6 +24,20 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
 
         impl(import)
 
+        impl(resolvedImport) {
+            default("resolvedClassId") {
+                delegate = "relativeClassName"
+                delegateCall = "let { ClassId(packageFqName, it, false) }"
+                isGetter = true
+            }
+
+            default("importedName") {
+                delegate = "importedFqName"
+                delegateCall = "shortName()"
+                isGetter = true
+            }
+        }
+
         elements.forEach { element ->
             element.allFields.firstOrNull { it.name == "controlFlowGraphReference" }?.let {
                 impl(element) {

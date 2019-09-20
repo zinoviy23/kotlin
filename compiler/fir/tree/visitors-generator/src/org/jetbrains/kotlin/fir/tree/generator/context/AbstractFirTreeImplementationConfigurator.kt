@@ -50,7 +50,53 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
 
 
         private fun getField(name: String): Field {
-            return implementation.element.allFields.first { it.name == name }
+            val result = implementation.element.allFields.firstOrNull { it.name == name }
+            requireNotNull(result) {
+                "Field $name not found in fields of ${implementation.element}\nExisting fields:\n" +
+                        implementation.element.allFields.joinToString(separator = "  \n", prefix = "  ") { it.name }
+            }
+            return result
+        }
+
+        fun default(field: String, value: String) {
+            default(field) {
+                this.value = value
+            }
+        }
+
+        fun default(field: String, init: DefaultValueContext.() -> Unit) {
+            DefaultValueContext(getField(field)).apply(init).applyConfiguration()
+        }
+
+        inner class DefaultValueContext(private val field: Field) {
+            var value: String? = null
+
+            var delegate: String? = null
+            var delegateCall: String? = null
+
+            var isVal: Boolean = false
+            var isGetter: Boolean = false
+                set(value) {
+                    field = value
+                    if (value) {
+                        isVal = true
+                    }
+                }
+
+            fun applyConfiguration() {
+                field.withGetter = isGetter
+                require(!(field !is SimpleField && field.isVal))
+                field.isVal = isVal
+                when {
+                    value != null -> field.defaultValue = value
+                    delegate != null -> {
+                        val actualDelegateField = getField(delegate!!)
+                        val name = delegateCall ?: field.name
+                        field.defaultValue = "${actualDelegateField.name}${actualDelegateField.call()}$name"
+                    }
+                }
+
+            }
         }
     }
 }

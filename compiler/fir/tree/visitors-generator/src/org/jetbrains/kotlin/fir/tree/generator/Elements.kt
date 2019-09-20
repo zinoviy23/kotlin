@@ -12,16 +12,22 @@ sealed class Field {
     abstract val type: String
     abstract val nullable: Boolean
     abstract val withReplace: Boolean
+
+    var defaultValue: String? = null
+    var isVal: Boolean = false
+    var withGetter: Boolean = false
 }
 
 // ----------- Simple field -----------
 
-data class SimpleField(
+class SimpleField(
     override val name: String,
-    override val type: String,
+    type: String,
     override val nullable: Boolean,
     override val withReplace: Boolean
-) : Field()
+) : Field() {
+    override val type: String = type + (if (nullable) "?" else "")
+}
 
 fun field(name: String, type: String, nullable: Boolean = false, withReplace: Boolean = false): Field {
     return SimpleField(name, type, nullable, withReplace)
@@ -113,6 +119,10 @@ class Element(val name: String) {
 
     val allSimpleFields: List<SimpleField> by lazy {
         allFields.filterIsInstance<SimpleField>()
+    }
+
+    override fun toString(): String {
+        return type
     }
 }
 

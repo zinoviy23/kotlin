@@ -53,6 +53,23 @@ fun printVisitor(elements: List<Element>) {
     }
 }
 
+fun PrintWriter.printFieldWithDefaultInImplementation(field: Field) {
+    val defaultValue = field.defaultValue
+    requireNotNull(defaultValue)
+    indent()
+    print("override ")
+    if (field.isVal) {
+        print("val")
+    } else {
+        print("var")
+    }
+    print(" ${field.name}: ${field.type} ")
+    if (field.withGetter) {
+        print("get() ")
+    }
+    println("= ${defaultValue}")
+}
+
 fun PrintWriter.printImplementation(implementation: Implementation) {
     fun Field.transform() {
         when (this) {
@@ -69,17 +86,26 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
 
     with(implementation) {
         print("class $type")
-        if (element.allFields.isNotEmpty()) {
+        val fieldsWithoutDefault = element.allFields.filter { it.defaultValue == null }
+        val fieldsWithDefault = element.allFields.filter { it.defaultValue != null }
+        require(fieldsWithDefault.all { it is SimpleField })
+
+        if (fieldsWithoutDefault.isNotEmpty()) {
             println("(")
-            element.allFields.forEachIndexed { i, field ->
-                val end = if (i == element.allFields.size - 1) "" else ","
+            fieldsWithoutDefault.forEachIndexed { i, field ->
+                val end = if (i == fieldsWithoutDefault.size - 1) "" else ","
                 printField(field, isVar = true, override = true, end = end)
             }
             print(")")
         }
         println(" : ${element.type} {")
-        indent()
 
+        fieldsWithDefault.forEach { printFieldWithDefaultInImplementation(it) }
+        if (fieldsWithDefault.isNotEmpty()) {
+            println()
+        }
+
+        indent()
         println("override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): $type {")
         for (field in element.allFirFields) {
             indent(2)
