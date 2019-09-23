@@ -11,11 +11,24 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
     fun configureImplementations() {
         configure()
         generateDefaultImplementations(FirTreeBuilder)
+        configureControlFlowGraphReference()
+    }
+
+    private fun configureControlFlowGraphReference() {
+        FirTreeBuilder.elements.forEach { element ->
+            element.allFields.firstOrNull { it.name == "controlFlowGraphReference" }?.let {
+                impl(element) {
+                    sep(it)
+                    default("controlFlowGraphReference", "FirEmptyControlFlowGraphReference()")
+                }
+            }
+        }
+
     }
 
     private fun configure() = with(FirTreeBuilder) {
         impl(whenExpression) {
-            sep("branches", "subject")
+            sep("branches", "subject", needTransformOthers = true)
         }
 
         impl(anonymousFunction) {
@@ -96,12 +109,206 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
             }
         }
 
-        elements.forEach { element ->
-            element.allFields.firstOrNull { it.name == "controlFlowGraphReference" }?.let {
-                impl(element) {
-                    sep(it)
-                    default("controlFlowGraphReference", "FirEmptyControlFlowGraphReference()")
+        impl(valueParameter) {
+            sep("returnTypeRef")
+        }
+
+        impl(annotationCall) {
+            default("typeRef") {
+                value = "annotationTypeRef"
+                withGetter = true
+            }
+        }
+
+        impl(arrayOfCall) {
+            defaultImplicitTypeRef()
+        }
+
+        impl(arraySetCall) {
+            lateinit("calleeReference")
+            defaultImplicitTypeRef()
+            sep("rValue", "arguments")
+        }
+
+        impl(binaryLogicExpression) {
+            sep("leftOperand", "rightOperand", needTransformOthers = true)
+        }
+
+        impl(callableReferenceAccess) {
+            defaultNull("explicitReceiver")
+            lateinit("calleeReference")
+        }
+
+        impl(catchClause) {
+            sep("parameter", "block")
+        }
+
+        impl(componentCall) {
+            sep("calleeReference", "explicitReceiver")
+            default("calleeReference", "FirSimpleNamedReference(psi, Name.identifier(\"component\$componentIndex\"))")
+        }
+
+        impl(whileLoop) {
+            sep("condition", "block", needTransformOthers = true)
+            defaultNull("label")
+            lateinit("block")
+        }
+
+        impl(doWhileLoop) {
+            sep("condition", "block", needTransformOthers = true)
+            defaultNull("label")
+            lateinit("block")
+        }
+
+        impl(delegatedConstructorCall) {
+            sep("calleeReference")
+            default(
+                "calleeReference",
+                "if (isThis) FirExplicitThisReference(psi, null) else FirExplicitSuperReference(psi, constructedTypeRef)"
+            )
+            defaultImplicitTypeRef()
+        }
+
+        impl(expression, "FirElseIfTrueCondition") {
+            defaultImplicitTypeRef()
+        }
+
+        impl(block)
+        impl(block, "FirEmptyExpressionBlock") {
+            // TODO: make statements immutable
+        }
+
+        impl(singleExpressionBlock) {
+            default("statements") {
+                value = "mutableListOf(statement)"
+                withGetter = true
+            }
+        }
+
+        // TODO
+        impl(statement, "FirErrorLoop")
+
+        impl(expression, "FirExpressionStub")
+
+        impl(functionCall) {
+            lateinit("calleeReference")
+            defaultReceivers()
+            sep("explicitReceiver", "calleeReference")
+        }
+
+        impl(qualifiedAccessExpression) {
+            lateinit("calleeReference")
+            defaultReceivers()
+        }
+
+        impl(expressionWithSmartcast) {
+            listOf("safe", "explicitReceiver", "extensionReceiver", "dispatchReceiver", "calleeReference").forEach {
+                default(it) {
+                    delegate = "originalExpression"
                 }
+            }
+            default("originalType") {
+                delegate = "originalExpression"
+                delegateCall = "typeRef"
+            }
+            // TODO: add configuring acceptChildren
+        }
+
+        impl(expression, "FirNoReceiverExpression") {
+            // TODO: add object support
+            defaultImplicitTypeRef()
+        }
+
+        impl(getClassCall) {
+            default("argument") {
+                value = "arguments.first()"
+                withGetter = true
+            }
+        }
+
+        impl(lambdaArgumentExpression) {
+            default("isSpread") {
+                value = "false"
+                withGetter = true
+            }
+        }
+
+        impl(spreadArgumentExpression) {
+            default("isSpread") {
+                value = "true"
+                withGetter = true
+            }
+        }
+
+        impl(operatorCall) {
+            default("typeRef", """
+                |if (operation in FirOperation.BOOLEANS) {
+                |    FirImplicitBooleanTypeRef(null)
+                |} else {
+                |    FirImplicitTypeRefImpl(null)
+                |}
+                """.trimMargin())
+        }
+
+        impl(resolvedQualifier) {
+            isVal("packageFqName", "relativeClassFqName")
+        }
+
+        impl(returnExpression) {
+            lateinit("target")
+            default("typeRef", "FirImplicitNothingTypeRef(psi)")
+        }
+
+        impl(stringConcatenationCall) {
+            default("typeRef", "FirImplicitStringTypeRef(psi)")
+        }
+
+        impl(throwExpression) {
+            default("typeRef", "FirImplicitNothingTypeRef(psi)")
+        }
+
+        impl(qualifiedAccessExpression, "FirThisReceiverExpressionImpl")
+
+        impl(tryExpression) {
+            sep("tryBlock", "catches", "finallyBlock", needTransformOthers = true)
+            defaultImplicitTypeRef()
+        }
+
+        impl(expression, "FirUnitExpression") {
+            default("typeRef", "FirImplicitUnitTypeRef(psi)")
+        }
+
+        impl(variableAssignment) {
+            isVal("operation")
+            lateinit("calleeReference")
+            defaultReceivers()
+            // TODO: lValue
+        }
+
+        impl(variable) {
+            isVal("isVar")
+            default("isVal") {
+                value = "!isVar"
+                withGetter = true
+            }
+            default("delegateFieldSymbol") {
+                value = "delegate?.let { FirDelegateFieldSymbol(symbol.callableId) }"
+                isVal = true
+            }
+        }
+
+        impl(whenBranch) {
+            sep("condition", "result", needTransformOthers = true)
+        }
+
+        impl(whenSubjectExpression) {
+            defaultImplicitTypeRef()
+        }
+
+        impl(wrappedDelegateExpression) {
+            lateinit("delegateProvider")
+            default("typeRef") {
+                delegate = "expression"
             }
         }
     }

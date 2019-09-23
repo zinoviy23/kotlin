@@ -37,15 +37,16 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
     }
 
     inner class ImplementationContext(private val implementation: Implementation) {
-        fun sep(vararg names: String) {
+        fun sep(vararg names: String, needTransformOthers: Boolean = false) {
             val fields = names.map { name ->
                 getField(name).also { require(it is FirField || it is FieldList) }
             }.toTypedArray()
-            sep(*fields)
+            sep(*fields, needRestTransform = needTransformOthers)
         }
 
-        fun sep(vararg fields: Field) {
+        fun sep(vararg fields: Field, needRestTransform: Boolean = false) {
             implementation.separateTransformations += fields
+            implementation.needRestTransforms = needRestTransform
         }
 
 
@@ -58,10 +59,36 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
             return result
         }
 
+        fun lateinit(vararg fields: String) {
+            for (field in fields) {
+                val realField = getField(field)
+                require(realField !is FieldList)
+                realField.isLateinit = true
+            }
+        }
+
+        fun isVal(vararg fields: String) {
+            fields.forEach {
+                val field = getField(it)
+                require(field !is FirField)
+                field.isVal = true
+            }
+        }
+
+        fun defaultReceivers() {
+            defaultNull("explicitReceiver")
+            default("dispatchReceiver", "FirNoReceiverExpression")
+            default("extensionReceiver", "FirNoReceiverExpression")
+        }
+
         fun default(field: String, value: String) {
             default(field) {
                 this.value = value
             }
+        }
+
+        fun defaultImplicitTypeRef() {
+            default("typeRef", "FirImplicitTypeRefImpl(null)")
         }
 
         fun defaultNull(field: String) {
@@ -71,8 +98,11 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
             }
         }
 
-        fun defaultList(field: String) {
-            default(field, "mutableListOf()")
+        fun defaultEmptyList(field: String) {
+            default(field) {
+                value = "emptyList()"
+                withGetter = true
+            }
             require(getField(field) is FieldList) {
                 "$field is list field"
             }

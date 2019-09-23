@@ -55,19 +55,26 @@ fun printVisitor(elements: List<Element>) {
 
 fun PrintWriter.printFieldWithDefaultInImplementation(field: Field) {
     val defaultValue = field.defaultValue
-    requireNotNull(defaultValue) {
-        "No default value for $field"
-    }
     indent()
     print("override ")
+    if (field.isLateinit) {
+        print("lateinit ")
+    }
     if (field.isVal || field is FieldList) {
         print("val")
     } else {
         print("var")
     }
     print(" ${field.name}: ${field.mutableType} ")
+    if (field.isLateinit) {
+        println()
+        return
+    }
     if (field.withGetter) {
         print("get() ")
+    }
+    requireNotNull(defaultValue) {
+        "No default value for $field"
     }
     println("= $defaultValue")
 }
@@ -88,8 +95,8 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
 
     with(implementation) {
         print("class $type")
-        val fieldsWithoutDefault = element.allFields.filter { it.defaultValue == null }
-        val fieldsWithDefault = element.allFields.filter { it.defaultValue != null }
+        val fieldsWithoutDefault = element.allFields.filter { it.defaultValue == null && !it.isLateinit}
+        val fieldsWithDefault = element.allFields.filter { it.defaultValue != null || it.isLateinit}
 
         if (fieldsWithoutDefault.isNotEmpty()) {
             println("(")
@@ -110,12 +117,19 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
         println("override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): $type {")
         for (field in element.allFirFields) {
             if (field.isVal) continue
-            indent(2)
             if (field !in separateTransformations) {
-                field.transform()
+                if (!needRestTransforms) {
+                    indent(2)
+                    field.transform()
+                }
             } else {
+                indent(2)
                 println("transform${field.name.capitalize()}(transformer, data)")
             }
+        }
+        if (needRestTransforms) {
+            indent(2)
+            println("transformOtherChildren(transformer, data)")
         }
         indent(2)
         println("return this")
@@ -134,18 +148,43 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
             println("}")
         }
 
+        if (needRestTransforms) {
+            println()
+            indent()
+            println("override fun <D> transformOtherChildren(transformer: FirTransformer<D>, data: D): $type {")
+            for (field in element.allFirFields) {
+                if (field.isVal) continue
+                if (field !in separateTransformations) {
+                    indent(2)
+                    field.transform()
+                }
+            }
+            indent(2)
+            println("return this")
+            indent()
+            println("}")
+        }
+
         element.allFields.filter { it.withReplace }.forEach { field ->
             println()
             indent()
             println("override ${field.replaceFunctionDeclaration()} {")
             indent(2)
             val newValue = "new${field.name.capitalize()}"
-            if (field is FieldList) {
-                println("${field.name}.clear()")
-                indent(2)
-                println("${field.name}.addAll($newValue)")
-            } else {
-                println("${field.name} = $newValue")
+            when {
+                field.withGetter -> {
+                    println("throw IllegalStateException()")
+                }
+
+                field is FieldList -> {
+                    println("${field.name}.clear()")
+                    indent(2)
+                    println("${field.name}.addAll($newValue)")
+                }
+
+                else -> {
+                    println("${field.name} = $newValue")
+                }
             }
             indent()
             println("}")
@@ -157,7 +196,11 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
 }
 
 fun Field.transformFunctionDeclaration(returnType: String): String {
-    return "fun <D> transform${name.capitalize()}(transformer: FirTransformer<D>, data: D): $returnType"
+    return transformFunctionDeclaration(name.capitalize(), returnType)
+}
+
+fun transformFunctionDeclaration(transformName: String, returnType: String): String {
+    return "fun <D> transform$transformName(transformer: FirTransformer<D>, data: D): $returnType"
 }
 
 fun Field.replaceFunctionDeclaration(): String {
@@ -240,7 +283,7 @@ fun PrintWriter.printElement(element: Element) {
         }
         println(" {")
         allFields.forEach {
-            printField(it, isVar = false, override = it !in fields, end = "")
+            printField(it, isVar = false, override = it in parentFields, end = "")
         }
         if (allFields.isNotEmpty()) {
             println()
@@ -280,7 +323,15 @@ fun PrintWriter.printElement(element: Element) {
             for (field in it.separateTransformations) {
                 println()
                 indent()
+                if (field in parentFields) {
+                    print("override ")
+                }
                 println(field.transformFunctionDeclaration(type))
+            }
+            if (it.needRestTransforms) {
+                println()
+                indent()
+                println(transformFunctionDeclaration("OtherChildren", type))
             }
         }
 

@@ -13,11 +13,11 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.controlFlowGraphReference
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.declarations
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.initializer
-import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.loopFields
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.modality
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.name
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.qualifiedAccess
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.receiverTypeRef
+import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.receivers
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.returnTypeRef
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.status
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.superTypeRefs
@@ -40,13 +40,22 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +fieldList(statement)
         }
 
+        singleExpressionBlock.configure {
+            +field(statement)
+        }
+
         binaryLogicExpression.configure {
             +field("leftOperand", expression)
             +field("rightOperand", expression)
+            +field("kind", operationKindType)
         }
 
-        loopJump.configure {
+        jump.configure {
             +field("target", jumpTargetType)
+        }
+
+        returnExpression.configure {
+            +field("result", expression)
         }
 
         label.configure {
@@ -54,11 +63,15 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         doWhileLoop.configure {
-            +loopFields
+            +field(block)
+            +field("condition", expression)
+            +field(label, nullable = true)
         }
 
         whileLoop.configure {
-            +loopFields
+            +field("condition", expression)
+            +field(block)
+            +field(label, nullable = true)
         }
 
         catchClause.configure {
@@ -70,10 +83,12 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +calleeReference
             +field("tryBlock", block)
             +fieldList("catches", catchClause)
+            +field("finallyBlock", block, nullable = true)
         }
 
         constExpression.configure {
             +field("kind", constKindType)
+            +field("value", "Any")
         }
 
         functionCall.configure {
@@ -117,6 +132,18 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +annotations
             +status
             +typeParameters
+        }
+
+        typeAlias.configure {
+            +annotations
+            generateBooleanFields("actual", "expect")
+            +modality
+            +visibility
+            +name
+            +status
+            +symbol
+            +typeParameters
+            +field("expandedTypeRef", typeRef, withReplace = true)
         }
 
         enumEntry.configure {
@@ -217,9 +244,11 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         valueParameter.configure {
+            +name
             +returnTypeRef
             +field("defaultValue", expression, nullable = true)
             +symbol
+            +annotations
             generateBooleanFields("crossinline", "noinline", "vararg")
         }
 
@@ -227,8 +256,10 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +returnTypeRef
             +initializer
             +symbol
+            +name
             +field("delegate", expression, nullable = true)
             +field("delegateFieldSymbol", symbolType, nullable = true)
+            generateBooleanFields("var", "val")
         }
 
         anonymousInitializer.configure {
@@ -255,6 +286,98 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +field("relativeClassName", fqNameType, nullable = true)
             +field("resolvedClassId", classIdType, nullable = true)
             +field("importedName", nameType, nullable = true)
+        }
+
+        annotationCall.configure {
+            +field("useSiteTarget", annotationUseSiteTargetType, nullable = true)
+            +field("annotationTypeRef", typeRef)
+        }
+
+        arrayOfCall.configure {
+            +arguments
+        }
+
+        arraySetCall.configure {
+            +field("rValue", expression)
+            +field("operation", operationType)
+            +calleeReference
+            // +field("lValue", reference) // TODO
+            +fieldList("indexes", expression)
+            +arguments
+        }
+
+        callableReferenceAccess.configure {
+            +calleeReference
+            +field("explicitReceiver", expression ,nullable = true)
+        }
+
+        classReferenceExpression.configure {
+            +field("classTypeRef", typeRef)
+        }
+
+        componentCall.configure {
+            +intField("componentIndex")
+            +field("explicitReceiver", expression)
+        }
+
+        errorExpression.configure {
+            +stringField("reason")
+        }
+
+        qualifiedAccessExpression.configure {
+            +qualifiedAccess
+        }
+
+        expressionWithSmartcast.configure {
+            +field("originalExpression", qualifiedAccessExpression)
+            +field("typesFromSmartcast", "Collection<ConeKotlinType>")
+            +field("originalType", typeRef)
+        }
+
+        getClassCall.configure {
+            +arguments
+            +field("argument", expression)
+        }
+
+        wrappedArgumentExpression.configure {
+            +field(expression)
+            +booleanField("isSpread")
+        }
+
+        namedArgumentExpression.configure {
+            +name
+        }
+
+        resolvedQualifier.configure {
+            +field("packageFqName", fqNameType)
+            +field("relativeClassFqName", fqNameType, nullable = true)
+        }
+
+        stringConcatenationCall.configure {
+            +arguments
+        }
+
+        throwExpression.configure {
+            +field("exception", expression)
+        }
+
+        variableAssignment.configure {
+            +annotations
+            +calleeReference
+            +receivers
+            +field("lValue", reference)
+            +field("rValue", expression)
+            +field("operation", operationType)
+            +booleanField("safe")
+        }
+
+        whenSubjectExpression.configure {
+            +field("whenSubject", whenSubjectType)
+        }
+
+        wrappedDelegateExpression.configure {
+            +field(expression)
+            +field("delegateProvider", expression)
         }
     }
 }

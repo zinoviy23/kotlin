@@ -22,6 +22,11 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val modalityType = type("Modality")
     val fqNameType = type("FqName")
     val classIdType = type("ClassId")
+    val annotationUseSiteTargetType = type("AnnotationUseSiteTarget")
+    val implicitTypeRef = type("FirImplicitTypeRefImpl")
+    val operationKindType = type("OperationKind")
+    val coneKotlinTypeType = type("ConeKotlinType")
+    val whenSubjectType = type("FirWhenSubject")
 
     // ========================= Elements =========================
 
@@ -45,6 +50,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val valueParameter = element("ValueParameter", declaration)
     val variable = element("Variable", declaration)
     val klass = element("Class", declaration)
+    val typeAlias = element("TypeAlias", declaration)
     val enumEntry = element("EnumEntry", klass)
     val memberFunction = element("MemberFunction", declaration)
     val memberProperty = element("MemberProperty", declaration)
@@ -60,7 +66,8 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
 
     val block = element("Block", expression)
     val binaryLogicExpression = element("BinaryLogicExpression", expression)
-    val loopJump = element("LoopJump", expression)
+    val jump = element("Jump", expression)
+    val loopJump = element("LoopJump", jump)
     val breakExpression = element("BreakExpression", loopJump)
     val continueExpression = element("ContinueExpression", loopJump)
     val catchClause = element("Catch")
@@ -68,10 +75,35 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val constExpression = element("ConstExpression", expression)
     val typeProjection = element("TypeProjection")
     val functionCall = element("FunctionCall", expression)
-    val annotationCall = element("AnnotationCall", functionCall)
+    val componentCall = element("ComponentCall", functionCall)
+    val annotationCall = element("AnnotationCall", expression)
     val operatorCall = element("OperatorCall", expression)
     val typeOperatorCall = element("TypeOperatorCall", expression)
     val whenExpression = element("WhenExpression", expression)
     val whenBranch = element("WhenBranch")
     val delegatedConstructorCall = element("DelegatedConstructorCall", expression)
+
+    val arrayOfCall = element("ArrayOfCall", expression)
+    val arraySetCall = element("ArraySetCall", expression)
+    val callableReferenceAccess = element("CallableReferenceAccess", expression)
+    val classReferenceExpression = element("ClassReferenceExpression", expression)
+    val errorExpression = element("ErrorExpression", expression)
+    val qualifiedAccessExpression = element("QualifiedAccessExpresion", expression)
+    val expressionWithSmartcast = element("ExpressionWithSmartcast", qualifiedAccessExpression)
+    val getClassCall = element("GetClassCall", expression)
+
+    val wrappedArgumentExpression = element("WrappedArgumentExpression", expression)
+    val lambdaArgumentExpression = element("LambdaArgumentExpression", wrappedArgumentExpression)
+    val spreadArgumentExpression = element("SpreadArgumentExpression", wrappedArgumentExpression)
+    val namedArgumentExpression = element("NamedArgumentExpression", wrappedArgumentExpression)
+
+    val resolvedQualifier = element("ResolvedQualifier", expression)
+    val returnExpression = element("ReturnExpression", loopJump)
+    val singleExpressionBlock = element("SingleExpressionBlock", block)
+    val stringConcatenationCall = element("StringConcatenationCall", expression)
+    val throwExpression = element("ThrowExpression", expression)
+    val variableAssignment = element("VariableAssignment", statement)
+    val whenSubjectExpression = element("WhenSubjectExpression", expression)
+
+    val wrappedDelegateExpression = element("WrappedDelegateExpression", expression)
 }

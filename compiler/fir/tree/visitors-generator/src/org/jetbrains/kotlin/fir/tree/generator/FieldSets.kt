@@ -29,12 +29,6 @@ object FieldSets {
         field("calleeReference", reference)
     )
 
-    val loopFields = fieldSet(
-        field("condition", expression),
-        field(block),
-        field(label, nullable = true)
-    )
-
     val receivers = fieldSet(
         field("explicitReceiver", expression, nullable = true),
         field("dispatchReceiver", expression),

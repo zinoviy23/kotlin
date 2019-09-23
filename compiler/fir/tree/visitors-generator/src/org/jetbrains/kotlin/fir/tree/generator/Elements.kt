@@ -16,6 +16,7 @@ sealed class Field {
     var defaultValue: String? = null
     var isVal: Boolean = false
     var withGetter: Boolean = false
+    var isLateinit: Boolean = false
 
     fun copy(): Field = internalCopy().also {
         it.defaultValue = defaultValue
@@ -25,12 +26,16 @@ sealed class Field {
 
     protected abstract fun internalCopy(): Field
 
+    override fun toString(): String {
+        return name
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null) return false
         if (javaClass != other.javaClass) return false
         other as Field
-        return name != other.name
+        return name == other.name
     }
 
     override fun hashCode(): Int {
@@ -74,9 +79,13 @@ fun stringField(name: String): Field {
     return field(name, AbstractFirTreeBuilder.string)
 }
 
+fun intField(name: String): Field {
+    return field(name, AbstractFirTreeBuilder.int)
+}
+
 // ----------- Fir field -----------
 
-data class FirField(
+class FirField(
     override val name: String,
     val element: Element,
     override val nullable: Boolean,
@@ -99,7 +108,7 @@ fun field(element: Element, nullable: Boolean = false, withReplace: Boolean = fa
 
 // ----------- Field list -----------
 
-data class FieldList(
+class FieldList(
     override val name: String,
     val baseType: String,
     override val withReplace: Boolean
@@ -144,6 +153,12 @@ class Element(val name: String) {
     val allFields: List<Field> by lazy {
         val result = LinkedHashSet<Field>()
         result.addAll(fields.toList().asReversed())
+        result.addAll(parentFields.asReversed())
+        result.toList().asReversed()
+    }
+
+    val parentFields: List<Field> by lazy {
+        val result = LinkedHashSet<Field>()
         parents.forEach {
             result.addAll(it.allFields.map { it.copy() }.asReversed())
         }
@@ -200,4 +215,5 @@ class Implementation(val element: Element, val name: String?) {
     }
 
     val separateTransformations = mutableListOf<Field>()
+    var needRestTransforms: Boolean = false
 }
