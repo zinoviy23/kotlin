@@ -105,7 +105,7 @@ data class FieldList(
     override val withReplace: Boolean
 ) : Field() {
     init {
-//        defaultValue = "mutableListOf()"
+        defaultValue = "mutableListOf()"
     }
 
     override val type: String = "List<$baseType>"

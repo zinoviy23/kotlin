@@ -27,16 +27,12 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
                 value = "ClassKind.OBJECT"
                 withGetter = true
             }
-
-            defaultList("superTypeRefs")
-            defaultList("declarations")
         }
 
         val constructorImplConfiguration: ImplementationContext.() -> Unit = {
             sep("valueParameters", "returnTypeRef")
 
             defaultNull("delegatedConstructor")
-            defaultList("valueParameters")
             defaultNull("body")
             default("name", "Name.special(\"<init>\")")
         }
@@ -57,9 +53,6 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
 
         impl(klass) {
             defaultNull("companionObject")
-            defaultList("superTypeRefs")
-            defaultList("declarations")
-            defaultList("typeParameters")
 
             default("modality") {
                 delegate = "status"
@@ -69,16 +62,13 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
                 delegate = "status"
             }
         }
+
         impl(enumEntry) {
             default("status", "FirDeclarationStatusImpl(Visibilities.UNKNOWN, Modality.FINAL)")
             default("classKind") {
                 value = "ClassKind.ENUM_ENTRY"
                 withGetter = true
             }
-            defaultList("typeParameters")
-            defaultList("superTypeRefs")
-            defaultList("declarations")
-            defaultList("arguments")
             default("companionObject") {
                 value = "null"
                 withGetter = true
@@ -86,11 +76,6 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
             default("typeRef", "session.builtinTypes.enumType")
 
             sep("arguments")
-        }
-
-        impl(file) {
-            defaultList("imports")
-            defaultList("declarations")
         }
 
         impl(import)
