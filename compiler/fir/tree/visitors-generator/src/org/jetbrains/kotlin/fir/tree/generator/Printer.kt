@@ -9,8 +9,7 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import java.io.File
 import java.io.PrintWriter
 
-private const val BASE_PATH = "/home/demiurg/Programming/kotlin/kotlin-pill/compiler/fir/tree/visitors-generator/src/org/jetbrains/kotlin/fir/tree/generator/result/"
-
+private const val BASE_PATH = "compiler/fir/tree/visitors-generator/src/org/jetbrains/kotlin/fir/tree/generator/result/"
 private const val FIR_PATH = "$BASE_PATH/Result.kt"
 private const val IMPL_PATH = "$BASE_PATH/Impl.kt"
 private const val VISITOR_PATH = "$BASE_PATH/Visitor.kt"
