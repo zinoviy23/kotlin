@@ -61,7 +61,9 @@ object FieldSets {
     )
 
     val annotations = fieldSet(
-        fieldList("annotations", annotationCall)
+        fieldList("annotations", annotationCall).apply {
+            defaultValue = "mutableListOf()"
+        }
     )
 
     val symbol = fieldSet(
@@ -117,10 +119,6 @@ object FieldSets {
     )
 
     val modality = fieldSet(
-        field(modalityType)
-    )
-
-    val imports = fieldSet(
-
+        field(modalityType, nullable = true)
     )
 }

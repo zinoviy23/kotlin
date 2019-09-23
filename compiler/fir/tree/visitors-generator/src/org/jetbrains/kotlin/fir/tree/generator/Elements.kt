@@ -16,6 +16,26 @@ sealed class Field {
     var defaultValue: String? = null
     var isVal: Boolean = false
     var withGetter: Boolean = false
+
+    fun copy(): Field = internalCopy().also {
+        it.defaultValue = defaultValue
+        it.isVal = isVal
+        it.withGetter = withGetter
+    }
+
+    protected abstract fun internalCopy(): Field
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null) return false
+        if (javaClass != other.javaClass) return false
+        other as Field
+        return name != other.name
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
 }
 
 // ----------- Simple field -----------
@@ -27,6 +47,11 @@ class SimpleField(
     override val withReplace: Boolean
 ) : Field() {
     override val type: String = type + (if (nullable) "?" else "")
+
+    override fun internalCopy(): Field {
+        val type = if (nullable) type.dropLast(1) else type
+        return SimpleField(name, type, nullable, withReplace)
+    }
 }
 
 fun field(name: String, type: String, nullable: Boolean = false, withReplace: Boolean = false): Field {
@@ -58,6 +83,10 @@ data class FirField(
     override val withReplace: Boolean
 ) : Field() {
     override val type: String = element.type + if (nullable) "?" else ""
+
+    override fun internalCopy(): Field {
+        return FirField(name, element, nullable, withReplace)
+    }
 }
 
 fun field(name: String, element: Element, nullable: Boolean = false, withReplace: Boolean = false): Field {
@@ -75,10 +104,18 @@ data class FieldList(
     val baseType: String,
     override val withReplace: Boolean
 ) : Field() {
+    init {
+//        defaultValue = "mutableListOf()"
+    }
+
     override val type: String = "List<$baseType>"
 
     override val nullable: Boolean
         get() = false
+
+    override fun internalCopy(): Field {
+        return FieldList(name, baseType, withReplace)
+    }
 }
 
 fun fieldList(name: String, element: Element, withReplace: Boolean = false): Field {
@@ -106,11 +143,11 @@ class Element(val name: String) {
 
     val allFields: List<Field> by lazy {
         val result = LinkedHashSet<Field>()
+        result.addAll(fields.toList().asReversed())
         parents.forEach {
-            result.addAll(it.allFields)
+            result.addAll(it.allFields.map { it.copy() }.asReversed())
         }
-        result.addAll(fields)
-        result.toList()
+        result.toList().asReversed()
     }
 
     val allFirFields: List<Field> by lazy {

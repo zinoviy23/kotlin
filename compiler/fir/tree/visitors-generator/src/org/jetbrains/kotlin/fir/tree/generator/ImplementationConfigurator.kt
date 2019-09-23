@@ -22,19 +22,92 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
             sep("valueParameters", "returnTypeRef")
         }
 
+        impl(anonymousObject) {
+            default("classKind") {
+                value = "ClassKind.OBJECT"
+                withGetter = true
+            }
+
+            defaultList("superTypeRefs")
+            defaultList("declarations")
+        }
+
+        val constructorImplConfiguration: ImplementationContext.() -> Unit = {
+            sep("valueParameters", "returnTypeRef")
+
+            defaultNull("delegatedConstructor")
+            defaultList("valueParameters")
+            defaultNull("body")
+            default("name", "Name.special(\"<init>\")")
+        }
+
+        impl(constructor, config = constructorImplConfiguration)
+
+        impl(constructor, "FirPrimaryConstructorImpl") {
+            constructorImplConfiguration()
+
+            default("isPrimary") {
+                value = "true"
+                withGetter = true
+            }
+        }
+
+        // TODO: complex field implementation
+        impl(declarationStatus)
+
+        impl(klass) {
+            defaultNull("companionObject")
+            defaultList("superTypeRefs")
+            defaultList("declarations")
+            defaultList("typeParameters")
+
+            default("modality") {
+                delegate = "status"
+            }
+
+            default("visibility") {
+                delegate = "status"
+            }
+        }
+        impl(enumEntry) {
+            default("status", "FirDeclarationStatusImpl(Visibilities.UNKNOWN, Modality.FINAL)")
+            default("classKind") {
+                value = "ClassKind.ENUM_ENTRY"
+                withGetter = true
+            }
+            defaultList("typeParameters")
+            defaultList("superTypeRefs")
+            defaultList("declarations")
+            defaultList("arguments")
+            default("companionObject") {
+                value = "null"
+                withGetter = true
+            }
+            default("typeRef", "session.builtinTypes.enumType")
+
+            sep("arguments")
+        }
+
+        impl(file) {
+            defaultList("imports")
+            defaultList("declarations")
+        }
+
         impl(import)
 
         impl(resolvedImport) {
+            delegateFields(listOf("aliasName", "importedFqName", "isAllUnder"), "delegate")
+
             default("resolvedClassId") {
                 delegate = "relativeClassName"
                 delegateCall = "let { ClassId(packageFqName, it, false) }"
-                isGetter = true
+                withGetter = true
             }
 
             default("importedName") {
                 delegate = "importedFqName"
                 delegateCall = "shortName()"
-                isGetter = true
+                withGetter = true
             }
         }
 
@@ -42,6 +115,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator(Fi
             element.allFields.firstOrNull { it.name == "controlFlowGraphReference" }?.let {
                 impl(element) {
                     sep(it)
+                    default("controlFlowGraphReference", "FirEmptyControlFlowGraphReference()")
                 }
             }
         }

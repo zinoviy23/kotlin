@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.classKind
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.controlFlowGraphReference
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.declarations
-import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.imports
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.initializer
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.loopFields
 import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree.generator.FieldSets.modality
@@ -116,6 +115,13 @@ object FieldConfigurator : AbstractFieldConfigurator() {
             +declarations
             +field("companionObject", klass, nullable = true)
             +annotations
+            +status
+            +typeParameters
+        }
+
+        enumEntry.configure {
+            +arguments
+            +field(typeRef)
         }
 
         anonymousFunction.configure {
@@ -132,7 +138,7 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         typeParameter.configure {
             +symbol
             +field(varianceType)
-            +field("isReified", AbstractFirTreeBuilder.boolean)
+            +booleanField("isReified")
             +fieldList("bounds", typeRef)
             +name
             +annotations
@@ -177,8 +183,8 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         declarationStatus.configure {
-            +field(visibilityType)
-            +field(modalityType, nullable = true)
+            +visibility
+            +modality
             generateBooleanFields(
                 "expect", "actual", "override", "operator", "infix", "tailRec",
                 "external", "const", "companion", "data", "suspend", "static"
@@ -193,13 +199,14 @@ object FieldConfigurator : AbstractFieldConfigurator() {
 
         constructor.configure {
             +symbol
-            +field(delegatedConstructorCall, nullable = true)
+            +field("delegatedConstructor", delegatedConstructorCall, nullable = true)
             +valueParameters
             +body(nullable = true)
             +controlFlowGraphReference
             +returnTypeRef
             +status
-            //+name Default name: <init>
+            +booleanField("isPrimary")
+            +name
             +annotations
         }
 
@@ -229,8 +236,11 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         file.configure {
-            +imports
+            +fieldList(import)
             +declarations
+            +name
+            +annotations
+            +field("packageFqName", fqNameType)
         }
 
         import.configure {
@@ -240,6 +250,8 @@ object FieldConfigurator : AbstractFieldConfigurator() {
         }
 
         resolvedImport.configure {
+            +field("delegate", import)
+            +field("packageFqName", fqNameType)
             +field("relativeClassName", fqNameType, nullable = true)
             +field("resolvedClassId", classIdType, nullable = true)
             +field("importedName", nameType, nullable = true)

@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 abstract class AbstractFieldConfigurator {
     inner class ConfigureContext(val element: Element) {
         operator fun FieldSet.unaryPlus() {
-            element.fields.addAll(this.fields)
+            element.fields.addAll(this.fields.map { it.copy() })
         }
 
         operator fun Field.unaryPlus() {

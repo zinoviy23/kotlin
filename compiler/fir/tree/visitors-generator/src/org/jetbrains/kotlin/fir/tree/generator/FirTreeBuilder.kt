@@ -36,6 +36,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
 
     val typeParameter = element("TypeParameter")
     val declarationStatus = element("DeclarationStatus")
+    val resolvedDeclarationStatus = element("ResolvedDeclarationStatus", declarationStatus)
 
     val statement = element("Statement")
     val expression = element("Expression", statement)
@@ -44,6 +45,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val valueParameter = element("ValueParameter", declaration)
     val variable = element("Variable", declaration)
     val klass = element("Class", declaration)
+    val enumEntry = element("EnumEntry", klass)
     val memberFunction = element("MemberFunction", declaration)
     val memberProperty = element("MemberProperty", declaration)
     val propertyAccessor = element("PropertyAccessor")

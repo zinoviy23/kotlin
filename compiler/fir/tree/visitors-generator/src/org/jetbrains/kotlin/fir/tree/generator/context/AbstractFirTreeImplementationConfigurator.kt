@@ -10,14 +10,14 @@ import org.jetbrains.kotlin.fir.visitors.generator.org.jetbrains.kotlin.fir.tree
 abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder: AbstractFirTreeBuilder) {
     private val elementsWithImpl = mutableSetOf<Element>()
 
-    fun impl(element: Element, name: String? = null, init: ImplementationContext.() -> Unit = {}) {
+    fun impl(element: Element, name: String? = null, config: ImplementationContext.() -> Unit = {}) {
         val implementation = if (name == null) {
             element.defaultImplementation
         } else {
             element.customImplementations.firstOrNull { it.name == name }
         } ?: Implementation(element, name)
         val context = ImplementationContext(implementation)
-        context.apply(init)
+        context.apply(config)
         elementsWithImpl += element
     }
 
@@ -52,8 +52,8 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
         private fun getField(name: String): Field {
             val result = implementation.element.allFields.firstOrNull { it.name == name }
             requireNotNull(result) {
-                "Field $name not found in fields of ${implementation.element}\nExisting fields:\n" +
-                        implementation.element.allFields.joinToString(separator = "  \n", prefix = "  ") { it.name }
+                "Field \"$name\" not found in fields of ${implementation.element}\nExisting fields:\n" +
+                        implementation.element.allFields.joinToString(separator = "\n  ", prefix = "  ") { it.name }
             }
             return result
         }
@@ -64,18 +64,46 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
             }
         }
 
+        fun defaultNull(field: String) {
+            default(field, "null")
+            require(getField(field).nullable) {
+                "$field is not nullable field"
+            }
+        }
+
+        fun defaultList(field: String) {
+            default(field, "mutableListOf()")
+            require(getField(field) is FieldList) {
+                "$field is list field"
+            }
+        }
+
         fun default(field: String, init: DefaultValueContext.() -> Unit) {
             DefaultValueContext(getField(field)).apply(init).applyConfiguration()
+        }
+
+        fun delegateFields(fields: List<String>, delegate: String) {
+            for (field in fields) {
+                default(field) {
+                    this.delegate = delegate
+                }
+            }
         }
 
         inner class DefaultValueContext(private val field: Field) {
             var value: String? = null
 
             var delegate: String? = null
+                set(value) {
+                    field = value
+                    if (value != null) {
+                        withGetter = true
+                    }
+                }
             var delegateCall: String? = null
 
             var isVal: Boolean = false
-            var isGetter: Boolean = false
+            var withGetter: Boolean = false
                 set(value) {
                     field = value
                     if (value) {
@@ -84,7 +112,7 @@ abstract class AbstractFirTreeImplementationConfigurator(private val treeBuilder
                 }
 
             fun applyConfiguration() {
-                field.withGetter = isGetter
+                field.withGetter = withGetter
                 require(!(field !is SimpleField && field.isVal))
                 field.isVal = isVal
                 when {

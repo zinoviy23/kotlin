@@ -55,19 +55,21 @@ fun printVisitor(elements: List<Element>) {
 
 fun PrintWriter.printFieldWithDefaultInImplementation(field: Field) {
     val defaultValue = field.defaultValue
-    requireNotNull(defaultValue)
+    requireNotNull(defaultValue) {
+        "No default value for $field"
+    }
     indent()
     print("override ")
-    if (field.isVal) {
+    if (field.isVal || field is FieldList) {
         print("val")
     } else {
         print("var")
     }
-    print(" ${field.name}: ${field.type} ")
+    print(" ${field.name}: ${field.mutableType} ")
     if (field.withGetter) {
         print("get() ")
     }
-    println("= ${defaultValue}")
+    println("= $defaultValue")
 }
 
 fun PrintWriter.printImplementation(implementation: Implementation) {
@@ -88,7 +90,6 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
         print("class $type")
         val fieldsWithoutDefault = element.allFields.filter { it.defaultValue == null }
         val fieldsWithDefault = element.allFields.filter { it.defaultValue != null }
-        require(fieldsWithDefault.all { it is SimpleField })
 
         if (fieldsWithoutDefault.isNotEmpty()) {
             println("(")
@@ -108,6 +109,7 @@ fun PrintWriter.printImplementation(implementation: Implementation) {
         indent()
         println("override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): $type {")
         for (field in element.allFirFields) {
+            if (field.isVal) continue
             indent(2)
             if (field !in separateTransformations) {
                 field.transform()
