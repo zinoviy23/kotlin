@@ -327,7 +327,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
             put(AnalysisFlags.useExperimental, useExperimental?.toList().orEmpty())
             put(AnalysisFlags.explicitApiVersion, apiVersion != null)
             put(AnalysisFlags.allowResultReturnType, allowResultReturnType)
-            ApiMode.fromString(apiMode)?.let { put(AnalysisFlags.apiMode, it) } ?: collector.report(
+            ApiMode.fromString(apiMode)?.also { put(AnalysisFlags.apiMode, it) } ?: collector.report(
                 CompilerMessageSeverity.ERROR,
                 "Unknown value for parameter -Xapi-mode: '$apiMode'. Value should be one of ${ApiMode.availableValues()}"
             )
