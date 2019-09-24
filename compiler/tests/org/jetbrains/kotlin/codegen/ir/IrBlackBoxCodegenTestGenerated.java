@@ -6330,6 +6330,11 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
                 runTest("compiler/testData/codegen/box/coroutines/debug/debuggerMetadata.kt");
             }
 
+            @TestMetadata("debuggerMetadata_ir.kt")
+            public void testDebuggerMetadata_ir() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/debug/debuggerMetadata_ir.kt");
+            }
+
             @TestMetadata("elvisLineNumber.kt")
             public void testElvisLineNumber() throws Exception {
                 runTest("compiler/testData/codegen/box/coroutines/debug/elvisLineNumber.kt");
