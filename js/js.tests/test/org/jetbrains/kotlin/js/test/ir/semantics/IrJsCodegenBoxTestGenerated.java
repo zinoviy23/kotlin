@@ -17346,6 +17346,11 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
                 public void testMultipleLayers() throws Exception {
                     runTest("compiler/testData/codegen/box/reflection/typeOf/js/multipleLayers.kt");
                 }
+
+                @TestMetadata("multipleModules.kt")
+                public void testMultipleModules() throws Exception {
+                    runTest("compiler/testData/codegen/box/reflection/typeOf/js/multipleModules.kt");
+                }
             }
 
             @TestMetadata("compiler/testData/codegen/box/reflection/typeOf/noReflect")

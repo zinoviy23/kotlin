@@ -23,7 +23,6 @@ internal class KTypeImpl(
         (classifier.hashCode() * 31 + arguments.hashCode()) * 31 + isMarkedNullable.hashCode()
 
     override fun toString(): String {
-        //val klass = classifier.toString()
         val kClass = (classifier as? KClass<*>)
         val classifierName = when {
             kClass == null -> classifier.toString()
