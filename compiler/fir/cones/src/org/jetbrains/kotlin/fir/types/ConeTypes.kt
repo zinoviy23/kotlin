@@ -205,6 +205,6 @@ open class ConeTypeVariable(name: String) : TypeVariableMarker {
     val defaultType = ConeTypeVariableType(ConeNullability.NOT_NULL, typeConstructor)
 }
 
-class ConeTypeVariableTypeConstructor(val debugName: String) : ConeSymbol, ConeClassifierLookupTag(), TypeVariableTypeConstructorMarker {
+class ConeTypeVariableTypeConstructor(val debugName: String) : ConeClassifierLookupTag(), TypeVariableTypeConstructorMarker {
     override val name: Name get() = Name.identifier(debugName)
 }
