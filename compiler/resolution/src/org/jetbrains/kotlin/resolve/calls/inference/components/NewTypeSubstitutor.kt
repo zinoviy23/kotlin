@@ -99,7 +99,11 @@ interface NewTypeSubstitutor: TypeSubstitutorMarker {
             if (projectedType is SimpleType) {
                 val substitutedProjectedType = substitute(projectedType, keepAnnotation, runCapturedChecks = false)
                 if (substitutedProjectedType is StubType) {
-                    return substitutedProjectedType
+                    return NewCapturedType(
+                        capturedType.captureStatus,
+                        NewCapturedTypeConstructor(TypeProjectionImpl(typeConstructor.projection.projectionKind, substitutedProjectedType)),
+                        null
+                    )
                 }
             }
 

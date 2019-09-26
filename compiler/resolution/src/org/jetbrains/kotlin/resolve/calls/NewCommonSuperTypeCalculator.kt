@@ -145,7 +145,7 @@ object NewCommonSuperTypeCalculator {
     ): SimpleTypeMarker {
         if (types.size == 1) return types.single()
 
-        val nonStubTypes = types.filter { !it.isStubType() }
+        val nonStubTypes = types.filter { !it.isStubType() && !isCapturedStubType(it) }
         if (nonStubTypes.size == 1) return nonStubTypes.single()
 
         assert(nonStubTypes.isNotEmpty()) {
@@ -162,6 +162,11 @@ object NewCommonSuperTypeCalculator {
         findCommonIntegerLiteralTypesSuperType(explicitSupertypes)?.let { return it }
 
         return findSuperTypeConstructorsAndIntersectResult(explicitSupertypes, depth, contextStubTypesEqualToAnything)
+    }
+
+    private fun TypeSystemCommonSuperTypesContext.isCapturedStubType(type: SimpleTypeMarker): Boolean {
+        val projectedType = type.asCapturedType()?.typeConstructor()?.projection()?.getType() ?: return false
+        return projectedType.asSimpleType()?.isStubType() == true
     }
 
     private fun TypeSystemCommonSuperTypesContext.findErrorTypeInSupertypesIfItIsNeeded(

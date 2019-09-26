@@ -10156,6 +10156,11 @@ public class DiagnosticsUsingJavacTestGenerated extends AbstractDiagnosticsUsing
                     runTest("compiler/testData/diagnostics/tests/inference/commonSystem/nonFixedVariableInsideFlexibleType.kt");
                 }
 
+                @TestMetadata("outProjectedTypeToOutProjected.kt")
+                public void testOutProjectedTypeToOutProjected() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/inference/commonSystem/outProjectedTypeToOutProjected.kt");
+                }
+
                 @TestMetadata("postponedCompletionWithExactAnnotation.kt")
                 public void testPostponedCompletionWithExactAnnotation() throws Exception {
                     runTest("compiler/testData/diagnostics/tests/inference/commonSystem/postponedCompletionWithExactAnnotation.kt");
