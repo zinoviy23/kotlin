@@ -1,4 +1,4 @@
-// FALSE
+// TRUE
 // Important for 173 branch! OOCB is TRUE in this test because of IDEA-185462
 
 class B(val a: A)
@@ -9,3 +9,6 @@ val B.foo: Int
             A.e2 -> 4
         }
     }
+
+// TODO
+// SKIP_ANALYZE_CHECK

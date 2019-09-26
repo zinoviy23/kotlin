@@ -99,6 +99,11 @@ public class OutOfBlockModificationTestGenerated extends AbstractOutOfBlockModif
         runTest("idea/testData/codeInsight/outOfBlock/InFunInFunWithBody.kt");
     }
 
+    @TestMetadata("InFunInFunWithBodyInClass.kt")
+    public void testInFunInFunWithBodyInClass() throws Exception {
+        runTest("idea/testData/codeInsight/outOfBlock/InFunInFunWithBodyInClass.kt");
+    }
+
     @TestMetadata("InFunInFunctionInitializerInFun.kt")
     public void testInFunInFunctionInitializerInFun() throws Exception {
         runTest("idea/testData/codeInsight/outOfBlock/InFunInFunctionInitializerInFun.kt");
@@ -107,6 +112,27 @@ public class OutOfBlockModificationTestGenerated extends AbstractOutOfBlockModif
     @TestMetadata("InFunInMultiDeclaration.kt")
     public void testInFunInMultiDeclaration() throws Exception {
         runTest("idea/testData/codeInsight/outOfBlock/InFunInMultiDeclaration.kt");
+    }
+
+    @TestMetadata("InExtensionFunction.kt")
+    public void testInExtensionFunction() throws Exception {
+        runTest("idea/testData/codeInsight/outOfBlock/InExtensionFunction.kt");
+    }
+
+    @TestMetadata("InExtensionFunctionWithInference.kt")
+    public void testInExtensionFunctionWithInference() throws Exception {
+        runTest("idea/testData/codeInsight/outOfBlock/InExtensionFunctionWithInference.kt");
+    }
+
+    @TestMetadata("InExtensionFunctionWithoutInference.kt")
+    public void testInExtensionFunctionWithoutInference() throws Exception {
+        runTest("idea/testData/codeInsight/outOfBlock/InExtensionFunctionWithoutInference.kt");
+    }
+
+
+    @TestMetadata("InClassFunctionWithoutInference.kt")
+    public void testInClassFunctionWithoutInference() throws Exception {
+        runTest("idea/testData/codeInsight/outOfBlock/InClassFunctionWithoutInference.kt");
     }
 
     @TestMetadata("InFunInProperty.kt")
@@ -127,6 +153,11 @@ public class OutOfBlockModificationTestGenerated extends AbstractOutOfBlockModif
     @TestMetadata("InFunWithInference.kt")
     public void testInFunWithInference() throws Exception {
         runTest("idea/testData/codeInsight/outOfBlock/InFunWithInference.kt");
+    }
+
+    @TestMetadata("InFunWithoutInference.kt")
+    public void testInFunWithoutInference() throws Exception {
+        runTest("idea/testData/codeInsight/outOfBlock/InFunWithoutInference.kt");
     }
 
     @TestMetadata("InFunctionLiteral.kt")
@@ -152,6 +183,11 @@ public class OutOfBlockModificationTestGenerated extends AbstractOutOfBlockModif
     @TestMetadata("InPropertyAccessorWithInferenceInClass.kt")
     public void testInPropertyAccessorWithInferenceInClass() throws Exception {
         runTest("idea/testData/codeInsight/outOfBlock/InPropertyAccessorWithInferenceInClass.kt");
+    }
+
+    @TestMetadata("InPropertyAccessorWithoutInferenceInClass.kt")
+    public void testInPropertyAccessorWithoutInferenceInClass() throws Exception {
+        runTest("idea/testData/codeInsight/outOfBlock/InPropertyAccessorWithoutInferenceInClass.kt");
     }
 
     @TestMetadata("InPropertyWithFunctionLiteral.kt")
