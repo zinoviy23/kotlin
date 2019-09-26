@@ -22617,6 +22617,11 @@ public class DiagnosticsTestGenerated extends AbstractDiagnosticsTest {
                 KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
             }
 
+            @TestMetadata("aliasOnFunctionalTypeWithReceiver.kt")
+            public void testAliasOnFunctionalTypeWithReceiver() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/typealias/aliasOnFunctionalTypeWithReceiver.kt");
+            }
+
             @TestMetadata("aliasesOnly.kt")
             public void testAliasesOnly() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/typealias/aliasesOnly.kt");
