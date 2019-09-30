@@ -141,7 +141,7 @@ private fun FirDeclaration.runResolve(
             designation.iterator(), state.getSession(psi as KtElement),
             implicitTypeOnly = toPhase == FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE
         )
-        file.transform<FirFile, Nothing?>(transformer, null)
+        transformer.visitFile(file, null)
     }
 }
 

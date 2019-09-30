@@ -16,7 +16,6 @@ import com.intellij.util.PathUtil
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.expressions.FirWrappedDelegateExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirWrappedDelegateExpressionImpl
@@ -96,7 +95,7 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
 
     private fun FirFile.transformChildren(): Set<FirElement> =
         ConsistencyTransformer().let {
-            this@transformChildren.transform<FirFile, Unit>(it, Unit)
+            it.visitFile(this, Unit)
             it.result
         }
 

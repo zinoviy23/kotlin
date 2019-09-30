@@ -20,7 +20,7 @@ class FirTotalResolveTransformer {
     fun processFiles(files: List<FirFile>) {
         for (transformer in transformers) {
             for (firFile in files) {
-                firFile.transform<FirFile, Nothing?>(transformer, null)
+                transformer.visitFile(firFile, null)
             }
         }
     }

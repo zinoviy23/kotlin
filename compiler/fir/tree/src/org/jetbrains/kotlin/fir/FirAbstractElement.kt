@@ -6,8 +6,14 @@
 package org.jetbrains.kotlin.fir
 
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
+import org.jetbrains.kotlin.fir.visitors.FirTransformer
 
-abstract class FirPureAbstractElement : FirElement
+abstract class FirPureAbstractElement : FirElement {
+    @Suppress("UNCHECKED_CAST")
+    open fun <E : FirElement, D> transform(visitor: FirTransformer<D>, data: D): CompositeTransformResult<E> =
+        accept(visitor, data) as CompositeTransformResult<E>
+}
 
 abstract class FirAbstractElement(
     final override val psi: PsiElement?

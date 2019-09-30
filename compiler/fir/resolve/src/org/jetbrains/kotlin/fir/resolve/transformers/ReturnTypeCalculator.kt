@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.resolve.transformers
 
-import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirCallableMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
@@ -83,8 +82,7 @@ class ReturnTypeCalculatorWithJump(val session: FirSession, val scopeSession: Sc
             scopeSession
         )
 
-        file.transform<FirElement, Any?>(transformer, null)
-
+        transformer.visitFile(file, null)
 
         val newReturnTypeRef = declaration.returnTypeRef
         cycleErrorType(declaration)?.let { return it }

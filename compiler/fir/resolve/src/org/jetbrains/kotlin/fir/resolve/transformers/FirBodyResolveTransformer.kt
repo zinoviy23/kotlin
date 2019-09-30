@@ -967,7 +967,7 @@ open class FirBodyResolveTransformer(
     }
 
     fun <D> FirElement.visitNoTransform(transformer: FirTransformer<D>, data: D) {
-        val result = this.transform<FirElement, D>(transformer, data)
+        val result = (this as FirPureAbstractElement).transform<FirElement, D>(transformer, data)
         require(result.single === this) { "become ${result.single}: `${result.single.render()}`, was ${this}: `${this.render()}`" }
     }
 }
@@ -1026,7 +1026,7 @@ class FirImplicitTypeBodyResolveTransformerAdapter : FirTransformer<Nothing?>() 
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
         val transformer = FirBodyResolveTransformer(file.fileSession, phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE, implicitTypeOnly = true)
-        return file.transform(transformer, null)
+        return transformer.visitFile(file, null) as CompositeTransformResult<FirFile>
     }
 }
 
@@ -1040,7 +1040,7 @@ class FirBodyResolveTransformerAdapter : FirTransformer<Nothing?>() {
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
         // Despite of real phase is EXPRESSIONS, we state IMPLICIT_TYPES here, because DECLARATIONS previous phase is OK for us
         val transformer = FirBodyResolveTransformer(file.fileSession, phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE, implicitTypeOnly = false)
-        return file.transform(transformer, null)
+        return transformer.visitFile(file, null) as CompositeTransformResult<FirFile>
     }
 }
 
