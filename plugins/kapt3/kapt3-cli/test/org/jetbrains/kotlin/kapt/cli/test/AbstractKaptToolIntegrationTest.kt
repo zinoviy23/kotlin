@@ -93,7 +93,7 @@ abstract class AbstractKaptToolIntegrationTest : TestCaseWithTmpdir() {
             .redirectOutput(ProcessBuilder.Redirect.to(outputFile))
             .start()
 
-        if (!process.waitFor(2, TimeUnit.MINUTES)) err("Process is still alive")
+        if (!process.waitFor(200, TimeUnit.MINUTES)) err("Process is still alive")
         if (process.exitValue() != 0) {
             throw GotResult(buildString {
                 append("Return code: ").appendln(process.exitValue()).appendln()
