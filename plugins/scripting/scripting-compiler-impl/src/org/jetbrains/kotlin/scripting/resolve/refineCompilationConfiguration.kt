@@ -202,9 +202,9 @@ abstract class ScriptCompilationConfigurationWrapper(val script: SourceCode) {
             }
 
         override fun equals(other: Any?): Boolean =
-            super.equals(other) && other is FromLegacy && legacyDependencies == other.legacyDependencies
+            super.equals(other) && legacyDependencies?.canonical == (other as? FromLegacy)?.legacyDependencies?.canonical
 
-        override fun hashCode(): Int = super.hashCode() + 31 * (legacyDependencies?.hashCode() ?: 1)
+        override fun hashCode(): Int = super.hashCode() + 31 * (legacyDependencies?.canonical?.hashCode() ?: 1)
 
         override fun toString(): String {
             return "FromLegacy($legacyDependencies)"

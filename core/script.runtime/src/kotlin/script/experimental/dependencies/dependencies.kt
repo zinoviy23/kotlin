@@ -19,12 +19,21 @@ package kotlin.script.experimental.dependencies
 import java.io.File
 
 data class ScriptDependencies(
-        val javaHome: File? = null,
-        val classpath: List<File> = emptyList(),
-        val imports: List<String> = emptyList(),
-        val sources: List<File> = emptyList(),
-        val scripts: List<File> = emptyList()
+    val javaHome: File? = null,
+    val classpath: List<File> = emptyList(),
+    val imports: List<String> = emptyList(),
+    val sources: List<File> = emptyList(),
+    val scripts: List<File> = emptyList()
 ) {
+    val canonical by lazy {
+        copy(
+            classpath = classpath.sorted(),
+            imports = imports.sorted(),
+            sources = sources.sorted(),
+            scripts = scripts.sorted()
+        )
+    }
+
     companion object {
         val Empty = ScriptDependencies()
     }
