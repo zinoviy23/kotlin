@@ -168,10 +168,10 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
 
         val scriptDefinition = file.findScriptDefinition() ?: return
 
-        val syncLoaders = loaders.filterNot { it.isAsync(file, scriptDefinition) }
+        val (asyncLoaders, syncLoaders) = loaders.partition { it.isAsync(file, scriptDefinition) }
+
         reloadConfigurationBy(file, scriptDefinition, syncLoaders)
 
-        val asyncLoaders = loaders - syncLoaders
         if (asyncLoaders.isNotEmpty()) {
             backgroundLoader.scheduleAsync(file)
         }
