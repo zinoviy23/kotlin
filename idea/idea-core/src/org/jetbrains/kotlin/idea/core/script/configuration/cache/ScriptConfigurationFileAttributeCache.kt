@@ -3,47 +3,38 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.core.script.dependencies
+package org.jetbrains.kotlin.idea.core.script.configuration.cache
 
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiManager
 import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.idea.core.util.*
+import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition
+import org.jetbrains.kotlin.scripting.definitions.findScriptDefinition
 import org.jetbrains.kotlin.scripting.resolve.KtFileScriptSource
-import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper.FromCompilationConfiguration
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper.FromLegacy
+import org.jetbrains.kotlin.scripting.resolve.VirtualFileScriptSource
 import java.io.*
 import kotlin.script.experimental.api.ScriptCompilationConfiguration
-import kotlin.script.experimental.api.asSuccess
 import kotlin.script.experimental.dependencies.ScriptDependencies
 
-class ScriptConfigurationFileAttributeCache : ScriptDependenciesLoader {
-    operator fun contains(file: VirtualFile): Boolean =
-        file.scriptDependencies != null || file.scriptCompilationConfiguration != null
-
-    override val skipSaveToAttributes: Boolean
-        get() = true
-
-    override val skipNotification: Boolean
-        get() = true
-
-    override fun loadDependencies(
-        firstLoad: Boolean,
-        file: KtFile,
-        scriptDefinition: ScriptDefinition
-    ): ScriptCompilationConfigurationResult? {
-        if (!firstLoad) return null
-
-        val virtualFile = file.originalFile.virtualFile
-
+class ScriptConfigurationFileAttributeCache(val project: Project) {
+    fun load(
+        virtualFile: VirtualFile
+    ): ScriptCompilationConfigurationWrapper? {
         val configurationFromAttributes =
             virtualFile.scriptCompilationConfiguration?.let {
-                FromCompilationConfiguration(KtFileScriptSource(file), it)
+                FromCompilationConfiguration(VirtualFileScriptSource(virtualFile), it)
             } ?: virtualFile.scriptDependencies?.let {
-                FromLegacy(KtFileScriptSource(file), it, scriptDefinition)
+                val ktFile = runReadAction { PsiManager.getInstance(project).findFile(virtualFile) as? KtFile }
+                if (ktFile != null) {
+                    val scriptDefinition = ktFile.findScriptDefinition()
+                    FromLegacy(KtFileScriptSource(ktFile), it, scriptDefinition)
+                } else null
             } ?: return null
 
 
@@ -54,7 +45,7 @@ class ScriptConfigurationFileAttributeCache : ScriptDependenciesLoader {
             return null
         }
 
-        return configurationFromAttributes.asSuccess()
+        return configurationFromAttributes
     }
 
     private fun areDependenciesValid(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper): Boolean {
