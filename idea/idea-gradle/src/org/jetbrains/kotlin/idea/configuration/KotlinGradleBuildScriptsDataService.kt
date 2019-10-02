@@ -59,6 +59,7 @@ class KotlinGradleBuildScriptsDataService : AbstractProjectDataService<GradleSou
 
         val files = mutableListOf<Pair<VirtualFile, ScriptCompilationConfigurationResult>>()
 
+        val home = "/Users/sergey.rostov/.gradle/wrapper/dists/gradle-6.0-20191001230020+0000-bin/6flzaqm7aakvjqwzpzw1mpxsw/gradle-6.0-20191001230020+0000/lib"
         projectDataNode.gradleKotlinBuildScripts?.forEach { buildScript ->
             val scriptFile = File(buildScript.file)
             val virtualFile = VfsUtil.findFile(scriptFile.toPath(), true)!!
@@ -71,7 +72,12 @@ class KotlinGradleBuildScriptsDataService : AbstractProjectDataService<GradleSou
                             VirtualFileScriptSource(virtualFile),
                             ScriptDependencies(
                                 javaHome = javaHome,
-                                classpath = buildScript.classPath.map { File(it) },
+                                classpath = (listOf(
+                                    "$home/gradle-core-6.0.jar",
+                                    "$home/gradle-kotlin-dsl-tooling-models-6.0.jar",
+                                    "$home/gradle-kotlin-dsl-6.0.jar",
+                                    "$home/gradle-core-api-6.0.jar"
+                                ) + buildScript.classPath).map { File(it) },
                                 sources = buildScript.sourcePath.map { File(it) },
                                 imports = buildScript.imports
                             ),
