@@ -168,7 +168,7 @@ class JavacWrapper(
         if (javaFilesNumber == 0) return true
 
         setClassPathForCompilation(outDir)
-        makeOutputDirectoryClassesVisible()
+        //makeOutputDirectoryClassesVisible()
 
         val outputPath =
             fileManager.getLocation(CLASS_OUTPUT)?.firstOrNull()?.path?.takeIf { "compilerProject_test" !in it } ?: "test directory"
