@@ -4,8 +4,8 @@ class A {
     fun foo(): Int = 12
 }
 
-A.bar(): Int = {
-    return bar() + <caret>
+fun A.bar(): Int {
+    return foo() + <caret>
 }
 
 // TYPE: 1

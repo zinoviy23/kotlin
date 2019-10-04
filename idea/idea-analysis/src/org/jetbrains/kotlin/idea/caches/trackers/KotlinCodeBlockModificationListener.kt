@@ -25,7 +25,6 @@ import com.intellij.psi.impl.PsiTreeChangeEventImpl.PsiEventType.CHILD_MOVED
 import com.intellij.psi.impl.PsiTreeChangeEventImpl.PsiEventType.PROPERTY_CHANGED
 import com.intellij.psi.impl.PsiTreeChangePreprocessor
 import com.intellij.psi.util.PsiModificationTracker
-import com.intellij.psi.util.parents
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getTopmostParentOfType
@@ -96,16 +95,9 @@ class KotlinCodeBlockModificationListener(
                             changedElements.all { !it.psi.isPhysical })
                 ) return
 
-                // When a code fragment is reparsed, Intellij doesn't do an AST diff and considers the entire
-                // contents to be replaced, which is represented in a POM event as an empty list of changed elements
-                val outOfBlockChange =
-                    changedElements.filter { it.psi.isPhysical }.any { getInsideCodeBlockModificationScope(it.psi) == null } || changedElements.isEmpty()
+                val inBlockChange = inBlockModifications(changedElements)
 
-                val inBlockChange = if (!outOfBlockChange) {
-                    incInBlockModificationCount(changedElements)
-                } else false
-
-                if (outOfBlockChange || !inBlockChange) {
+                if (!inBlockChange) {
                     messageBusConnection.deliverImmediately()
 
                     if (ktFile.isPhysical && !isReplLine(ktFile.virtualFile)) {
@@ -169,7 +161,7 @@ class KotlinCodeBlockModificationListener(
         }
 
         private fun incOutOfBlockModificationCount(file: KtFile) {
-            file.cleanInBlockModifications()
+            file.clearInBlockModifications()
 
             val count = file.getUserData(FILE_OUT_OF_BLOCK_MODIFICATION_COUNT) ?: 0
             file.putUserData(FILE_OUT_OF_BLOCK_MODIFICATION_COUNT, count + 1)
@@ -181,45 +173,24 @@ class KotlinCodeBlockModificationListener(
             tracker.incModificationCount()
         }
 
-        private fun incInBlockModificationCount(elements: Array<ASTNode>): Boolean {
+        private fun inBlockModifications(elements: Array<ASTNode>): Boolean {
+            // When a code fragment is reparsed, Intellij doesn't do an AST diff and considers the entire
+            // contents to be replaced, which is represented in a POM event as an empty list of changed elements
+            if (elements.isEmpty()) return false
+
             val inBlockElements = mutableSetOf<KtElement>()
             for (element in elements) {
                 // skip fake PSI elements like `IntellijIdeaRulezzz$`
-                if (!element.psi.isPhysical) continue
+                val psi = element.psi
+                if (!psi.isPhysical) continue
 
-                for (parent in element.psi.parents()) {
-                    if (parent is KtFile) break
-                    // TODO: generalization item: seems private items (methods/properties) could limited to the outer class
-                    // need to figure out for diagnostics invalidation
+                val modificationScope = getInsideCodeBlockModificationScope(psi) ?: return false
 
-                    val isInBlockElement = when (parent) {
-                        // WARNING: top level function or regular class function only
-                        // as it is not possible to perform incremental analysis for local declarations
-                        is KtNamedFunction -> (parent.parent is KtFile || parent.parent?.parent?.parent is KtFile)
-                        // top level class declarations only
-                        is KtClass -> (parent.parent is KtFile)
-                        // property of top level class declarations only
-                        is KtProperty -> (parent.parent?.parent is KtClass && parent.parent?.parent?.parent is KtFile)
-                        // top level script initializers only
-                        is KtScriptInitializer -> (parent.parent?.parent?.parent is KtFile)
-                        else -> false
-                    }
-
-                    if (isInBlockElement) {
-                        inBlockElements.add(parent as KtElement)
-                        break
-                    }
-                }
+                inBlockElements.add(modificationScope.blockDeclaration)
             }
-            if (inBlockElements.isNotEmpty()) {
-                inBlockElements.forEach { incInBlockModificationCount(it) }
-            }
+
+            inBlockElements.forEach { it.containingKtFile.addInBlockModifiedItem(it) }
             return inBlockElements.isNotEmpty()
-        }
-
-        private fun incInBlockModificationCount(item: KtElement) {
-            val inBlockModifications = item.containingKtFile.inBlockModifications
-            inBlockModifications.add(item)
         }
 
         fun isFormattingChange(changeSet: TreeChangeEvent): Boolean =
@@ -227,27 +198,33 @@ class KotlinCodeBlockModificationListener(
                 changeSet.getChangesByElement(it).affectedChildren.all { c -> (c is PsiWhiteSpace || c is PsiComment) }
             }
 
-        fun getInsideCodeBlockModificationScope(element: PsiElement): KtElement? {
+        fun getInsideCodeBlockModificationScope(element: PsiElement): BlockModificationScopeElement? {
             val lambda = element.getTopmostParentOfType<KtLambdaExpression>()
             if (lambda is KtLambdaExpression) {
                 lambda.getTopmostParentOfType<KtSuperTypeCallEntry>()?.let {
-                    return it
+                    return BlockModificationScopeElement(it, it)
                 }
             }
 
             val blockDeclaration =
-                KtPsiUtil.getTopmostParentOfTypes(element, *BLOCK_DECLARATION_TYPES) as? KtDeclaration ?:
+                KtPsiUtil.getTopmostParentOfTypes(element, *BLOCK_DECLARATION_TYPES) as? KtDeclaration ?: return null
+
+            // should not be local declaration
+            if (KtPsiUtil.isLocal(blockDeclaration))
                 return null
-            if (KtPsiUtil.isLocal(blockDeclaration)) return null // should not be local declaration
 
             when (blockDeclaration) {
                 is KtNamedFunction -> {
                     if (blockDeclaration.hasBlockBody()) {
-                        // case like `fun foo(): String = {...<caret>...}`
-                        return blockDeclaration.bodyExpression?.takeIf { it.isAncestor(element) }
+                        // case like `fun foo(): String {...<caret>...}`
+                        return blockDeclaration.bodyExpression
+                            ?.takeIf { it.isAncestor(element) }
+                            ?.let { BlockModificationScopeElement(blockDeclaration, it) }
                     } else if (blockDeclaration.hasDeclaredReturnType()) {
                         // case like `fun foo(): String = b<caret>labla`
-                        return blockDeclaration.initializer?.takeIf { it.isAncestor(element) }
+                        return blockDeclaration.initializer
+                            ?.takeIf { it.isAncestor(element) }
+                            ?.let { BlockModificationScopeElement(blockDeclaration, it) }
                     }
                 }
 
@@ -256,11 +233,11 @@ class KotlinCodeBlockModificationListener(
                         for (accessor in blockDeclaration.accessors) {
                             (accessor.initializer ?: accessor.bodyExpression)
                                 ?.takeIf { it.isAncestor(element) || (element is KtPropertyAccessor && element.isAncestor(it)) }
-                                ?.let { return it }
+                                ?.let { return BlockModificationScopeElement(blockDeclaration, it) }
                         }
                         blockDeclaration.initializer
                             ?.takeIf { it.isAncestor(element) }
-                            ?.let { return it }
+                            ?.let { return BlockModificationScopeElement(blockDeclaration, it) }
                     }
                 }
 
@@ -270,12 +247,17 @@ class KotlinCodeBlockModificationListener(
                         ?.lastOrNull()
                         ?.getLambdaExpression()
                         ?.takeIf { it.isAncestor(element) }
+                        ?.let { BlockModificationScopeElement(blockDeclaration, it) }
                 }
 
                 is KtClassInitializer -> {
-                    blockDeclaration
+                    return blockDeclaration
                         .takeIf { it.isAncestor(element) }
-                        ?.let { return it }
+                        ?.let {
+                            BlockModificationScopeElement(
+                                KtPsiUtil.getTopmostParentOfTypes(blockDeclaration, KtClass::class.java) as KtElement, it
+                            )
+                        }
                 }
 
                 // TODO: still under consideration - is it worth to track changes of private properties / methods
@@ -293,6 +275,8 @@ class KotlinCodeBlockModificationListener(
 
             return null
         }
+
+        data class BlockModificationScopeElement(val blockDeclaration: KtElement, val element: KtElement)
 
         fun isBlockDeclaration(declaration: KtDeclaration): Boolean {
             return BLOCK_DECLARATION_TYPES.any { it.isInstance(declaration) }
@@ -317,17 +301,32 @@ val KtFile.perFileModificationTracker: ModificationTracker
 
 private val FILE_OUT_OF_BLOCK_MODIFICATION_COUNT = Key<Long>("FILE_OUT_OF_BLOCK_MODIFICATION_COUNT")
 
-private val IN_BLOCK_MODIFICATIONS = Key<MutableCollection<KtElement>>("IN_BLOCK_MODIFICATIONS")
-
 val KtFile.outOfBlockModificationCount: Long by NotNullableUserDataProperty(FILE_OUT_OF_BLOCK_MODIFICATION_COUNT, 0)
 
+
 /**
- * inBlockModificationCount means how many changes have been made since last outOfBlockModificationCount for this item
- * it is reset to 0 on any outOfBlockModificationCount
+ * inBlockModifications is a collection of block elements those have in-block modifications
  */
+private val IN_BLOCK_MODIFICATIONS = Key<MutableCollection<KtElement>>("IN_BLOCK_MODIFICATIONS")
 
-val KtFile.inBlockModifications: MutableCollection<KtElement> by NotNullableUserDataProperty(IN_BLOCK_MODIFICATIONS, mutableSetOf())
+val KtFile.inBlockModifications: Collection<KtElement>
+    get() {
+        val collection = getUserData(IN_BLOCK_MODIFICATIONS)
+        return collection ?: emptySet()
+    }
 
-fun KtFile.cleanInBlockModifications() {
-    inBlockModifications.clear()
+private fun KtFile.addInBlockModifiedItem(element: KtElement) {
+    val collection = putUserDataIfAbsent(IN_BLOCK_MODIFICATIONS, mutableSetOf())
+    synchronized(collection) {
+        collection.add(element)
+    }
+}
+
+fun KtFile.clearInBlockModifications() {
+    val collection = getUserData(IN_BLOCK_MODIFICATIONS)
+    collection?.let {
+        synchronized(it) {
+            it.clear()
+        }
+    }
 }

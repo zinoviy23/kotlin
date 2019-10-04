@@ -37,7 +37,7 @@ import org.jetbrains.kotlin.diagnostics.Diagnostic
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
 import org.jetbrains.kotlin.frontend.di.createContainerForLazyBodyResolve
 import org.jetbrains.kotlin.idea.caches.project.getModuleInfo
-import org.jetbrains.kotlin.idea.caches.trackers.cleanInBlockModifications
+import org.jetbrains.kotlin.idea.caches.trackers.clearInBlockModifications
 import org.jetbrains.kotlin.idea.caches.trackers.inBlockModifications
 import org.jetbrains.kotlin.idea.project.IdeaModuleStructureOracle
 import org.jetbrains.kotlin.idea.project.TargetPlatformDetector
@@ -102,11 +102,24 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
             // step 1: perform incremental analysis IF there is a cached result for ktFile and there are inBlockModifications
             if (analysisResult != null && inBlockModifications.isNotEmpty()) {
                 var result = analysisResult!!
-                for (inBlockModification in inBlockModifications) {
-                    val inBlockResult = analyze(inBlockModification)
-                    result = mergeResults(inBlockModification, inBlockResult, file, result)
+
+                // check IF incremental analysis is applicable
+                var incrementalAnalysisApplicable =
+                    if (result.bindingContext is StackedCompositeBindingContext)
+                        (result.bindingContext as StackedCompositeBindingContext).isIncrementalAnalysisApplicable()
+                    else true
+
+                if (incrementalAnalysisApplicable) {
+                    for (inBlockModification in inBlockModifications) {
+                        val inBlockResult = analyze(inBlockModification)
+                        result = mergeResults(inBlockModification, inBlockResult, file, result)
+                    }
+                } else {
+                    // drop existed result for file if incremental analysis is not applicable
+                    // it leads to entire file analysis
+                    cache.remove(file)
                 }
-                file.cleanInBlockModifications()
+                file.clearInBlockModifications()
             }
 
             // cache does not contain AnalysisResult per each kt/psi element
@@ -117,14 +130,14 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
                 return@synchronized it
             }
 
-            // step 3: return ktFile analyze if it is available (as it accumulates all results)
-            cache[file]?.let {
-                return@synchronized it
-            }
-
-            // step 4: perform analyze of analyzableParent as nothing has been cached yet
+            // step 3: perform analyze of analyzableParent as nothing has been cached yet
             val result = analyze(analyzableParent)
             cache[analyzableParent] = result
+
+            if (analyzableParent == file) {
+                // clean up in-block modifications as current analyze already picked up changed items
+                file.clearInBlockModifications()
+            }
 
             return@synchronized result
         }
@@ -158,22 +171,22 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
 
         val thisDiagnosticsAll = thisCtx.diagnostics.all()
 
-        val sameElementParentCtx: StackedCompositeBindingContext? =
-            if (parentCtx is StackedCompositeBindingContext) {
-                if (parentCtx.element == element) parentCtx else {
-                    // clean up cached analysis result for prev element as it is incorporated into this one
-                    cache.remove(parentCtx.element)
-                    null
-                }
-            } else null
+        // to reflect a depth of stacked binding context, when it exceeds some limit how long it could be a list of delegates ? is it worth to perform full analysis when we got too deep ?
+        val depth: Int
+        val ctx: BindingContext
+        val parentDiagnostics: List<Diagnostic>
 
-        // parentDiagnostics contains only diagnostic outside of this element
-        // no reason to re-evaluate parentDiagnosticsAll if it is the same element
-        val parentDiagnostics: List<Diagnostic> = sameElementParentCtx?.parentDiagnostics ?: run {
+        if (parentCtx is StackedCompositeBindingContext && parentCtx.element == element) {
+            depth = parentCtx.depth
+            ctx = parentCtx.parentContext
+            parentDiagnostics = parentCtx.parentDiagnostics
+        } else {
+            depth = (if (parentCtx is StackedCompositeBindingContext) parentCtx.depth else 0) + 1
+            ctx = parentCtx
             // parentCtx diagnostics can have potentially outdated psi elements
             // so far - traverse from children to parent (expensive) to identify that it is out of this element diagnostic
             val parentDiagnosticsAll = parentCtx.diagnostics.all()
-            parentDiagnosticsAll.filter { d ->
+            parentDiagnostics = parentDiagnosticsAll.filter { d ->
                 // do not copy diagnostic that is built on a top level as it could be outdated
                 for (diagnosticParent in generateSequence(d.psiElement) { it.parent }) {
                     if (diagnosticParent == element) {
@@ -185,21 +198,13 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
             }.toList()
         }
 
-        val diagnosticList = parentDiagnostics + thisDiagnosticsAll // copy all diagnostics those belongs to `element`
+        // copy all diagnostics those belongs to `element`
+        val diagnosticList = parentDiagnostics + thisDiagnosticsAll
 
-        // how long it could be a list of delegates ? is it worth to perform full analysis when we got too deep ?
-        val depth = when (parentCtx) {
-            is StackedCompositeBindingContext -> if (parentCtx.element == element) parentCtx.depth else (parentCtx.depth + 1)
-            else -> 1
-        }
-
-        val ctx = sameElementParentCtx?.parentContext ?: parentCtx
-
-        val diagnostics: Diagnostics = if (diagnosticList.isEmpty()) Diagnostics.EMPTY else
-            MergedDiagnostics(
-                diagnosticList,
-                parentCtx.diagnostics.modificationTracker
-            )
+        val diagnostics: Diagnostics =
+            if (diagnosticList.isNotEmpty())
+                MergedDiagnostics(diagnosticList, parentCtx.diagnostics.modificationTracker)
+            else Diagnostics.EMPTY
 
         return StackedCompositeBindingContext(
             depth,
@@ -264,7 +269,15 @@ private class MergedDiagnostics(val diagnostics: Collection<Diagnostic>, overrid
     override fun noSuppression() = this
 }
 
-
+/**
+ * Effectively SCBC holds up-to-date and outdated contexts
+ *
+ * The top item has most recent result while the most deep has most old one
+ *
+ * To retrieve result SCBC goes from the top of stack to the bottom trying to find most up-to-date result.
+ *
+ * Note: It does not delete outdated results rather hide it therefore there is some extra memory footprint.
+ */
 private class StackedCompositeBindingContext(
     val depth: Int, // depth of stack over original ktFile bindingContext
     val element: KtElement,
@@ -276,6 +289,9 @@ private class StackedCompositeBindingContext(
 ) : BindingContext {
 
     val delegates = listOf(elementContext, parentContext)
+
+    // to prevent too deep stacked binding context
+    fun isIncrementalAnalysisApplicable(): Boolean = depth < 16
 
     private fun ctx(ktElement: PsiElement?): BindingContext? =
         when {
@@ -312,11 +328,10 @@ private class StackedCompositeBindingContext(
         return ImmutableMap.builder<K, V>().putAll(map).build()
     }
 
-    override fun getDiagnostics(): Diagnostics {
-        return diagnostics
-    }
+    override fun getDiagnostics(): Diagnostics = diagnostics
 
     override fun addOwnDataTo(trace: BindingTrace, commitDiagnostics: Boolean) = throw UnsupportedOperationException()
+
 }
 
 private object KotlinResolveDataProvider {
