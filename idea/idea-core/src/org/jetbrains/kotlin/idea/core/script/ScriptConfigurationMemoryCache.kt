@@ -34,8 +34,7 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty0
 import kotlin.reflect.jvm.isAccessible
 
-class ScriptConfigurationMemoryCache internal constructor(private val project: Project) {
-
+class ScriptConfigurationMemoryCache internal constructor(project: Project) : AbstractScriptConfigurationCache(project) {
     companion object {
         const val MAX_SCRIPTS_CACHED = 50
     }
@@ -49,210 +48,32 @@ class ScriptConfigurationMemoryCache internal constructor(private val project: P
         })
     }
 
-    private val cacheLock = ReentrantReadWriteLock()
-
     private val scriptDependenciesCache = SLRUCacheWithLock<VirtualFile, ScriptCompilationConfigurationWrapper>()
     private val scriptsModificationStampsCache = SLRUCacheWithLock<VirtualFile, Long>()
 
-    fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? = scriptDependenciesCache.get(file)
+    override val allConfigurations: List<CachedConfiguration>
+        get() = scriptDependenciesCache.getAll().map {
+            CachedConfiguration(it.key, it.value, scriptsModificationStampsCache.get(it.key) ?: 0)
+        }
 
-    fun isConfigurationUpToDate(file: VirtualFile): Boolean {
-        return scriptsModificationStampsCache.get(file) == file.modificationStamp
-    }
+    override fun get(file: VirtualFile): CachedConfiguration? =
+        CachedConfiguration(file, scriptDependenciesCache[file], scriptsModificationStampsCache[file])
 
-    fun setUpToDate(file: VirtualFile) {
+    override fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? = scriptDependenciesCache.get(file)
+
+    override fun setUpToDate(file: VirtualFile) {
         scriptsModificationStampsCache.replace(file, file.modificationStamp)
     }
 
-    fun replaceConfiguration(file: VirtualFile, new: ScriptCompilationConfigurationWrapper) {
+    override fun replaceConfiguration(file: VirtualFile, new: ScriptCompilationConfigurationWrapper) {
         scriptDependenciesCache.replace(file, new)
     }
 
-    val scriptsDependenciesClasspathScopeCache: MutableMap<VirtualFile, GlobalSearchScope> =
-        ConcurrentFactoryMap.createWeakMap { file ->
-            val compilationConfiguration = getConfiguration(file)
-                ?: return@createWeakMap GlobalSearchScope.EMPTY_SCOPE
-
-            val roots = compilationConfiguration.dependenciesClassPath
-            val sdk = scriptsSdksCache[file]
-
-            @Suppress("FoldInitializerAndIfToElvis")
-            if (sdk == null) {
-                return@createWeakMap NonClasspathDirectoriesScope.compose(ScriptConfigurationManager.toVfsRoots(roots))
-            }
-
-            return@createWeakMap NonClasspathDirectoriesScope.compose(
-                sdk.rootProvider.getFiles(OrderRootType.CLASSES).toList() +
-                        ScriptConfigurationManager.toVfsRoots(roots)
-            )
-        }
-
-    val scriptsSdksCache: MutableMap<VirtualFile, Sdk?> =
-        ConcurrentFactoryMap.createWeakMap { file ->
-            val compilationConfiguration = getConfiguration(file)
-            return@createWeakMap getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(project)
-        }
-
-    private fun getConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? {
-        val configuration = getCachedConfiguration(file)
-
-        if (configuration != null) return configuration
-
-        val ktFile = runReadAction { PsiManager.getInstance(project).findFile(file) as? KtFile } ?: return null
-        return ScriptConfigurationManager.getInstance(project).getConfiguration(ktFile)
-    }
-
-    private fun getScriptSdk(compilationConfiguration: ScriptCompilationConfigurationWrapper?): Sdk? {
-        // workaround for mismatched gradle wrapper and plugin version
-        val javaHome = try {
-            compilationConfiguration?.javaHome?.let { VfsUtil.findFileByIoFile(it, true) }
-        } catch (e: Throwable) {
-            null
-        } ?: return null
-
-        return getAllProjectSdks().find { it.homeDirectory == javaHome }
-    }
-
-    val firstScriptSdk: Sdk?
-        get() {
-            val firstCachedScript = scriptDependenciesCache.getAll().firstOrNull()?.key ?: return null
-            return scriptsSdksCache[firstCachedScript]
-        }
-
-    private val allSdks by ClearableLazyValue(cacheLock) {
-        scriptDependenciesCache.getAll()
-            .mapNotNull { scriptsSdksCache[it.key] }
-            .distinct()
-    }
-
-    private val allNonIndexedSdks by ClearableLazyValue(cacheLock) {
-        scriptDependenciesCache.getAll()
-            .mapNotNull { scriptsSdksCache[it.key] }
-            .filterNonModuleSdk()
-            .distinct()
-    }
-
-    val allDependenciesClassFiles by ClearableLazyValue(cacheLock) {
-        val sdkFiles = allNonIndexedSdks
-            .flatMap { it.rootProvider.getFiles(OrderRootType.CLASSES).toList() }
-
-        val scriptDependenciesClasspath = scriptDependenciesCache.getAll()
-            .flatMap { it.value.dependenciesClassPath }.distinct()
-
-        sdkFiles + ScriptConfigurationManager.toVfsRoots(scriptDependenciesClasspath)
-    }
-
-    val allDependenciesSources by ClearableLazyValue(cacheLock) {
-        val sdkSources = allNonIndexedSdks
-            .flatMap { it.rootProvider.getFiles(OrderRootType.SOURCES).toList() }
-
-        val scriptDependenciesSources = scriptDependenciesCache.getAll()
-            .flatMap { it.value.dependenciesSources }.distinct()
-        sdkSources + ScriptConfigurationManager.toVfsRoots(scriptDependenciesSources)
-    }
-
-    val allDependenciesClassFilesScope by ClearableLazyValue(cacheLock) {
-        NonClasspathDirectoriesScope.compose(allDependenciesClassFiles)
-    }
-
-    val allDependenciesSourcesScope by ClearableLazyValue(cacheLock) {
-        NonClasspathDirectoriesScope.compose(allDependenciesSources)
-    }
-
-    private fun List<Sdk>.filterNonModuleSdk(): List<Sdk> {
-        val moduleSdks = ModuleManager.getInstance(project).modules.map { ModuleRootManager.getInstance(it).sdk }
-        return filterNot { moduleSdks.contains(it) }
-    }
-
-    fun clearConfigurationCaches(): List<VirtualFile> {
-        debug { "configuration caches cleared" }
-
-        val keys = scriptDependenciesCache.getAll().map { it.key }.toList()
-
+    override fun clear(): List<VirtualFile> {
+        val files = scriptDependenciesCache.getAll().map { it.key }
         scriptDependenciesCache.clear()
         scriptsModificationStampsCache.clear()
-
-        return keys
-    }
-
-    fun clearClassRootsCaches() {
-        debug { "class roots caches cleared" }
-
-        this::allSdks.clearValue()
-        this::allNonIndexedSdks.clearValue()
-
-        this::allDependenciesClassFiles.clearValue()
-        this::allDependenciesClassFilesScope.clearValue()
-
-        this::allDependenciesSources.clearValue()
-        this::allDependenciesSourcesScope.clearValue()
-
-        scriptsDependenciesClasspathScopeCache.clear()
-        scriptsSdksCache.clear()
-
-        val kotlinScriptDependenciesClassFinder =
-            Extensions.getArea(project).getExtensionPoint(PsiElementFinder.EP_NAME).extensions
-                .filterIsInstance<KotlinScriptDependenciesClassFinder>()
-                .single()
-
-        kotlinScriptDependenciesClassFinder.clearCache()
-
-        ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
-    }
-
-    fun hasNotCachedRoots(compilationConfiguration: ScriptCompilationConfigurationWrapper): Boolean {
-        val scriptSdk = getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(project)
-        val wasSdkChanged = scriptSdk != null && !allSdks.contains(scriptSdk)
-        if (wasSdkChanged) {
-            debug { "sdk was changed: $compilationConfiguration" }
-            return true
-        }
-
-        val newClassRoots = ScriptConfigurationManager.toVfsRoots(compilationConfiguration.dependenciesClassPath)
-        for (newClassRoot in newClassRoots) {
-            if (!allDependenciesClassFiles.contains(newClassRoot)) {
-                debug { "class root was changed: $newClassRoot" }
-                return true
-            }
-        }
-
-        val newSourceRoots = ScriptConfigurationManager.toVfsRoots(compilationConfiguration.dependenciesSources)
-        for (newSourceRoot in newSourceRoots) {
-            if (!allDependenciesSources.contains(newSourceRoot)) {
-                debug { "source root was changed: $newSourceRoot" }
-                return true
-            }
-        }
-        return false
-    }
-
-}
-
-private fun <R> KProperty0<R>.clearValue() {
-    isAccessible = true
-    (getDelegate() as ClearableLazyValue<*, *>).clear()
-}
-
-private class ClearableLazyValue<in R, out T : Any>(
-    private val lock: ReentrantReadWriteLock,
-    private val compute: () -> T
-) : ReadOnlyProperty<R, T> {
-    override fun getValue(thisRef: R, property: KProperty<*>): T {
-        lock.write {
-            if (value == null) {
-                value = compute()
-            }
-            return value!!
-        }
-    }
-
-    private var value: T? = null
-
-
-    fun clear() {
-        lock.write {
-            value = null
-        }
+        return files
     }
 }
 

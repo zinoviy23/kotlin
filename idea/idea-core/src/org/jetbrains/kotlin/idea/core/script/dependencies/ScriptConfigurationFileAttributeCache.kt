@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrap
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper.FromCompilationConfiguration
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper.FromLegacy
 import java.io.*
+import kotlin.script.experimental.api.ResultWithDiagnostics
 import kotlin.script.experimental.api.ScriptCompilationConfiguration
 import kotlin.script.experimental.api.asSuccess
 import kotlin.script.experimental.dependencies.ScriptDependencies
@@ -37,6 +38,13 @@ class ScriptConfigurationFileAttributeCache : ScriptDependenciesLoader {
     ): ScriptCompilationConfigurationResult? {
         if (!firstLoad) return null
 
+        return load(file, scriptDefinition)
+    }
+
+    private fun load(
+        file: KtFile,
+        scriptDefinition: ScriptDefinition
+    ): ResultWithDiagnostics.Success<ScriptCompilationConfigurationWrapper>? {
         val virtualFile = file.originalFile.virtualFile
 
         val configurationFromAttributes =

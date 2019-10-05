@@ -36,7 +36,7 @@ import kotlin.script.experimental.api.valueOrNull
 class ScriptConfigurationManagerImpl internal constructor(private val project: Project) : ScriptConfigurationManager {
     private val rootsManager = ScriptClassRootsManager(project)
 
-    private val memoryCache = ScriptConfigurationMemoryCache(project)
+    private val memoryCache: ScriptConfigurationCache = ScriptConfigurationMemoryCache(project)
     private val fileAttributesCache = ScriptConfigurationFileAttributeCache()
 
     private val fromRefinedLoader = FromRefinedConfigurationLoader()

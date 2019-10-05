@@ -23,7 +23,7 @@ internal class ScriptClassRootsManager(val project: Project) {
     private val concurrentTransactions = AtomicInteger()
 
     fun checkNonCachedRoots(
-        cache: ScriptConfigurationMemoryCache,
+        cache: ScriptConfigurationCache,
         file: VirtualFile,
         configuration: ScriptCompilationConfigurationWrapper
     ) {
