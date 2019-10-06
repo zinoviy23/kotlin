@@ -25,12 +25,7 @@ class ScriptConfigurationMemoryCache internal constructor() : ScriptConfiguratio
 
     override fun all(): Collection<CachedConfiguration> = scriptDependenciesCache.getAll().map { it.value }
 
-
     override fun get(file: VirtualFile): CachedConfiguration? = scriptDependenciesCache.get(file)
-
-    override fun clear() {
-        scriptDependenciesCache.clear()
-    }
 }
 
 private class BlockingSLRUMap<K, V> {

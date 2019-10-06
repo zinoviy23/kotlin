@@ -5,8 +5,11 @@
 
 package org.jetbrains.kotlin.idea.core.script
 
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.kotlin.idea.core.script.dependencies.ScriptConfigurationFileAttributeCache
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
+import kotlin.script.experimental.api.valueOrNull
 
 class CachedConfiguration(
     val file: VirtualFile,
@@ -23,5 +26,26 @@ interface ScriptConfigurationCache {
     operator fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper)
 
     fun all(): Collection<CachedConfiguration>
-    fun clear()
+}
+
+class ScriptCompositeCache(
+    val project: Project,
+    val memoryCache: ScriptConfigurationCache,
+    val fileAttributeCache: ScriptConfigurationFileAttributeCache
+): ScriptConfigurationCache {
+    override fun get(file: VirtualFile): CachedConfiguration? {
+        val fromMemory = memoryCache[file]
+        if (fromMemory != null) return fromMemory
+
+        val fromAttributes = fileAttributeCache.load(file) ?: return null
+        memoryCache[file] = fromAttributes
+        return CachedConfiguration(file, fromAttributes)
+    }
+
+    override fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
+        memoryCache[file] = configuration
+        fileAttributeCache.save(file, configuration)
+    }
+
+    override fun all(): Collection<CachedConfiguration> = memoryCache.all()
 }

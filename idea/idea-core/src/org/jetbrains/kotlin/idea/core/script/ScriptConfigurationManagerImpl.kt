@@ -37,14 +37,16 @@ import kotlin.script.experimental.api.valueOrNull
 class ScriptConfigurationManagerImpl internal constructor(private val project: Project) : ScriptConfigurationManager {
     private val rootsManager = ScriptClassRootsManager(project)
 
-    private val memoryCache: ScriptConfigurationCache = ScriptConfigurationMemoryCache()
-    private val fileAttributesCache = ScriptConfigurationFileAttributeCache()
+    private val memoryCache: ScriptConfigurationCache = ScriptCompositeCache(
+        project,
+        ScriptConfigurationMemoryCache(),
+        ScriptConfigurationFileAttributeCache(project)
+    )
 
     private val fromRefinedLoader = FromRefinedConfigurationLoader()
     private val loaders = arrayListOf(
         OutsiderFileDependenciesLoader(this),
-        fromRefinedLoader,
-        fileAttributesCache
+        fromRefinedLoader
     )
 
     private val backgroundLoader = BackgroundLoader(project, rootsManager, ::reloadConfigurationAsync)
@@ -331,11 +333,11 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         memoryCache[file]?.result
 
     private fun isConfigurationCached(file: VirtualFile): Boolean {
-        return getCachedConfiguration(file) != null || file in fileAttributesCache
+        return getCachedConfiguration(file) != null
     }
 
     private fun isConfigurationUpToDate(file: VirtualFile): Boolean {
-        return isConfigurationCached(file) && memoryCache[file]?.isUpToDate ?: false
+        return memoryCache[file]?.isUpToDate == true
     }
 
     private fun rehighlightOpenedScripts() {
