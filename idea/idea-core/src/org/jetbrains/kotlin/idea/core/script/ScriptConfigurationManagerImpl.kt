@@ -351,6 +351,8 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         updateHighlighting(openedScripts)
     }
 
+    ///////////////////////////////
+
     init {
         val connection = project.messageBus.connect()
         connection.subscribe(ProjectTopics.PROJECT_ROOTS, object : ModuleRootListener {
@@ -385,11 +387,57 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
     }
 
-    val firstScriptSdk: Sdk?
-        get() {
-            val firstCachedScript = allConfigurations.firstOrNull()?.file ?: return null
-            return scriptsSdksCache[firstCachedScript]
+    private fun getScriptSdk(compilationConfiguration: ScriptCompilationConfigurationWrapper?): Sdk? {
+        // workaround for mismatched gradle wrapper and plugin version
+        val javaHome = try {
+            compilationConfiguration?.javaHome?.let { VfsUtil.findFileByIoFile(it, true) }
+        } catch (e: Throwable) {
+            null
+        } ?: return null
+
+        return getAllProjectSdks().find { it.homeDirectory == javaHome }
+    }
+
+    private val scriptsSdksCache: MutableMap<VirtualFile, Sdk?> =
+        ConcurrentFactoryMap.createWeakMap { file ->
+            val compilationConfiguration = getConfiguration(file)
+            return@createWeakMap getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(project)
         }
+
+    private fun scriptSdk(file: VirtualFile): Sdk? {
+        return scriptsSdksCache[file]
+    }
+
+    private fun hasNotCachedRoots(compilationConfiguration: ScriptCompilationConfigurationWrapper): Boolean {
+        val scriptSdk = getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(project)
+        val wasSdkChanged = scriptSdk != null && !allSdks.contains(scriptSdk)
+        if (wasSdkChanged) {
+            debug { "sdk was changed: $compilationConfiguration" }
+            return true
+        }
+
+        val newClassRoots = toVfsRoots(compilationConfiguration.dependenciesClassPath)
+        for (newClassRoot in newClassRoots) {
+            if (!allDependenciesClassFiles.contains(newClassRoot)) {
+                debug { "class root was changed: $newClassRoot" }
+                return true
+            }
+        }
+
+        val newSourceRoots = toVfsRoots(compilationConfiguration.dependenciesSources)
+        for (newSourceRoot in newSourceRoots) {
+            if (!allDependenciesSources.contains(newSourceRoot)) {
+                debug { "source root was changed: $newSourceRoot" }
+                return true
+            }
+        }
+        return false
+    }
+
+    override fun getFirstScriptsSdk(): Sdk? {
+        val firstCachedScript = allConfigurations.firstOrNull()?.file ?: return null
+        return scriptsSdksCache[firstCachedScript]
+    }
 
     private val cacheLock = ReentrantReadWriteLock()
 
@@ -416,7 +464,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
             .flatMap { it.rootProvider.getFiles(OrderRootType.CLASSES).toList() }
 
         val scriptDependenciesClasspath = allConfigurations
-            .flatMap { it.result?.dependenciesClassPath }.distinct()
+            .flatMap { it.result.dependenciesClassPath }.distinct()
 
         sdkFiles + toVfsRoots(scriptDependenciesClasspath)
     }
@@ -438,10 +486,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         NonClasspathDirectoriesScope.compose(allDependenciesSources)
     }
 
-    override fun getScriptDependenciesClassFilesScope(file: VirtualFile) = scriptDependenciesClassFilesScope(file)
     override fun getScriptSdk(file: VirtualFile) = scriptSdk(file)
-
-    override fun getFirstScriptsSdk() = firstScriptSdk
 
     override fun getAllScriptsDependenciesClassFilesScope() = allDependenciesClassFilesScope
     override fun getAllScriptDependenciesSourcesScope() = allDependenciesSourcesScope
@@ -471,52 +516,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         return scriptsDependenciesClasspathScopeCache[file] ?: GlobalSearchScope.EMPTY_SCOPE
     }
 
-    private fun getScriptSdk(compilationConfiguration: ScriptCompilationConfigurationWrapper?): Sdk? {
-        // workaround for mismatched gradle wrapper and plugin version
-        val javaHome = try {
-            compilationConfiguration?.javaHome?.let { VfsUtil.findFileByIoFile(it, true) }
-        } catch (e: Throwable) {
-            null
-        } ?: return null
-
-        return getAllProjectSdks().find { it.homeDirectory == javaHome }
-    }
-
-    private val scriptsSdksCache: MutableMap<VirtualFile, Sdk?> =
-        ConcurrentFactoryMap.createWeakMap { file ->
-            val compilationConfiguration = getConfiguration(file)
-            return@createWeakMap getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(project)
-        }
-
-    private fun scriptSdk(file: VirtualFile): Sdk? {
-        return scriptsSdksCache[file]
-    }
-
-    fun hasNotCachedRoots(compilationConfiguration: ScriptCompilationConfigurationWrapper): Boolean {
-        val scriptSdk = getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(project)
-        val wasSdkChanged = scriptSdk != null && !allSdks.contains(scriptSdk)
-        if (wasSdkChanged) {
-            debug { "sdk was changed: $compilationConfiguration" }
-            return true
-        }
-
-        val newClassRoots = toVfsRoots(compilationConfiguration.dependenciesClassPath)
-        for (newClassRoot in newClassRoots) {
-            if (!allDependenciesClassFiles.contains(newClassRoot)) {
-                debug { "class root was changed: $newClassRoot" }
-                return true
-            }
-        }
-
-        val newSourceRoots = toVfsRoots(compilationConfiguration.dependenciesSources)
-        for (newSourceRoot in newSourceRoots) {
-            if (!allDependenciesSources.contains(newSourceRoot)) {
-                debug { "source root was changed: $newSourceRoot" }
-                return true
-            }
-        }
-        return false
-    }
+    override fun getScriptDependenciesClassFilesScope(file: VirtualFile) = scriptDependenciesClassFilesScope(file)
 }
 
 private fun <R> KProperty0<R>.clearValue() {

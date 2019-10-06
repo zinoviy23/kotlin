@@ -62,12 +62,12 @@ class IdeScriptDependenciesProvider(project: Project) : ScriptDependenciesProvid
  * of opened files.
  */
 interface ScriptConfigurationManager {
-    /**
-     * Save configurations into cache.
-     * Start indexing for new class/source roots.
-     * Re-highlight opened scripts with changed configuration.
-     */
-    fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>)
+    fun getConfiguration(file: KtFile): ScriptCompilationConfigurationWrapper?
+
+    @Deprecated("Use getScriptClasspath(KtFile) instead")
+    fun getScriptClasspath(file: VirtualFile): List<VirtualFile>
+
+    fun getScriptClasspath(file: KtFile): List<VirtualFile>
 
     /**
      * Start configuration update for files if configuration isn't up to date.
@@ -91,14 +91,20 @@ interface ScriptConfigurationManager {
      */
     fun clearConfigurationCachesAndRehighlight()
 
-    @Deprecated("Use getScriptClasspath(KtFile) instead")
-    fun getScriptClasspath(file: VirtualFile): List<VirtualFile>
+    /**
+     * Save configurations into cache.
+     * Start indexing for new class/source roots.
+     * Re-highlight opened scripts with changed configuration.
+     */
+    fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>)
 
-    fun getScriptClasspath(file: KtFile): List<VirtualFile>
-    fun getConfiguration(file: KtFile): ScriptCompilationConfigurationWrapper?
-    fun getScriptDependenciesClassFilesScope(file: VirtualFile): GlobalSearchScope
+///////////////
+
     fun getScriptSdk(file: VirtualFile): Sdk?
     fun getFirstScriptsSdk(): Sdk?
+
+    fun getScriptDependenciesClassFilesScope(file: VirtualFile): GlobalSearchScope
+
     fun getAllScriptsDependenciesClassFilesScope(): GlobalSearchScope
     fun getAllScriptDependenciesSourcesScope(): GlobalSearchScope
     fun getAllScriptsDependenciesClassFiles(): List<VirtualFile>
