@@ -34,18 +34,9 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty0
 import kotlin.reflect.jvm.isAccessible
 
-class ScriptConfigurationMemoryCache internal constructor(project: Project) : AbstractScriptConfigurationCache(project) {
+class ScriptConfigurationMemoryCache internal constructor(project: Project) : ScriptConfigurationCache(project) {
     companion object {
         const val MAX_SCRIPTS_CACHED = 50
-    }
-
-    init {
-        val connection = project.messageBus.connect()
-        connection.subscribe(ProjectTopics.PROJECT_ROOTS, object : ModuleRootListener {
-            override fun rootsChanged(event: ModuleRootEvent) {
-                clearClassRootsCaches()
-            }
-        })
     }
 
     private val scriptDependenciesCache = SLRUCacheWithLock<VirtualFile, ScriptCompilationConfigurationWrapper>()

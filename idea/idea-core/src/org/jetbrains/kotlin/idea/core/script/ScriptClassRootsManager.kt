@@ -16,28 +16,21 @@ import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Utility for postponing indexing of new roots at the end of some bulk operation.
+ * Utility for postponing indexing of new roots to the end of some bulk operation.
  */
 internal class ScriptClassRootsManager(val project: Project) {
     private var newRootsPresent: Boolean = false
     private val concurrentTransactions = AtomicInteger()
 
-    fun checkNonCachedRoots(
-        cache: ScriptConfigurationCache,
-        file: VirtualFile,
-        configuration: ScriptCompilationConfigurationWrapper
-    ) {
-        checkInTransaction()
-        if (cache.hasNotCachedRoots(configuration)) {
-            synchronized(this) {
-                debug(file) { "new class roots found: $configuration" }
-                checkInTransaction()
-                newRootsPresent = true
-            }
+    fun markNewRoot(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
+        synchronized(this) {
+            debug(file) { "new class roots found: $configuration" }
+            checkInTransaction()
+            newRootsPresent = true
         }
     }
 
-    private fun checkInTransaction() {
+    fun checkInTransaction() {
         check(concurrentTransactions.get() > 0)
     }
 
