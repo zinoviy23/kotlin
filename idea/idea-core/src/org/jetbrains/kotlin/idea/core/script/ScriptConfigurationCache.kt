@@ -44,6 +44,8 @@ class ScriptCompositeCache(
 
     override fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
         memoryCache[file] = configuration
+
+        debug(file) { "configuration saved to file attributes: $configuration" }
         fileAttributeCache.save(file, configuration)
     }
 

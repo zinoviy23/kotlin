@@ -14,8 +14,8 @@ import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResu
 import kotlin.script.experimental.api.asSuccess
 
 class OutsiderFileDependenciesLoader(private val manager: ScriptConfigurationManagerImpl) : ScriptDependenciesLoader {
-    override val skipSaveToAttributes: Boolean
-        get() = true
+    override val cache: Boolean
+        get() = false
 
     override val skipNotification: Boolean
         get() = true

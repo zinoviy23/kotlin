@@ -168,7 +168,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         rootsManager.transaction {
             val result = fromRefinedLoader.loadDependencies(true, file as KtFile, scriptDefinition)
             if (result != null) {
-                saveConfiguration(file.originalFile.virtualFile, result, skipNotification = true, skipSaveToAttributes = false)
+                saveConfiguration(file.originalFile.virtualFile, result, skipNotification = true, cache = false)
             }
         }
     }
@@ -210,7 +210,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         loaders.forEach { loader ->
             val result = loader.loadDependencies(firstLoad, file, scriptDefinition)
             if (result != null) {
-                return saveConfiguration(file.originalFile.virtualFile, result, loader.skipNotification, loader.skipSaveToAttributes)
+                return saveConfiguration(file.originalFile.virtualFile, result, loader.skipNotification, loader.cache)
             }
         }
     }
@@ -220,7 +220,6 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
      * Should be called inside `rootsManager.transaction { ... }`.
      *
      * @param skipNotification forces loading new configuration even if auto reload is disabled.
-     * @param skipSaveToAttributes skips saving to FileAttributes (used in [ScriptConfigurationFileAttributeCache] only).
      *
      * @sample ScriptConfigurationManager.getConfiguration
      */
@@ -228,7 +227,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         file: VirtualFile,
         newResult: ScriptCompilationConfigurationResult,
         skipNotification: Boolean = false,
-        skipSaveToAttributes: Boolean = false
+        cache: Boolean = false
     ) {
         debug(file) { "configuration received = $newResult" }
 
@@ -249,7 +248,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
                     if (oldConfiguration != null) {
                         file.removeScriptDependenciesNotificationPanel(project)
                     }
-                    saveChangedConfiguration(file, newConfiguration, skipSaveToAttributes)
+                    saveChangedConfiguration(file, newConfiguration, cache)
                 } else {
                     debug(file) {
                         "configuration changed, notification is shown: old = $oldConfiguration, new = $newConfiguration"
@@ -259,7 +258,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
                         onClick = {
                             file.removeScriptDependenciesNotificationPanel(project)
                             rootsManager.transaction {
-                                saveChangedConfiguration(file, it, skipSaveToAttributes)
+                                saveChangedConfiguration(file, it, cache)
                             }
                         }
                     )
@@ -271,7 +270,7 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
     private fun saveChangedConfiguration(
         file: VirtualFile,
         newConfiguration: ScriptCompilationConfigurationWrapper?,
-        skipSaveToAttributes: Boolean
+        cache: Boolean
     ) {
         rootsManager.checkInTransaction()
         debug(file) { "configuration changed = $newConfiguration" }
@@ -281,13 +280,10 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
                 rootsManager.markNewRoot(file, newConfiguration)
             }
 
-            if (!skipSaveToAttributes) {
-                debug(file) { "configuration saved to file attributes: $newConfiguration" }
-
-                fileAttributesCache.save(file, newConfiguration)
+            if (cache) {
+                memoryCache[file] = newConfiguration
             }
 
-            memoryCache[file] = newConfiguration
             allScripts.clearClassRootsCaches()
         }
 

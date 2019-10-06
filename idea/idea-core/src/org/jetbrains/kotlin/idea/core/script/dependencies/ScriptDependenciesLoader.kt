@@ -13,8 +13,11 @@ import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResu
 internal interface ScriptDependenciesLoader {
     fun isAsync(file: KtFile, scriptDefinition: ScriptDefinition) = false
 
-    val skipSaveToAttributes: Boolean
-        get() = false
+    /**
+     * True, if [loadDependencies] results should be cached
+     */
+    val cache: Boolean
+        get() = true
 
     val skipNotification: Boolean
         get() = false
