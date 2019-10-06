@@ -10,6 +10,7 @@ import com.intellij.util.containers.SLRUMap
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationMemoryCache.Companion.MAX_SCRIPTS_CACHED
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 class ScriptConfigurationMemoryCache internal constructor() : ScriptConfigurationCache {
@@ -36,7 +37,7 @@ private class BlockingSLRUMap<K, V> {
         MAX_SCRIPTS_CACHED
     )
 
-    fun get(value: K): V? = lock.write {
+    fun get(value: K): V? = lock.read {
         cache[value]
     }
 
@@ -55,7 +56,7 @@ private class BlockingSLRUMap<K, V> {
         cache.remove(file)
     }
 
-    fun getAll(): Collection<Map.Entry<K, V>> = lock.write {
+    fun getAll(): Collection<Map.Entry<K, V>> = lock.read {
         cache.entrySet()
     }
 
