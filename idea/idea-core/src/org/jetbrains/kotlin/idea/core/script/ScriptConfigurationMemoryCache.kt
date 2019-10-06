@@ -5,70 +5,35 @@
 
 package org.jetbrains.kotlin.idea.core.script
 
-import com.intellij.ProjectTopics
-import com.intellij.openapi.extensions.Extensions
-import com.intellij.openapi.module.ModuleManager
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.projectRoots.Sdk
-import com.intellij.openapi.roots.ModuleRootEvent
-import com.intellij.openapi.roots.ModuleRootListener
-import com.intellij.openapi.roots.ModuleRootManager
-import com.intellij.openapi.roots.OrderRootType
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiElementFinder
-import com.intellij.psi.PsiManager
-import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.search.NonClasspathDirectoriesScope
-import com.intellij.util.containers.ConcurrentFactoryMap
 import com.intellij.util.containers.SLRUMap
-import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationMemoryCache.Companion.MAX_SCRIPTS_CACHED
-import org.jetbrains.kotlin.idea.util.application.runReadAction
-import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.write
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
-import kotlin.reflect.KProperty0
-import kotlin.reflect.jvm.isAccessible
 
-class ScriptConfigurationMemoryCache internal constructor(project: Project) : ScriptConfigurationCache(project) {
+class ScriptConfigurationMemoryCache internal constructor() : ScriptConfigurationCache {
     companion object {
         const val MAX_SCRIPTS_CACHED = 50
     }
 
-    private val scriptDependenciesCache = SLRUCacheWithLock<VirtualFile, ScriptCompilationConfigurationWrapper>()
-    private val scriptsModificationStampsCache = SLRUCacheWithLock<VirtualFile, Long>()
+    private val scriptDependenciesCache = BlockingSLRUMap<VirtualFile, CachedConfiguration>()
 
-    override val allConfigurations: List<CachedConfiguration>
-        get() = scriptDependenciesCache.getAll().map {
-            CachedConfiguration(it.key, it.value, scriptsModificationStampsCache.get(it.key) ?: 0)
-        }
-
-    override fun get(file: VirtualFile): CachedConfiguration? =
-        CachedConfiguration(file, scriptDependenciesCache[file], scriptsModificationStampsCache[file])
-
-    override fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? = scriptDependenciesCache.get(file)
-
-    override fun setUpToDate(file: VirtualFile) {
-        scriptsModificationStampsCache.replace(file, file.modificationStamp)
+    override fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
+        scriptDependenciesCache.replace(file, CachedConfiguration(file, configuration))
     }
 
-    override fun replaceConfiguration(file: VirtualFile, new: ScriptCompilationConfigurationWrapper) {
-        scriptDependenciesCache.replace(file, new)
-    }
+    override fun all(): Collection<CachedConfiguration> = scriptDependenciesCache.getAll().map { it.value }
 
-    override fun clear(): List<VirtualFile> {
-        val files = scriptDependenciesCache.getAll().map { it.key }
+
+    override fun get(file: VirtualFile): CachedConfiguration? = scriptDependenciesCache.get(file)
+
+    override fun clear() {
         scriptDependenciesCache.clear()
-        scriptsModificationStampsCache.clear()
-        return files
     }
 }
 
-private class SLRUCacheWithLock<K, V> {
+private class BlockingSLRUMap<K, V> {
     private val lock = ReentrantReadWriteLock()
 
     val cache = SLRUMap<K, V>(

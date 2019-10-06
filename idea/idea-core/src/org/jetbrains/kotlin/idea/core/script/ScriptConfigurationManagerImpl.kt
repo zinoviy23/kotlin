@@ -5,32 +5,20 @@
 
 package org.jetbrains.kotlin.idea.core.script
 
-import com.intellij.ProjectTopics
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ServiceManager
-import com.intellij.openapi.extensions.Extensions
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
-import com.intellij.openapi.roots.ModuleRootEvent
-import com.intellij.openapi.roots.ModuleRootListener
-import com.intellij.openapi.roots.ModuleRootManager
-import com.intellij.openapi.roots.OrderRootType
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiElementFinder
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.search.NonClasspathDirectoriesScope
 import com.intellij.ui.EditorNotifications
-import com.intellij.util.containers.ConcurrentFactoryMap
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.jetbrains.annotations.TestOnly
-import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager.Companion.toVfsRoots
 import org.jetbrains.kotlin.idea.core.script.dependencies.*
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
@@ -43,19 +31,13 @@ import org.jetbrains.kotlin.scripting.definitions.isNonScript
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import org.jetbrains.kotlin.scripting.resolve.ScriptReportSink
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.write
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
-import kotlin.reflect.KProperty0
-import kotlin.reflect.jvm.isAccessible
 import kotlin.script.experimental.api.ScriptDiagnostic
 import kotlin.script.experimental.api.valueOrNull
 
 class ScriptConfigurationManagerImpl internal constructor(private val project: Project) : ScriptConfigurationManager {
     private val rootsManager = ScriptClassRootsManager(project)
 
-    private val memoryCache: ScriptConfigurationCache = ScriptConfigurationMemoryCache(project)
+    private val memoryCache: ScriptConfigurationCache = ScriptConfigurationMemoryCache()
     private val fileAttributesCache = ScriptConfigurationFileAttributeCache()
 
     private val fromRefinedLoader = FromRefinedConfigurationLoader()
@@ -71,14 +53,14 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
 
     private val allScripts = AllScriptsConfigurationImpl(object: InternalScriptConfigurationsProvider {
         override val project: Project
-            get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+            get() = this@ScriptConfigurationManagerImpl.project
 
-        override fun getConfiguration(virtualFile: VirtualFile, preloadedKtFile: KtFile?): ScriptCompilationConfigurationWrapper? {
-            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        override fun getConfiguration(virtualFile: VirtualFile): ScriptCompilationConfigurationWrapper? {
+            return this@ScriptConfigurationManagerImpl.getCachedConfiguration(virtualFile)
         }
 
-        override val allConfigurations: List<CachedConfiguration>
-            get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        override val allConfigurations: Collection<CachedConfiguration>
+            get() = memoryCache.all()
     })
 
     /**

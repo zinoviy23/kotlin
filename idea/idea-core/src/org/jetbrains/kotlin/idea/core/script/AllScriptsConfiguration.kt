@@ -45,12 +45,9 @@ interface AllScriptsConfiguration {
 interface InternalScriptConfigurationsProvider {
     val project: Project
 
-    fun getConfiguration(
-        virtualFile: VirtualFile,
-        preloadedKtFile: KtFile? = null
-    ): ScriptCompilationConfigurationWrapper?
+    fun getConfiguration(virtualFile: VirtualFile): ScriptCompilationConfigurationWrapper?
 
-    val allConfigurations: List<CachedConfiguration>
+    val allConfigurations: Collection<CachedConfiguration>
 }
 
 class AllScriptsConfigurationImpl(
