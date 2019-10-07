@@ -115,9 +115,9 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
                         result = mergeResults(inBlockModification, inBlockResult, file, result)
                     }
                 } else {
-                    // drop existed result for file if incremental analysis is not applicable
+                    // drop existed results for file if incremental analysis is not applicable
                     // it leads to entire file analysis
-                    cache.remove(file)
+                    cache.clear()
                 }
                 file.clearInBlockModifications()
             }
