@@ -2325,7 +2325,7 @@ public class KotlinParsing extends AbstractKotlinParsing {
                     errorAndAdvance("Expecting a parameter declaration");
                 }
                 else if (at(RPAR)) {
-                    error("Expecting a parameter declaration");
+                    //error("Expecting a parameter declaration");
                     break;
                 }
 

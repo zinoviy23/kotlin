@@ -1796,6 +1796,9 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
 
         if (expect(LPAR, "Expecting an argument list", EXPRESSION_FOLLOW)) {
             if (!at(RPAR)) {
+                if (at(COMMA)) {
+                    advance();
+                }
                 while (true) {
                     while (at(COMMA)) errorAndAdvance("Expecting an argument");
                     parseValueArgument();
@@ -1813,7 +1816,7 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
                     }
                     advance(); // COMMA
                     if (at(RPAR)) {
-                        error("Expecting an argument");
+                        //error("Expecting an argument");
                         break;
                     }
                 }
