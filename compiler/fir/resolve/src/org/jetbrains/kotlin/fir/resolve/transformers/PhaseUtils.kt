@@ -28,7 +28,7 @@ fun <D> AbstractFirBasedSymbol<D>.phasedFir(
             is FirClassLikeSymbol<*> -> provider.getFirClassifierContainerFile(this)
             else -> null
         } ?: throw AssertionError("Cannot get container file by symbol: $this (${result.render()})")
-        containingFile.runResolve(toPhase = requiredPhase, fromPhase = availablePhase)
+        containingFile.runResolve(toPhase = requiredPhase, fromPhase = availablePhase, session = session)
     }
     return result
 }

@@ -39,11 +39,15 @@ abstract class FirAbstractPhaseTransformer<D>(
     }
 }
 
-fun FirFile.runResolve(toPhase: FirResolvePhase, fromPhase: FirResolvePhase = FirResolvePhase.RAW_FIR) {
+fun FirFile.runResolve(
+    toPhase: FirResolvePhase,
+    fromPhase: FirResolvePhase = FirResolvePhase.RAW_FIR,
+    session: FirSession = fileSession
+) {
     var currentPhase = fromPhase
     while (currentPhase < toPhase) {
         currentPhase = currentPhase.next
-        val phaseTransformer = currentPhase.createTransformerByPhase(fileSession)
+        val phaseTransformer = currentPhase.createTransformerByPhase(session)
         transform<FirFile, Nothing?>(phaseTransformer, null)
     }
 }

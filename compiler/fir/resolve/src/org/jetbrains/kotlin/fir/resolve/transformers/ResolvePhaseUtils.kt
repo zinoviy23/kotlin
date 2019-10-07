@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase.*
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 
-// TODO: add FirSession parameter
 fun FirResolvePhase.createTransformerByPhase(session: FirSession): FirTransformer<Nothing?> {
     return when (this) {
         RAW_FIR -> throw AssertionError("Raw FIR building phase does not have a transformer")
