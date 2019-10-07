@@ -188,13 +188,7 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
             val parentDiagnosticsAll = parentCtx.diagnostics.all()
             parentDiagnostics = parentDiagnosticsAll.filter { d ->
                 // do not copy diagnostic that is built on a top level as it could be outdated
-                for (diagnosticParent in generateSequence(d.psiElement) { it.parent }) {
-                    if (diagnosticParent == element) {
-                        break
-                    }
-                    if (diagnosticParent is KtFile) return@filter true
-                }
-                return@filter false
+                d.psiElement.parentsWithSelf.none { it == element }
             }.toList()
         }
 
