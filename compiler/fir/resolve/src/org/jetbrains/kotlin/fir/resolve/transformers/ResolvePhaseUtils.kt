@@ -5,19 +5,20 @@
 
 package org.jetbrains.kotlin.fir.resolve.transformers
 
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase.*
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 
 // TODO: add FirSession parameter
-fun FirResolvePhase.createTransformerByPhase(): FirTransformer<Nothing?> {
+fun FirResolvePhase.createTransformerByPhase(session: FirSession): FirTransformer<Nothing?> {
     return when (this) {
         RAW_FIR -> throw AssertionError("Raw FIR building phase does not have a transformer")
         IMPORTS -> FirImportResolveTransformer()
         SUPER_TYPES -> FirSupertypeResolverTransformer()
         TYPES -> FirTypeResolveTransformer()
         STATUS -> FirStatusResolveTransformer()
-        IMPLICIT_TYPES_BODY_RESOLVE -> FirImplicitTypeBodyResolveTransformerAdapter()
-        BODY_RESOLVE -> FirBodyResolveTransformerAdapter()
+        IMPLICIT_TYPES_BODY_RESOLVE -> FirImplicitTypeBodyResolveTransformerAdapter(session)
+        BODY_RESOLVE -> FirBodyResolveTransformerAdapter(session)
     }
 }

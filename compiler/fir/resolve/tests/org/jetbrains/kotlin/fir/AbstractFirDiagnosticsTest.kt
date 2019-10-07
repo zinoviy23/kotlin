@@ -17,7 +17,7 @@ abstract class AbstractFirDiagnosticsTest : AbstractFirDiagnosticsSmokeTest() {
     }
 
     override fun checkResultingFirFiles(
-        firFiles: MutableList<FirFile>,
+        firFiles: List<FirFile>,
         testDataFile: File
     ) {
         val firFileDump = StringBuilder().also { stringBuilder ->

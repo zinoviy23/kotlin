@@ -109,7 +109,7 @@ abstract class AbstractFirMultiModuleResolveTest : AbstractMultiModuleTest() {
                 firFiles += firFile
             }
             firFilesPerSession[session] = firFiles
-            totalTransformerPerSession[session] = FirTotalResolveTransformer()
+            totalTransformerPerSession[session] = FirTotalResolveTransformer(session)
         }
         println("Raw fir up, files: ${firFilesPerSession.values.flatten().size}")
 

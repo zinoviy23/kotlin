@@ -33,7 +33,7 @@ abstract class AbstractFirResolveTestCase : AbstractFirResolveWithSessionTestCas
 
         val builder = RawFirBuilder(session, stubMode = false)
 
-        val transformer = FirTotalResolveTransformer()
+        val transformer = FirTotalResolveTransformer(session)
         return ktFiles.map {
             val firFile = builder.buildFirFile(it)
             (session.firProvider as FirProviderImpl).recordFile(firFile)

@@ -56,7 +56,7 @@ class FirResolveModularizedTotalKotlinTest : AbstractModularizedTest() {
         val session = createSession(environment, scope, librariesScope)
         val builder = RawFirBuilder(session, stubMode = false)
 
-        val totalTransformer = FirTotalResolveTransformer()
+        val totalTransformer = FirTotalResolveTransformer(session)
         val firFiles = bench.buildFiles(builder, ktFiles)
 
         println("Raw FIR up, files: ${firFiles.size}")

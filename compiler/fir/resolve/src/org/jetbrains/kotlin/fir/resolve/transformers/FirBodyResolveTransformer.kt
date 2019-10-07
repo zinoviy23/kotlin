@@ -1019,41 +1019,33 @@ class FirDesignatedBodyResolveTransformer(
 
 
 @Deprecated("It is temp", level = DeprecationLevel.WARNING, replaceWith = ReplaceWith("TODO(\"что-то нормальное\")"))
-class FirImplicitTypeBodyResolveTransformerAdapter : FirTransformer<Nothing?>() {
-    private val scopeSession = ScopeSession()
+class FirImplicitTypeBodyResolveTransformerAdapter(session: FirSession) : FirTransformer<Nothing?>() {
+    private val transformer = FirBodyResolveTransformer(
+        session, phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE, implicitTypeOnly = true
+    )
 
     override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
         return element.compose()
     }
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
-        val transformer = FirBodyResolveTransformer(
-            file.fileSession,
-            phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
-            implicitTypeOnly = true,
-            scopeSession = scopeSession
-        )
         return file.transform(transformer, null)
     }
 }
 
 
 @Deprecated("It is temp", level = DeprecationLevel.WARNING, replaceWith = ReplaceWith("TODO(\"что-то нормальное\")"))
-class FirBodyResolveTransformerAdapter : FirTransformer<Nothing?>() {
-    private val scopeSession = ScopeSession()
+class FirBodyResolveTransformerAdapter(session: FirSession) : FirTransformer<Nothing?>() {
+    // Despite of real phase is EXPRESSIONS, we state IMPLICIT_TYPES here, because DECLARATIONS previous phase is OK for us
+    private val transformer = FirBodyResolveTransformer(
+        session, phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE, implicitTypeOnly = false
+    )
 
     override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
         return element.compose()
     }
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
-        // Despite of real phase is EXPRESSIONS, we state IMPLICIT_TYPES here, because DECLARATIONS previous phase is OK for us
-        val transformer = FirBodyResolveTransformer(
-            file.fileSession,
-            phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
-            implicitTypeOnly = false,
-            scopeSession = scopeSession
-        )
         return file.transform(transformer, null)
     }
 }

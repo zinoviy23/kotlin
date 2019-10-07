@@ -71,7 +71,8 @@ abstract class AbstractFirDiagnosticsSmokeTest : BaseDiagnosticsTest() {
             FirJavaModuleBasedSession(info, sessionProvider, scope)
         }
 
-        val firFiles = mutableListOf<FirFile>()
+        val firFilesPerSession = mutableMapOf<FirJavaModuleBasedSession, List<FirFile>>()
+        val sessions = mutableListOf<FirJavaModuleBasedSession>()
 
         // TODO: make module/session/transformer handling like in AbstractFirMultiModuleTest (IDE)
         for ((testModule, testFilesInModule) in groupedByModule) {
@@ -82,24 +83,31 @@ abstract class AbstractFirDiagnosticsSmokeTest : BaseDiagnosticsTest() {
 
             val firBuilder = RawFirBuilder(session, false)
 
-            ktFiles.mapTo(firFiles) {
-                val firFile = firBuilder.buildFirFile(it)
+            val firFiles = ktFiles.map {
+                firBuilder.buildFirFile(it).apply {
+                    (session.firProvider as FirProviderImpl).recordFile(this)
+                }
 
-                (session.firProvider as FirProviderImpl).recordFile(firFile)
-
-                firFile
             }
+            sessions += session
+            firFilesPerSession[session] = firFiles
         }
 
         val failure: AssertionError? = try {
-            doFirResolveTestBench(firFiles, FirTotalResolveTransformer().transformers, gc = false)
+            for (session in sessions) {
+                doFirResolveTestBench(
+                    firFilesPerSession[session]!!,
+                    FirTotalResolveTransformer(session).transformers,
+                    gc = false
+                )
+            }
             null
         } catch (e: AssertionError) {
             e
         }
         val failureFile = File(testDataFile.path.replace(".kt", ".fir.fail"))
         if (failure == null) {
-            checkResultingFirFiles(firFiles, testDataFile)
+            checkResultingFirFiles(firFilesPerSession.values.flatten(), testDataFile)
             assertFalse("Test is good but there is expected exception", failureFile.exists())
         } else {
             checkFailureFile(failure, failureFile)
@@ -107,7 +115,7 @@ abstract class AbstractFirDiagnosticsSmokeTest : BaseDiagnosticsTest() {
     }
 
     protected open fun checkResultingFirFiles(
-        firFiles: MutableList<FirFile>,
+        firFiles: List<FirFile>,
         testDataFile: File
     ) {
 
