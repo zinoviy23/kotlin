@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
+import java.util.*
 
 fun lookupSuperTypes(
     klass: FirRegularClass,
@@ -31,23 +32,21 @@ fun lookupSuperTypes(
 }
 
 class ScopeSession {
-    private val scopes = hashMapOf<FirClassifierSymbol<*>, HashMap<ScopeSessionKey<*>, FirScope>>()
-    fun <T : FirScope> getOrBuild(symbol: FirClassifierSymbol<*>, key: ScopeSessionKey<T>, build: () -> T): T {
+    private val scopes = hashMapOf<FirClassifierSymbol<*>, EnumMap<ScopeSessionKey, FirScope>>()
+    fun <T : FirScope> getOrBuild(symbol: FirClassifierSymbol<*>, key: ScopeSessionKey, build: () -> T): T {
         return scopes.getOrPut(symbol) {
-            hashMapOf()
+            EnumMap(ScopeSessionKey::class.java)
         }.getOrPut(key) {
             build()
         } as T
     }
 }
 
-abstract class ScopeSessionKey<T : FirScope>()
-
-inline fun <reified T : FirScope> scopeSessionKey(): ScopeSessionKey<T> {
-    return object : ScopeSessionKey<T>() {}
+enum class ScopeSessionKey {
+    USE_SITE,
+    JAVA_USE_SITE,
+    JAVA_ENHANCEMENT
 }
-
-val USE_SITE = scopeSessionKey<FirScope>()
 
 fun FirRegularClass.buildUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope? {
     val symbolProvider = useSiteSession.firSymbolProvider
@@ -62,7 +61,7 @@ fun FirTypeAlias.buildUseSiteScope(useSiteSession: FirSession, builder: ScopeSes
 }
 
 fun FirRegularClass.buildDefaultUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope {
-    return builder.getOrBuild(symbol, USE_SITE) {
+    return builder.getOrBuild(symbol, ScopeSessionKey.USE_SITE) {
 
         val declaredScope = declaredMemberScope(this)
         val scopes = lookupSuperTypes(this, lookupInterfaces = true, deep = false, useSiteSession = useSiteSession)

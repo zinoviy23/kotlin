@@ -78,7 +78,7 @@ class JavaSymbolProvider(
         scopeSession: ScopeSession,
         visitedSymbols: MutableSet<FirClassLikeSymbol<*>>
     ): JavaClassEnhancementScope {
-        return scopeSession.getOrBuild(symbol, JAVA_ENHANCEMENT) {
+        return scopeSession.getOrBuild(symbol, ScopeSessionKey.JAVA_ENHANCEMENT) {
             JavaClassEnhancementScope(useSiteSession, buildJavaUseSiteScope(symbol.fir, useSiteSession, scopeSession, visitedSymbols))
         }
     }
@@ -89,7 +89,7 @@ class JavaSymbolProvider(
         scopeSession: ScopeSession,
         visitedSymbols: MutableSet<FirClassLikeSymbol<*>>
     ): JavaClassUseSiteScope {
-        return scopeSession.getOrBuild(regularClass.symbol, JAVA_USE_SITE) {
+        return scopeSession.getOrBuild(regularClass.symbol, ScopeSessionKey.JAVA_USE_SITE) {
             val declaredScope = declaredMemberScope(regularClass)
             val superTypeEnhancementScopes =
                 lookupSuperTypes(regularClass, lookupInterfaces = true, deep = false, useSiteSession = useSiteSession)
@@ -292,7 +292,3 @@ class JavaSymbolProvider(
 
 fun FqName.topLevelName() =
     asString().substringBefore(".")
-
-
-private val JAVA_ENHANCEMENT = scopeSessionKey<JavaClassEnhancementScope>()
-private val JAVA_USE_SITE = scopeSessionKey<JavaClassUseSiteScope>()
