@@ -101,12 +101,13 @@ class GeneratePrimitives(out: PrintWriter) : BuiltInsSourceGenerator(out) {
          */
         public const val MAX_VALUE: $className = $maxValue""")
             }
-            if (kind.isIntegral) {
+            if (kind.isIntegral || kind.isFloatingPoint) {
                 out.println("""
         /**
          * The number of bytes used to represent an instance of $className in a binary form.
          */
-        @SinceKotlin("1.3")
+        @SinceKotlin("1.3")${if (kind.isFloatingPoint && false) """
+        @ExperimentalStdlibApi""" else ""}
         public const val SIZE_BYTES: Int = ${kind.byteSize}
 
         /**

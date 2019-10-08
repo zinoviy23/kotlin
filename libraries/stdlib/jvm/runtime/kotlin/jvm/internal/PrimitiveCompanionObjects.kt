@@ -11,6 +11,8 @@ internal object DoubleCompanionObject {
     val POSITIVE_INFINITY: Double = java.lang.Double.POSITIVE_INFINITY
     val NEGATIVE_INFINITY: Double = java.lang.Double.NEGATIVE_INFINITY
     val NaN: Double = java.lang.Double.NaN
+    const val SIZE_BYTES: Int = 8
+    const val SIZE_BITS: Int = SIZE_BYTES * 8
 }
 
 internal object FloatCompanionObject {
@@ -19,6 +21,8 @@ internal object FloatCompanionObject {
     val POSITIVE_INFINITY: Float = java.lang.Float.POSITIVE_INFINITY
     val NEGATIVE_INFINITY: Float = java.lang.Float.NEGATIVE_INFINITY
     val NaN: Float = java.lang.Float.NaN
+    const val SIZE_BYTES: Int = 4
+    const val SIZE_BITS: Int = SIZE_BYTES * 8
 }
 
 internal object IntCompanionObject {

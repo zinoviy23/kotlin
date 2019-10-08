@@ -195,6 +195,9 @@ class NumbersTest {
         testSizes(Short, Short.SIZE_BYTES, Short.SIZE_BITS, 2)
         testSizes(Int, Int.SIZE_BYTES, Int.SIZE_BITS, 4)
         testSizes(Long, Long.SIZE_BYTES, Long.SIZE_BITS, 8)
+        
+        testSizes(Float, Float.SIZE_BYTES, Float.SIZE_BITS, 4)
+        testSizes(Double, Double.SIZE_BYTES, Double.SIZE_BITS, 8)
 
         testSizes(UByte, UByte.SIZE_BYTES, UByte.SIZE_BITS, 1)
         testSizes(UShort, UShort.SIZE_BYTES, UShort.SIZE_BITS, 2)

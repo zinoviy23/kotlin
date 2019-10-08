@@ -21,6 +21,12 @@ internal object DoubleCompanionObject {
 
     @JsName("NaN")
     val NaN: Double = js("Number.NaN")
+
+    @JsName("SIZE_BYTES")
+    const val SIZE_BYTES = 8
+
+    @JsName("SIZE_BITS")
+    const val SIZE_BITS = 64
 }
 
 @JsName("FloatCompanionObject")
@@ -39,6 +45,12 @@ internal  object FloatCompanionObject {
 
     @JsName("NaN")
     val NaN: Float = js("Number.NaN")
+
+    @JsName("SIZE_BYTES")
+    const val SIZE_BYTES = 4
+
+    @JsName("SIZE_BITS")
+    const val SIZE_BITS = 32
 }
 
 @JsName("IntCompanionObject")
