@@ -151,7 +151,7 @@ abstract class AbstractScriptConfigurationTest : KotlinCompletionTestCase() {
         super.tearDown()
     }
 
-    private fun createTestModuleByName(name: String): Module {
+    protected fun createTestModuleByName(name: String): Module {
         val newModuleDir = runWriteAction { VfsUtil.createDirectoryIfMissing(project.baseDir, name) }
         val newModule = createModuleAt(name, project, JavaModuleType.getModuleType(), newModuleDir.path)
 
