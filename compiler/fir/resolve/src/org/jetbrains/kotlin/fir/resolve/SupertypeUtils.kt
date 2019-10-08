@@ -50,8 +50,6 @@ inline fun <reified T : FirScope> scopeSessionKey(): ScopeSessionKey<T> {
 val USE_SITE = scopeSessionKey<FirScope>()
 val DECLARED = scopeSessionKey<FirScope>()
 
-data class SubstitutionScopeKey(val type: ConeClassLikeType) : ScopeSessionKey<FirClassSubstitutionScope>() {}
-
 fun FirRegularClass.buildUseSiteScope(useSiteSession: FirSession, builder: ScopeSession): FirScope? {
     val symbolProvider = useSiteSession.firSymbolProvider
     return symbolProvider.getClassUseSiteMemberScope(this.classId, useSiteSession, builder)
@@ -90,7 +88,7 @@ fun ConeClassLikeType.wrapSubstitutionScopeIfNeed(
     builder: ScopeSession
 ): FirScope {
     if (this.typeArguments.isEmpty()) return useSiteScope
-    return builder.getOrBuild(declaration.symbol, SubstitutionScopeKey(this)) {
+    return run {
         @Suppress("UNCHECKED_CAST")
         val substitution = declaration.typeParameters.zip(this.typeArguments) { typeParameter, typeArgument ->
             typeParameter.symbol to (typeArgument as? ConeTypedProjection)?.type
