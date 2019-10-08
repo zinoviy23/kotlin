@@ -21,7 +21,7 @@ import kotlin.ranges.reversed
 /**
  * Returns 1st *element* from the collection.
  * 
- * If this array is empty, throws an [IndexOutOfBoundsException] except in Kotlin/JS
+ * If the size of this array is less than 1, throws an [IndexOutOfBoundsException] except in Kotlin/JS
  * where the behavior is unspecified.
  */
 @SinceKotlin("1.3")
@@ -34,7 +34,7 @@ public inline operator fun UIntArray.component1(): UInt {
 /**
  * Returns 1st *element* from the collection.
  * 
- * If this array is empty, throws an [IndexOutOfBoundsException] except in Kotlin/JS
+ * If the size of this array is less than 1, throws an [IndexOutOfBoundsException] except in Kotlin/JS
  * where the behavior is unspecified.
  */
 @SinceKotlin("1.3")
@@ -47,7 +47,7 @@ public inline operator fun ULongArray.component1(): ULong {
 /**
  * Returns 1st *element* from the collection.
  * 
- * If this array is empty, throws an [IndexOutOfBoundsException] except in Kotlin/JS
+ * If the size of this array is less than 1, throws an [IndexOutOfBoundsException] except in Kotlin/JS
  * where the behavior is unspecified.
  */
 @SinceKotlin("1.3")
@@ -60,7 +60,7 @@ public inline operator fun UByteArray.component1(): UByte {
 /**
  * Returns 1st *element* from the collection.
  * 
- * If this array is empty, throws an [IndexOutOfBoundsException] except in Kotlin/JS
+ * If the size of this array is less than 1, throws an [IndexOutOfBoundsException] except in Kotlin/JS
  * where the behavior is unspecified.
  */
 @SinceKotlin("1.3")

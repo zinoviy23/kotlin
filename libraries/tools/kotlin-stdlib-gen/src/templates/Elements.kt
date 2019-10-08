@@ -965,7 +965,7 @@ object Elements : TemplateGroupBase() {
                 else -> "th"
             }
 
-            val condition = if (n == 1) "this ${f.doc.collection} is empty" else "the size of this ${f.doc.collection} is less than $n"
+            val condition = "the size of this ${f.doc.collection} is less than $n"
             doc {
                 """
                 Returns ${getOrdinal(n)} *element* from the collection.

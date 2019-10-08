@@ -20,7 +20,7 @@ import kotlin.ranges.reversed
 /**
  * Returns 1st *element* from the collection.
  * 
- * Throws an [IndexOutOfBoundsException] if this list is empty.
+ * Throws an [IndexOutOfBoundsException] if the size of this list is less than 1.
  */
 @kotlin.internal.InlineOnly
 public inline operator fun <T> List<T>.component1(): T {
