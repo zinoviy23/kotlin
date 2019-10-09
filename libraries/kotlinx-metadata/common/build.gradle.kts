@@ -30,6 +30,7 @@ dependencies {
     compile(kotlinStdlib())
     shadows(project(":kotlinx-metadata"))
     shadows(project(":core:metadata"))
+    shadows(project(":compiler:serialization"))
     shadows(project(":kotlin-util-klib-metadata"))
     shadows(protobufLite())
     // TODO: Add tests later

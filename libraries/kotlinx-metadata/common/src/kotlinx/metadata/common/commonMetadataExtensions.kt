@@ -46,7 +46,10 @@ class CommonMetadataExtensions : MetadataExtensions {
         if (type != CommonClassExtensionVisitor.TYPE) return null
         return object : CommonClassExtensionVisitor() {
             override fun visitAnnotation(annotation: KmAnnotation) {
-                proto.setExtension(KlibMetadataProtoBuf.classAnnotation, annotation.writeAnnotation(c.strings).build())
+                proto.setExtension(
+                    KlibMetadataProtoBuf.classAnnotation,
+                    mutableListOf(annotation.writeAnnotation(c.strings).build())
+                )
             }
         }
     }
@@ -70,7 +73,10 @@ class CommonMetadataExtensions : MetadataExtensions {
         if (type != CommonFunctionExtensionVisitor.TYPE) return null
         return object : CommonFunctionExtensionVisitor() {
             override fun visitAnnotation(annotation: KmAnnotation) {
-                proto.setExtension(KlibMetadataProtoBuf.functionAnnotation, annotation.writeAnnotation(c.strings).build())
+                proto.setExtension(
+                    KlibMetadataProtoBuf.functionAnnotation,
+                    mutableListOf(annotation.writeAnnotation(c.strings).build())
+                )
             }
         }
     }
@@ -83,15 +89,24 @@ class CommonMetadataExtensions : MetadataExtensions {
         if (type != CommonPropertyExtensionVisitor.TYPE) return null
         return object : CommonPropertyExtensionVisitor() {
             override fun visitAnnotation(annotation: KmAnnotation) {
-                proto.setExtension(KlibMetadataProtoBuf.propertyAnnotation, annotation.writeAnnotation(c.strings).build())
+                proto.setExtension(
+                    KlibMetadataProtoBuf.propertyAnnotation,
+                    mutableListOf(annotation.writeAnnotation(c.strings).build())
+                )
             }
 
             override fun visitGetterAnnotation(annotation: KmAnnotation) {
-                proto.setExtension(KlibMetadataProtoBuf.propertyGetterAnnotation, annotation.writeAnnotation(c.strings).build())
+                proto.setExtension(
+                    KlibMetadataProtoBuf.propertyGetterAnnotation,
+                    mutableListOf(annotation.writeAnnotation(c.strings).build())
+                )
             }
 
             override fun visitSetterAnnotation(annotation: KmAnnotation) {
-                proto.setExtension(KlibMetadataProtoBuf.propertySetterAnnotation, annotation.writeAnnotation(c.strings).build())
+                proto.setExtension(
+                    KlibMetadataProtoBuf.propertySetterAnnotation,
+                    mutableListOf(annotation.writeAnnotation(c.strings).build())
+                )
             }
         }
     }
