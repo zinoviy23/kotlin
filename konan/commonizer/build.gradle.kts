@@ -9,6 +9,7 @@ dependencies {
 
     compile(kotlinStdlib())
 
+    compile(project(":kotlin-util-klib-metadata"))
     compile(project(":kotlin-native:kotlin-native-utils")) { isTransitive = false }
     compile(project(":kotlin-native:kotlin-native-library-reader")) { isTransitive = false }
 
@@ -42,6 +43,11 @@ dependencies {
     Platform[192].orHigher {
         testCompile(intellijDep()) { includeJars("platform-util-ui", "platform-concurrency", "platform-objectSerializer") }
     }
+}
+
+val runCommonizer by tasks.registering(NoDebugJavaExec::class) {
+    classpath(sourceSets.main.get().runtimeClasspath)
+    main = "org.jetbrains.kotlin.descriptors.commonizer.CliKt"
 }
 
 sourceSets {
