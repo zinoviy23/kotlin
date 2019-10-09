@@ -50,6 +50,8 @@ public class DiagnosticsElementsCache {
     }
 
     private static MultiMap<PsiElement, Diagnostic> buildElementToDiagnosticCache(Diagnostics diagnostics, Function1<Diagnostic, Boolean> filter) {
+        if (diagnostics.isEmpty()) return MultiMap.empty();
+
         MultiMap<PsiElement, Diagnostic> elementToDiagnostic = new ConcurrentMultiMap<>();
         for (Diagnostic diagnostic : diagnostics) {
             if (diagnostic == null) {
