@@ -4,8 +4,7 @@ plugins {
 }
 
 dependencies {
-    compileOnly(project(":core:util.runtime"))
-    compileOnly(project(":core:descriptors"))
+    compileOnly(project(":compiler:frontend")) { isTransitive = true }
 
     compile(kotlinStdlib())
 
@@ -46,7 +45,7 @@ dependencies {
 }
 
 val runCommonizer by tasks.registering(NoDebugJavaExec::class) {
-    classpath(sourceSets.main.get().runtimeClasspath)
+    classpath(sourceSets.main.get().runtimeClasspath + configurations.compileOnly)
     main = "org.jetbrains.kotlin.descriptors.commonizer.CliKt"
 }
 

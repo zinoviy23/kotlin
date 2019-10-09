@@ -5,14 +5,14 @@
 
 package org.jetbrains.kotlin.descriptors.commonizer
 
-import org.jetbrains.kotlin.konan.library.KONAN_DISTRIBUTION_KLIB_DIR
-import org.jetbrains.kotlin.konan.library.KONAN_DISTRIBUTION_PLATFORM_LIBS_DIR
-import org.jetbrains.kotlin.konan.library.KONAN_STDLIB_NAME
-import org.jetbrains.kotlin.konan.library.konanCommonLibraryPath
+import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
+import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.konan.library.*
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.impl.createKotlinLibrary
+import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import java.io.File
 import java.nio.file.Files.isDirectory
 import java.nio.file.Files.list
@@ -26,22 +26,29 @@ fun main(args: Array<String>) {
 
     val parsedArgs = parseArgs(args)
 
-    val repository = parsedArgs["repository"]?.firstOrNull() ?: printUsageAndExit("repository not specified")
+    val repository = parsedArgs["-repository"]?.firstOrNull()?.let(::File) ?: printUsageAndExit("repository not specified")
+    if (!repository.isDirectory) printErrorAndExit("repository does not exist: $repository")
 
     val targets = with(HostManager()) {
-        val targetNames = parsedArgs["target"]?.toSet() ?: printUsageAndExit("no targets specified")
+        val targetNames = parsedArgs["-target"]?.toSet() ?: printUsageAndExit("no targets specified")
         targetNames.map { targetName ->
             targets[targetName] ?: printUsageAndExit("unknown target name: $targetName")
         }
     }
 
-    val output = parsedArgs["output"]?.firstOrNull() ?: printUsageAndExit("output not specified")
+    val output = parsedArgs["-output"]?.firstOrNull()?.let(::File) ?: printUsageAndExit("output not specified")
+    when {
+        !output.exists() -> output.mkdirs()
+        !output.isDirectory -> printErrorAndExit("output already exists: $output")
+        output.walkTopDown().any { it != output } -> printErrorAndExit("output is not empty: $output")
+    }
 
-    execute(
-        repository = File(repository),
-        targets = targets,
-        output = File(output)
-    )
+    val modulesByTargets = loadModules(repository, targets)
+    val result = commonize(modulesByTargets)
+    saveModules(result)
+
+    println("Done.")
+    println()
 }
 
 private fun parseArgs(args: Array<String>): Map<String, List<String>> {
@@ -79,19 +86,7 @@ private fun printUsageAndExit(errorMessage: String? = null): Nothing {
     exitProcess(if (errorMessage != null) 1 else 0)
 }
 
-private fun execute(
-    repository: File,
-    targets: List<KonanTarget>,
-    output: File
-) {
-    when {
-        !repository.isDirectory -> printErrorAndExit("repository does not exist: $repository")
-        targets.size < 2 -> printUsageAndExit("too few targets specified: $targets")
-        !output.exists() -> output.mkdirs()
-        !output.isDirectory -> printErrorAndExit("output already exists: $output")
-        output.walkTopDown().any() -> printErrorAndExit("output is not empty: $output")
-    }
-
+private fun loadModules(repository: File, targets: List<KonanTarget>): Map<KonanTarget, List<ModuleDescriptor>> {
     val stdlibPath = repository.resolve(konanCommonLibraryPath(KONAN_STDLIB_NAME)).toPath()
     val stdlib = createLibrary(stdlibPath)
 
@@ -107,13 +102,55 @@ private fun execute(
             ?.map { createLibrary(it) }
             ?: printErrorAndExit("no platform libraries found for target $target in $platformLibsPath")
 
-        target to listOf(stdlib) + platformLibs
+        target to platformLibs
     }.toMap()
 
+    return librariesByTargets.mapValues { (target, libraries) ->
+        val storageManager = LockBasedStorageManager("Target $target")
 
+        val stdlibModule = KonanFactories.DefaultDeserializedDescriptorFactory.createDescriptorAndNewBuiltIns(
+            library = stdlib,
+            languageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
+            storageManager = storageManager,
+            packageAccessHandler = null
+        )
+
+        val otherModules = libraries.map { library ->
+            KonanFactories.DefaultDeserializedDescriptorFactory.createDescriptorOptionalBuiltIns(
+                library = library,
+                languageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
+                storageManager = storageManager,
+                builtIns = stdlibModule.builtIns,
+                packageAccessHandler = null
+            )
+        }
+
+        val allModules = listOf(stdlibModule) + otherModules
+        allModules.forEach { it.setDependencies(allModules) }
+
+        allModules
+    }
 }
 
 private fun createLibrary(path: Path): KotlinLibrary {
     if (!isDirectory(path)) printErrorAndExit("library not found: $path")
     return createKotlinLibrary(KFile(path))
+}
+
+private fun commonize(modulesByTargets: Map<KonanTarget, List<ModuleDescriptor>>): CommonizationPerformed {
+    val parameters = CommonizationParameters().apply {
+        modulesByTargets.forEach { (target, modules) ->
+            addTarget(InputTarget(target.name, target), modules)
+        }
+    }
+
+    val result = runCommonization(parameters)
+    return when (result) {
+        is NothingToCommonize -> printUsageAndExit("too few targets specified: ${modulesByTargets.keys}")
+        is CommonizationPerformed -> result
+    }
+}
+
+private fun saveModules(result: CommonizationPerformed) {
+    TODO("implement")
 }
