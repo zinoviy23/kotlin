@@ -3,6 +3,10 @@ plugins {
     id("jps-compatible")
 }
 
+configurations {
+    runtimeClasspath.get().extendsFrom(compileOnly.get())
+}
+
 dependencies {
     compileOnly(project(":compiler:frontend")) { isTransitive = true }
 
@@ -45,7 +49,7 @@ dependencies {
 }
 
 val runCommonizer by tasks.registering(NoDebugJavaExec::class) {
-    classpath(sourceSets.main.get().runtimeClasspath + configurations.compileOnly)
+    classpath(sourceSets.main.get().runtimeClasspath)
     main = "org.jetbrains.kotlin.descriptors.commonizer.CliKt"
 }
 
