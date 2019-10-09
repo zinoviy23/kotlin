@@ -43,7 +43,12 @@ class CommonMetadataExtensions : MetadataExtensions {
     }
 
     override fun writeClassExtensions(type: KmExtensionType, proto: ProtoBuf.Class.Builder, c: WriteContext): KmClassExtensionVisitor? {
-        TODO("not implemented")
+        if (type != CommonClassExtensionVisitor.TYPE) return null
+        return object : CommonClassExtensionVisitor() {
+            override fun visitAnnotation(annotation: KmAnnotation) {
+                proto.setExtension(KlibMetadataProtoBuf.classAnnotation, annotation.writeAnnotation(c.strings).build())
+            }
+        }
     }
 
     override fun writePackageExtensions(
@@ -51,7 +56,10 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.Package.Builder,
         c: WriteContext
     ): KmPackageExtensionVisitor? {
-        TODO("not implemented")
+        if (type != CommonPackageExtensionVisitor.TYPE) return null
+        return object : CommonPackageExtensionVisitor() {
+
+        }
     }
 
     override fun writeFunctionExtensions(
@@ -74,7 +82,17 @@ class CommonMetadataExtensions : MetadataExtensions {
     ): KmPropertyExtensionVisitor? {
         if (type != CommonPropertyExtensionVisitor.TYPE) return null
         return object : CommonPropertyExtensionVisitor() {
+            override fun visitAnnotation(annotation: KmAnnotation) {
+                proto.setExtension(KlibMetadataProtoBuf.propertyAnnotation, annotation.writeAnnotation(c.strings).build())
+            }
 
+            override fun visitGetterAnnotation(annotation: KmAnnotation) {
+                proto.setExtension(KlibMetadataProtoBuf.propertyGetterAnnotation, annotation.writeAnnotation(c.strings).build())
+            }
+
+            override fun visitSetterAnnotation(annotation: KmAnnotation) {
+                proto.setExtension(KlibMetadataProtoBuf.propertySetterAnnotation, annotation.writeAnnotation(c.strings).build())
+            }
         }
     }
 
@@ -83,7 +101,10 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.Constructor.Builder,
         c: WriteContext
     ): KmConstructorExtensionVisitor? {
-        TODO("not implemented")
+        if (type != CommonConstructorExtensionVisitor.TYPE) return null
+        return object : CommonConstructorExtensionVisitor() {
+
+        }
     }
 
     override fun writeTypeParameterExtensions(
@@ -91,7 +112,10 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.TypeParameter.Builder,
         c: WriteContext
     ): KmTypeParameterExtensionVisitor? {
-        TODO("not implemented")
+        if (type != CommonTypeParameterExtensionVisitor.TYPE) return null
+        return object : CommonTypeParameterExtensionVisitor() {
+
+        }
     }
 
     override fun writeTypeExtensions(type: KmExtensionType, proto: ProtoBuf.Type.Builder, c: WriteContext): KmTypeExtensionVisitor? {
@@ -104,9 +128,8 @@ class CommonMetadataExtensions : MetadataExtensions {
     override fun createClassExtension(): KmClassExtension =
         CommonClassExtension()
 
-    override fun createPackageExtension(): KmPackageExtension {
-        TODO("not implemented")
-    }
+    override fun createPackageExtension(): KmPackageExtension =
+        CommonPackageExtension()
 
     override fun createFunctionExtension(): KmFunctionExtension =
         CommonFunctionExtension()
@@ -114,13 +137,11 @@ class CommonMetadataExtensions : MetadataExtensions {
     override fun createPropertyExtension(): KmPropertyExtension =
         CommonPropertyExtension()
 
-    override fun createConstructorExtension(): KmConstructorExtension {
-        TODO("not implemented")
-    }
+    override fun createConstructorExtension(): KmConstructorExtension =
+        CommonConstructorExtension()
 
-    override fun createTypeParameterExtension(): KmTypeParameterExtension {
-        TODO("not implemented")
-    }
+    override fun createTypeParameterExtension(): KmTypeParameterExtension =
+        CommonTypeParameterExtension()
 
     override fun createTypeExtension(): KmTypeExtension =
         CommonTypeExtension()

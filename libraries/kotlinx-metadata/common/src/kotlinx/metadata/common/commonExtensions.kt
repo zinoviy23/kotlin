@@ -18,3 +18,14 @@ import org.jetbrains.kotlin.metadata.serialization.StringTable
 val KmFunction.annotations: MutableList<KmAnnotation>
     get() = commonExtensions.annotations
 
+val KmClass.annotations: MutableList<KmAnnotation>
+    get() = commonExtensions.annotations
+
+val KmProperty.annotations: MutableList<KmAnnotation>
+    get() = commonExtensions.annotations
+
+val KmProperty.setterAnnotations: MutableList<KmAnnotation>
+    get() = commonExtensions.setterAnnotations
+
+val KmProperty.getterAnnotations: MutableList<KmAnnotation>
+    get() = commonExtensions.getterAnnotations

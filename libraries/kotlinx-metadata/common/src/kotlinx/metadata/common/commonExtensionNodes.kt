@@ -6,10 +6,7 @@
 package kotlinx.metadata.common
 
 import kotlinx.metadata.*
-import kotlinx.metadata.impl.extensions.KmClassExtension
-import kotlinx.metadata.impl.extensions.KmFunctionExtension
-import kotlinx.metadata.impl.extensions.KmPropertyExtension
-import kotlinx.metadata.impl.extensions.KmTypeExtension
+import kotlinx.metadata.impl.extensions.*
 
 val KmFunction.commonExtensions: CommonFunctionExtension
     get() = visitExtensions(CommonFunctionExtensionVisitor.TYPE) as CommonFunctionExtension
@@ -23,7 +20,17 @@ val KmType.commonExtensions: CommonTypeExtension
 val KmProperty.commonExtensions: CommonPropertyExtension
     get() = visitExtensions(CommonPropertyExtensionVisitor.TYPE) as CommonPropertyExtension
 
+val KmConstructor.commonExtensions: CommonConstructorExtension
+    get() = visitExtensions(CommonConstructorExtensionVisitor.TYPE) as CommonConstructorExtension
+
+val KmTypeParameter.commonExtensions: CommonTypeParameterExtension
+    get() = visitExtensions(CommonTypeParameterExtensionVisitor.TYPE) as CommonTypeParameterExtension
+
+val KmPackage.commonExtensions: CommonPackageExtension
+    get() = visitExtensions(CommonPackageExtensionVisitor.TYPE) as CommonPackageExtension
+
 class CommonFunctionExtension : CommonFunctionExtensionVisitor(), KmFunctionExtension {
+
     val annotations: MutableList<KmAnnotation> = mutableListOf()
 
     override fun visitAnnotation(annotation: KmAnnotation) {
@@ -37,8 +44,16 @@ class CommonFunctionExtension : CommonFunctionExtensionVisitor(), KmFunctionExte
 }
 
 class CommonClassExtension : CommonClassExtensionVisitor(), KmClassExtension {
+
+    val annotations: MutableList<KmAnnotation> = mutableListOf()
+
+    override fun visitAnnotation(annotation: KmAnnotation) {
+        annotations += annotation
+    }
+
     override fun accept(visitor: KmClassExtensionVisitor) {
         require(visitor is CommonClassExtensionVisitor)
+        annotations.forEach(visitor::visitAnnotation)
     }
 }
 
@@ -49,7 +64,42 @@ class CommonTypeExtension : CommonTypeExtensionVisitor(), KmTypeExtension {
 }
 
 class CommonPropertyExtension : CommonPropertyExtensionVisitor(), KmPropertyExtension {
+
+    val annotations: MutableList<KmAnnotation> = mutableListOf()
+    val getterAnnotations: MutableList<KmAnnotation> = mutableListOf()
+    val setterAnnotations: MutableList<KmAnnotation> = mutableListOf()
+
+    override fun visitAnnotation(annotation: KmAnnotation) {
+        annotations += annotation
+    }
+
+    override fun visitGetterAnnotation(annotation: KmAnnotation) {
+        getterAnnotations += annotation
+    }
+
+    override fun visitSetterAnnotation(annotation: KmAnnotation) {
+        setterAnnotations += annotation
+    }
+
     override fun accept(visitor: KmPropertyExtensionVisitor) {
         require(visitor is CommonPropertyExtensionVisitor)
+    }
+}
+
+class CommonConstructorExtension : CommonConstructorExtensionVisitor(), KmConstructorExtension {
+    override fun accept(visitor: KmConstructorExtensionVisitor) {
+        require(visitor is CommonConstructorExtensionVisitor)
+    }
+}
+
+class CommonTypeParameterExtension : CommonTypeParameterExtensionVisitor(), KmTypeParameterExtension {
+    override fun accept(visitor: KmTypeParameterExtensionVisitor) {
+        require(visitor is CommonTypeParameterExtensionVisitor)
+    }
+}
+
+class CommonPackageExtension : CommonPackageExtensionVisitor(), KmPackageExtension {
+    override fun accept(visitor: KmPackageExtensionVisitor) {
+        require(visitor is CommonPackageExtensionVisitor)
     }
 }

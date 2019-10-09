@@ -8,17 +8,21 @@ package kotlinx.metadata.common
 import kotlinx.metadata.*
 
 abstract class CommonFunctionExtensionVisitor : KmFunctionExtensionVisitor {
+
+    abstract fun visitAnnotation(annotation: KmAnnotation)
+
     override val type: KmExtensionType
         get() = TYPE
 
     companion object {
         val TYPE = KmExtensionType(CommonFunctionExtensionVisitor::class)
     }
-
-    abstract fun visitAnnotation(annotation: KmAnnotation)
 }
 
 abstract class CommonClassExtensionVisitor : KmClassExtensionVisitor {
+
+    abstract fun visitAnnotation(annotation: KmAnnotation)
+
     override val type: KmExtensionType
         get() = TYPE
 
@@ -37,10 +41,44 @@ abstract class CommonTypeExtensionVisitor : KmTypeExtensionVisitor {
 }
 
 abstract class CommonPropertyExtensionVisitor : KmPropertyExtensionVisitor {
+
+    abstract fun visitAnnotation(annotation: KmAnnotation)
+
+    abstract fun visitGetterAnnotation(annotation: KmAnnotation)
+
+    abstract fun visitSetterAnnotation(annotation: KmAnnotation)
+
     override val type: KmExtensionType
         get() = TYPE
 
     companion object {
         val TYPE = KmExtensionType(CommonPropertyExtensionVisitor::class)
+    }
+}
+
+abstract class CommonConstructorExtensionVisitor : KmConstructorExtensionVisitor {
+    override val type: KmExtensionType
+        get() = TYPE
+
+    companion object {
+        val TYPE = KmExtensionType(CommonConstructorExtensionVisitor::class)
+    }
+}
+
+abstract class CommonTypeParameterExtensionVisitor : KmTypeParameterExtensionVisitor {
+    override val type: KmExtensionType
+        get() = TYPE
+
+    companion object {
+        val TYPE = KmExtensionType(CommonTypeParameterExtensionVisitor::class)
+    }
+}
+
+abstract class CommonPackageExtensionVisitor : KmPackageExtensionVisitor {
+    override val type: KmExtensionType
+        get() = TYPE
+
+    companion object {
+        val TYPE = KmExtensionType(CommonPackageExtensionVisitor::class)
     }
 }
