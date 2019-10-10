@@ -1,0 +1,7 @@
+$TESTDATA_DIR$/javacNonTransitiveDependency/my/first.kt
+-classpath
+$TESTDATA_DIR$/javacNonTransitiveDependency/lib
+-Xuse-javac
+-Xcompile-java
+-d
+$TEMP_DIR$
