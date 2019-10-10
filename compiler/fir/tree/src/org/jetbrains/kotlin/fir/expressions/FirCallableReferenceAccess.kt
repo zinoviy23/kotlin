@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.fir.expressions
 
 import com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.fir.references.FirReference
+import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.visitors.*
 
@@ -23,7 +23,7 @@ interface FirCallableReferenceAccess : FirQualifiedAccessExpression {
     override val explicitReceiver: FirExpression?
     override val dispatchReceiver: FirExpression
     override val extensionReceiver: FirExpression
-    override val calleeReference: FirReference
+    override val calleeReference: FirNamedReference
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R = visitor.visitCallableReferenceAccess(this, data)
 
