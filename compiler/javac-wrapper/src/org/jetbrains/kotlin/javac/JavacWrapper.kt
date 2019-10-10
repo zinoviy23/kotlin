@@ -170,10 +170,9 @@ class JavacWrapper(
         setClassPathForCompilation(outDir)
         makeOutputDirectoryClassesVisible()
 
-        context.get(Log.outKey)?.println(
-            "Compiling $javaFilesNumber Java source files" +
-                    " to [${fileManager.getLocation(CLASS_OUTPUT)?.firstOrNull()?.path}]"
-        )
+        val outputPath =
+            fileManager.getLocation(CLASS_OUTPUT)?.firstOrNull()?.path?.takeIf { "compilerProject_test" !in it } ?: "test directory"
+        context.get(Log.outKey)?.println("Compiling $javaFilesNumber Java source files to [$outputPath]")
         compile(fileObjects)
         errorCount() == 0
     }
