@@ -17,7 +17,6 @@
 package org.jetbrains.kotlin.resolve.diagnostics
 
 import org.jetbrains.kotlin.diagnostics.Diagnostic
-import java.util.ArrayList
 import com.intellij.openapi.util.CompositeModificationTracker
 import com.intellij.util.CachedValueImpl
 import com.intellij.psi.util.CachedValueProvider
@@ -30,12 +29,11 @@ class MutableDiagnosticsWithSuppression @JvmOverloads constructor(
     private val bindingContext: BindingContext,
     private val delegateDiagnostics: Diagnostics = Diagnostics.EMPTY
 ) : Diagnostics {
-    private val diagnosticList = ArrayList<Diagnostic>()
     private val diagnosticMap = HashMap<PsiElement, SmartList<Diagnostic>>()
 
     //NOTE: CachedValuesManager is not used because it requires Project passed to this object
     private val cache = CachedValueImpl(CachedValueProvider {
-        val allDiagnostics = delegateDiagnostics.noSuppression().all() + diagnosticList
+        val allDiagnostics = delegateDiagnostics.noSuppression().all() + getOwnDiagnostics()
         CachedValueProvider.Result(DiagnosticsWithSuppression(bindingContext, allDiagnostics), modificationTracker)
     })
 
@@ -49,17 +47,15 @@ class MutableDiagnosticsWithSuppression @JvmOverloads constructor(
 
     //essential that this list is readonly
     fun getOwnDiagnostics(): List<Diagnostic> {
-        return diagnosticList
+        return diagnosticMap.values.flatten()
     }
 
     fun report(diagnostic: Diagnostic) {
-        diagnosticList.add(diagnostic)
         diagnosticMap.getOrPut(diagnostic.psiElement, { SmartList() }).add(diagnostic)
         modificationTracker.incModificationCount()
     }
 
     fun clear() {
-        diagnosticList.clear()
         diagnosticMap.clear()
         modificationTracker.incModificationCount()
     }
