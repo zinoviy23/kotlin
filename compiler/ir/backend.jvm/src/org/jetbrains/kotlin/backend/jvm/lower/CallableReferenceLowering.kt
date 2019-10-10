@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.backend.common.ir.isSuspend
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
@@ -50,9 +51,14 @@ internal class CallableReferenceLowering(private val context: JvmBackendContext)
     private val ignoredFunctionReferences = mutableSetOf<IrFunctionReference>()
 
     private val IrFunctionReference.isIgnored: Boolean
-        get() = !type.isFunctionOrKFunction() || ignoredFunctionReferences.contains(this)
+        get() = (!type.isFunctionOrKFunction() || ignoredFunctionReferences.contains(this)) && !isSuspendCallableReference()
 
-    override fun lower(irFile: IrFile) = irFile.transformChildrenVoid(this)
+    override fun lower(irFile: IrFile) {
+        irFile.transformChildrenVoid(this)
+    }
+
+    // TODO: Currently, origin of callable references is null. Do we need to create one?
+    private fun IrFunctionReference.isSuspendCallableReference(): Boolean = isSuspend && origin == null
 
     // Mark function references appearing as inlined arguments to inline functions.
     override fun visitFunctionAccess(expression: IrFunctionAccessExpression): IrExpression {
@@ -135,7 +141,11 @@ internal class CallableReferenceLowering(private val context: JvmBackendContext)
         private val typeArgumentsMap = irFunctionReference.typeSubstitutionMap
 
         private val functionSuperClass =
-            samSuperType?.classOrNull ?: context.ir.symbols.getJvmFunctionClass(argumentTypes.size)
+            samSuperType?.classOrNull
+                ?: if (irFunctionReference.isSuspend)
+                    context.ir.symbols.getJvmSuspendFunctionClass(argumentTypes.size)
+                else
+                    context.ir.symbols.getJvmFunctionClass(argumentTypes.size)
         private val superMethod =
             functionSuperClass.functions.single { it.owner.modality == Modality.ABSTRACT }
         private val superType =
