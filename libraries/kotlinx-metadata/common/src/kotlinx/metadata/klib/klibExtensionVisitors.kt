@@ -3,11 +3,11 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package kotlinx.metadata.common
+package kotlinx.metadata.klib
 
 import kotlinx.metadata.*
 
-abstract class CommonFunctionExtensionVisitor : KmFunctionExtensionVisitor {
+abstract class KlibFunctionExtensionVisitor : KmFunctionExtensionVisitor {
 
     abstract fun visitAnnotation(annotation: KmAnnotation)
 
@@ -15,11 +15,11 @@ abstract class CommonFunctionExtensionVisitor : KmFunctionExtensionVisitor {
         get() = TYPE
 
     companion object {
-        val TYPE = KmExtensionType(CommonFunctionExtensionVisitor::class)
+        val TYPE = KmExtensionType(KlibFunctionExtensionVisitor::class)
     }
 }
 
-abstract class CommonClassExtensionVisitor : KmClassExtensionVisitor {
+abstract class KlibClassExtensionVisitor : KmClassExtensionVisitor {
 
     abstract fun visitAnnotation(annotation: KmAnnotation)
 
@@ -27,20 +27,20 @@ abstract class CommonClassExtensionVisitor : KmClassExtensionVisitor {
         get() = TYPE
 
     companion object {
-        val TYPE = KmExtensionType(CommonClassExtensionVisitor::class)
+        val TYPE = KmExtensionType(KlibClassExtensionVisitor::class)
     }
 }
 
-abstract class CommonTypeExtensionVisitor : KmTypeExtensionVisitor {
+abstract class KlibTypeExtensionVisitor : KmTypeExtensionVisitor {
     override val type: KmExtensionType
         get() = TYPE
 
     companion object {
-        val TYPE = KmExtensionType(CommonTypeExtensionVisitor::class)
+        val TYPE = KmExtensionType(KlibTypeExtensionVisitor::class)
     }
 }
 
-abstract class CommonPropertyExtensionVisitor : KmPropertyExtensionVisitor {
+abstract class KlibPropertyExtensionVisitor : KmPropertyExtensionVisitor {
 
     abstract fun visitAnnotation(annotation: KmAnnotation)
 
@@ -52,33 +52,33 @@ abstract class CommonPropertyExtensionVisitor : KmPropertyExtensionVisitor {
         get() = TYPE
 
     companion object {
-        val TYPE = KmExtensionType(CommonPropertyExtensionVisitor::class)
+        val TYPE = KmExtensionType(KlibPropertyExtensionVisitor::class)
     }
 }
 
-abstract class CommonConstructorExtensionVisitor : KmConstructorExtensionVisitor {
+abstract class KlibConstructorExtensionVisitor : KmConstructorExtensionVisitor {
     override val type: KmExtensionType
         get() = TYPE
 
     companion object {
-        val TYPE = KmExtensionType(CommonConstructorExtensionVisitor::class)
+        val TYPE = KmExtensionType(KlibConstructorExtensionVisitor::class)
     }
 }
 
-abstract class CommonTypeParameterExtensionVisitor : KmTypeParameterExtensionVisitor {
+abstract class KlibTypeParameterExtensionVisitor : KmTypeParameterExtensionVisitor {
     override val type: KmExtensionType
         get() = TYPE
 
     companion object {
-        val TYPE = KmExtensionType(CommonTypeParameterExtensionVisitor::class)
+        val TYPE = KmExtensionType(KlibTypeParameterExtensionVisitor::class)
     }
 }
 
-abstract class CommonPackageExtensionVisitor : KmPackageExtensionVisitor {
+abstract class KlibPackageExtensionVisitor : KmPackageExtensionVisitor {
     override val type: KmExtensionType
         get() = TYPE
 
     companion object {
-        val TYPE = KmExtensionType(CommonPackageExtensionVisitor::class)
+        val TYPE = KmExtensionType(KlibPackageExtensionVisitor::class)
     }
 }

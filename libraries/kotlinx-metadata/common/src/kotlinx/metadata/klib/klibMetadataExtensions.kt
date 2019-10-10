@@ -3,17 +3,18 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package kotlinx.metadata.common
+package kotlinx.metadata.klib
 
 import kotlinx.metadata.*
 import kotlinx.metadata.impl.ReadContext
 import kotlinx.metadata.impl.WriteContext
 import kotlinx.metadata.impl.extensions.*
 import kotlinx.metadata.impl.writeAnnotation
+import kotlinx.metadata.klib.*
 import org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf
 import org.jetbrains.kotlin.metadata.ProtoBuf
 
-class CommonMetadataExtensions : MetadataExtensions {
+class KlibMetadataExtensions : MetadataExtensions {
     override fun readClassExtensions(v: KmClassVisitor, proto: ProtoBuf.Class, c: ReadContext) {
         TODO("not implemented")
     }
@@ -43,8 +44,8 @@ class CommonMetadataExtensions : MetadataExtensions {
     }
 
     override fun writeClassExtensions(type: KmExtensionType, proto: ProtoBuf.Class.Builder, c: WriteContext): KmClassExtensionVisitor? {
-        if (type != CommonClassExtensionVisitor.TYPE) return null
-        return object : CommonClassExtensionVisitor() {
+        if (type != KlibClassExtensionVisitor.TYPE) return null
+        return object : KlibClassExtensionVisitor() {
             override fun visitAnnotation(annotation: KmAnnotation) {
                 proto.setExtension(
                     KlibMetadataProtoBuf.classAnnotation,
@@ -59,8 +60,8 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.Package.Builder,
         c: WriteContext
     ): KmPackageExtensionVisitor? {
-        if (type != CommonPackageExtensionVisitor.TYPE) return null
-        return object : CommonPackageExtensionVisitor() {
+        if (type != KlibPackageExtensionVisitor.TYPE) return null
+        return object : KlibPackageExtensionVisitor() {
 
         }
     }
@@ -70,8 +71,8 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.Function.Builder,
         c: WriteContext
     ): KmFunctionExtensionVisitor? {
-        if (type != CommonFunctionExtensionVisitor.TYPE) return null
-        return object : CommonFunctionExtensionVisitor() {
+        if (type != KlibFunctionExtensionVisitor.TYPE) return null
+        return object : KlibFunctionExtensionVisitor() {
             override fun visitAnnotation(annotation: KmAnnotation) {
                 proto.setExtension(
                     KlibMetadataProtoBuf.functionAnnotation,
@@ -86,8 +87,8 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.Property.Builder,
         c: WriteContext
     ): KmPropertyExtensionVisitor? {
-        if (type != CommonPropertyExtensionVisitor.TYPE) return null
-        return object : CommonPropertyExtensionVisitor() {
+        if (type != KlibPropertyExtensionVisitor.TYPE) return null
+        return object : KlibPropertyExtensionVisitor() {
             override fun visitAnnotation(annotation: KmAnnotation) {
                 proto.setExtension(
                     KlibMetadataProtoBuf.propertyAnnotation,
@@ -116,8 +117,8 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.Constructor.Builder,
         c: WriteContext
     ): KmConstructorExtensionVisitor? {
-        if (type != CommonConstructorExtensionVisitor.TYPE) return null
-        return object : CommonConstructorExtensionVisitor() {
+        if (type != KlibConstructorExtensionVisitor.TYPE) return null
+        return object : KlibConstructorExtensionVisitor() {
 
         }
     }
@@ -127,37 +128,37 @@ class CommonMetadataExtensions : MetadataExtensions {
         proto: ProtoBuf.TypeParameter.Builder,
         c: WriteContext
     ): KmTypeParameterExtensionVisitor? {
-        if (type != CommonTypeParameterExtensionVisitor.TYPE) return null
-        return object : CommonTypeParameterExtensionVisitor() {
+        if (type != KlibTypeParameterExtensionVisitor.TYPE) return null
+        return object : KlibTypeParameterExtensionVisitor() {
 
         }
     }
 
     override fun writeTypeExtensions(type: KmExtensionType, proto: ProtoBuf.Type.Builder, c: WriteContext): KmTypeExtensionVisitor? {
-        if (type != CommonTypeExtensionVisitor.TYPE) return null
-        return object : CommonTypeExtensionVisitor() {
+        if (type != KlibTypeExtensionVisitor.TYPE) return null
+        return object : KlibTypeExtensionVisitor() {
 
         }
     }
 
     override fun createClassExtension(): KmClassExtension =
-        CommonClassExtension()
+        KlibClassExtension()
 
     override fun createPackageExtension(): KmPackageExtension =
-        CommonPackageExtension()
+        KlibPackageExtension()
 
     override fun createFunctionExtension(): KmFunctionExtension =
-        CommonFunctionExtension()
+        KlibFunctionExtension()
 
     override fun createPropertyExtension(): KmPropertyExtension =
-        CommonPropertyExtension()
+        KlibPropertyExtension()
 
     override fun createConstructorExtension(): KmConstructorExtension =
-        CommonConstructorExtension()
+        KlibConstructorExtension()
 
     override fun createTypeParameterExtension(): KmTypeParameterExtension =
-        CommonTypeParameterExtension()
+        KlibTypeParameterExtension()
 
     override fun createTypeExtension(): KmTypeExtension =
-        CommonTypeExtension()
+        KlibTypeExtension()
 }

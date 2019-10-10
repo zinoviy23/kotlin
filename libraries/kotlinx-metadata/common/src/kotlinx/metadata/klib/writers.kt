@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package kotlinx.metadata.common
+package kotlinx.metadata.klib
 
 import kotlinx.metadata.impl.PackageWriter
 import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataStringTable
@@ -12,7 +12,7 @@ import org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf
 
 // TODO:
 //  1. Package should be split into fragments
-class CommonPackageWriter : PackageWriter(KlibMetadataStringTable()) {
+class KlibPackageWriter : PackageWriter(KlibMetadataStringTable()) {
 
     fun write(): SerializedMetadata {
         val fragments = mutableListOf<List<ByteArray>>()

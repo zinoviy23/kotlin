@@ -1,6 +1,6 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
-description = "Kotlin Common Metadata manipulation library"
+description = "Kotlin Klib Metadata manipulation library"
 
 plugins {
     kotlin("jvm")
