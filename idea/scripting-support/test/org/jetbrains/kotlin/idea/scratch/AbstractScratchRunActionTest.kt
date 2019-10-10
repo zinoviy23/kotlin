@@ -298,7 +298,7 @@ abstract class AbstractScratchRunActionTest : FileEditorManagerTestCase() {
 
         VfsRootAccess.allowRootAccess(KotlinTestUtils.getHomeDirectory())
 
-        PluginTestCaseBase.addJdk(myFixture.projectDisposable) { PluginTestCaseBase.fullJdk() }
+        PluginTestCaseBase.addJdk(myFixture.projectDisposable) { projectDescriptor.sdk }
     }
 
     override fun tearDown() {
