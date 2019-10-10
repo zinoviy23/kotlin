@@ -266,8 +266,12 @@ open class FirBodyResolveTransformer(
         }
         val intersectedType = ConeTypeIntersector.intersectTypes(inferenceComponents.ctx as ConeInferenceContext, allTypes)
         // TODO: add check that intersectedType is not equal to original type
-        val intersectedTypeRef = FirResolvedTypeRefImpl(qualifiedAccessExpression.resultType.psi, intersectedType).apply {
-            annotations += qualifiedAccessExpression.resultType.annotations
+        val intersectedTypeRef = FirResolvedTypeRefImpl(
+                qualifiedAccessExpression.resultType.psi,
+                intersectedType).apply {
+            annotations +=
+                qualifiedAccessExpression.resultType.annotations
+
         }
         return FirExpressionWithSmartcastImpl(qualifiedAccessExpression, intersectedTypeRef, typesFromSmartCast)
     }
@@ -1051,7 +1055,8 @@ class FirImplicitTypeBodyResolveTransformerAdapter : FirTransformer<Nothing?>() 
     }
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
-        val transformer = FirBodyResolveTransformer(
+        val transformer =
+            FirBodyResolveTransformer(
             file.session,
             phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
             implicitTypeOnly = true,
@@ -1072,7 +1077,8 @@ class FirBodyResolveTransformerAdapter : FirTransformer<Nothing?>() {
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
         // Despite of real phase is EXPRESSIONS, we state IMPLICIT_TYPES here, because DECLARATIONS previous phase is OK for us
-        val transformer = FirBodyResolveTransformer(
+        val transformer =
+            FirBodyResolveTransformer(
             file.session,
             phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
             implicitTypeOnly = false,
