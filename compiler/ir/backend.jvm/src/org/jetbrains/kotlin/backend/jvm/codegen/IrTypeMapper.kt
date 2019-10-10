@@ -1,6 +1,6 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
- * that can be found in the license/LICENSE.txt file.
+ * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.backend.jvm.codegen
@@ -81,9 +81,13 @@ class IrTypeMapper(private val context: JvmBackendContext) : KotlinTypeMapperBas
         }
 
         if (type.isSuspendFunction()) {
+            val returnTypeArgument = type.arguments.last()
+            val returnType =
+                if (returnTypeArgument is IrTypeProjection) returnTypeArgument.type
+                else context.irBuiltIns.anyNType
             val arguments =
-                type.arguments.dropLast(1).map { (it as IrTypeProjection).type } +
-                        context.ir.symbols.continuationClass.typeWith((type.arguments.last() as IrTypeProjection).type) +
+                type.arguments.dropLast(1).map { if (it is IrTypeProjection) it.type else context.irBuiltIns.anyNType } +
+                        context.ir.symbols.continuationClass.typeWith(returnType) +
                         context.irBuiltIns.anyNType
             val runtimeFunctionType = context.referenceClass(context.builtIns.getFunction(arguments.size - 1)).typeWith(arguments)
             return mapType(runtimeFunctionType, mode, sw)

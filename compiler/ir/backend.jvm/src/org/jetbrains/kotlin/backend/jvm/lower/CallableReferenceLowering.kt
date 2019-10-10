@@ -163,6 +163,7 @@ internal class CallableReferenceLowering(private val context: JvmBackendContext)
             superTypes += superType
             if (samSuperType == null)
                 superTypes += functionSuperClass.typeWith(parameterTypes)
+            if (irFunctionReference.isSuspend) superTypes += context.ir.symbols.suspendFunctionInterface.typeWith()
             createImplicitParameterDeclarationWithWrappedDescriptor()
             copyAttributes(irFunctionReference)
         }
