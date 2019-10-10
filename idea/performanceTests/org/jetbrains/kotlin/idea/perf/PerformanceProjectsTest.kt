@@ -301,6 +301,7 @@ class PerformanceProjectsTest : AbstractPerformanceProjectsTest() {
     fun perfKtsFileAnalysisTest(): (TestData<Fixture, Pair<Long, List<HighlightInfo>>>) -> Unit {
         return {
             it.value = it.setUpValue?.let { fixture ->
+                throw Exception("[VD] temp!")
                 Pair(System.nanoTime(), fixture.doHighlighting())
             }
         }
