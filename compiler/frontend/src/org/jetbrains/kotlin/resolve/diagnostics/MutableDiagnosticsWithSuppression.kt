@@ -22,6 +22,7 @@ import com.intellij.openapi.util.CompositeModificationTracker
 import com.intellij.util.CachedValueImpl
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.PsiElement
+import com.intellij.util.SmartList
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.resolve.BindingContext
 
@@ -30,6 +31,7 @@ class MutableDiagnosticsWithSuppression @JvmOverloads constructor(
     private val delegateDiagnostics: Diagnostics = Diagnostics.EMPTY
 ) : Diagnostics {
     private val diagnosticList = ArrayList<Diagnostic>()
+    private val diagnosticMap = HashMap<PsiElement, SmartList<Diagnostic>>()
 
     //NOTE: CachedValuesManager is not used because it requires Project passed to this object
     private val cache = CachedValueImpl(CachedValueProvider {
@@ -52,12 +54,24 @@ class MutableDiagnosticsWithSuppression @JvmOverloads constructor(
 
     fun report(diagnostic: Diagnostic) {
         diagnosticList.add(diagnostic)
+        diagnosticMap.getOrPut(diagnostic.psiElement, { SmartList() }).add(diagnostic)
         modificationTracker.incModificationCount()
     }
 
     fun clear() {
         diagnosticList.clear()
+        diagnosticMap.clear()
         modificationTracker.incModificationCount()
+    }
+
+    override fun hasDiagnostic(diagnostic: Diagnostic): Boolean {
+        if (cache.hasUpToDateValue()) return cache.value.hasDiagnostic(diagnostic)
+        if (delegateDiagnostics.hasDiagnostic(diagnostic)) return true
+
+        // It's totally fine to check without any suppression logic as if passed diagnostic has the same factory & psiElement,
+        // then it has the same suppression logic, so it doesn't matter if we add it or not later
+        val list = diagnosticMap[diagnostic.psiElement] ?: return false
+        return list.any { it.factory == diagnostic.factory && it.psiElement == diagnostic.psiElement }
     }
 
     @TestOnly
