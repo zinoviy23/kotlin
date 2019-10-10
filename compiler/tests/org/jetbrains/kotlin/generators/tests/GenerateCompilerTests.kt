@@ -151,6 +151,7 @@ fun main(args: Array<String>) {
 
         GenerateRangesCodegenTestData.main(emptyArray<String>())
         GenerateInRangeExpressionTestData.main(emptyArray<String>())
+        GenerateSteppedRangesCodegenTestData.main(emptyArray<String>())
         GeneratePrimitiveVsObjectEqualityTestData.main(emptyArray<String>())
 
         testClass<AbstractBlackBoxCodegenTest> {
