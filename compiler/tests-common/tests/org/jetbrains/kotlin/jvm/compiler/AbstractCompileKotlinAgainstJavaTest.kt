@@ -91,7 +91,7 @@ abstract class AbstractCompileKotlinAgainstJavaTest : TestCaseWithTmpdir() {
         environment.registerJavac(
             javaFiles = javaFiles,
             kotlinFiles = ktFiles,
-            arguments = arrayOf("-proc:none"),
+            arguments = arrayOf(),
             bootClasspath = listOf(findMockJdkRtJar())
         )
         ModuleVisibilityManager.SERVICE.getInstance(environment.project).addModule(
