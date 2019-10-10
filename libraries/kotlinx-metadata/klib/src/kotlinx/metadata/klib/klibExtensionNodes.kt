@@ -6,7 +6,6 @@
 package kotlinx.metadata.klib
 
 import kotlinx.metadata.*
-import kotlinx.metadata.common.*
 import kotlinx.metadata.impl.extensions.*
 
 val KmFunction.klibExtensions: KlibFunctionExtension
@@ -21,13 +20,13 @@ val KmType.klibExtensions: KlibTypeExtension
 val KmProperty.klibExtensions: KlibPropertyExtension
     get() = visitExtensions(KlibPropertyExtensionVisitor.TYPE) as KlibPropertyExtension
 
-val KmConstructor.commonExtensions: KlibConstructorExtension
+val KmConstructor.klibExtensions: KlibConstructorExtension
     get() = visitExtensions(KlibConstructorExtensionVisitor.TYPE) as KlibConstructorExtension
 
-val KmTypeParameter.commonExtensions: KlibTypeParameterExtension
+val KmTypeParameter.klibExtensions: KlibTypeParameterExtension
     get() = visitExtensions(KlibTypeParameterExtensionVisitor.TYPE) as KlibTypeParameterExtension
 
-val KmPackage.commonExtensions: KlibPackageExtension
+val KmPackage.klibExtensions: KlibPackageExtension
     get() = visitExtensions(KlibPackageExtensionVisitor.TYPE) as KlibPackageExtension
 
 class KlibFunctionExtension : KlibFunctionExtensionVisitor(), KmFunctionExtension {

@@ -6,7 +6,6 @@
 package kotlinx.metadata.klib
 
 import kotlinx.metadata.*
-import kotlinx.metadata.klib.klibExtensions
 
 val KmFunction.annotations: MutableList<KmAnnotation>
     get() = klibExtensions.annotations
