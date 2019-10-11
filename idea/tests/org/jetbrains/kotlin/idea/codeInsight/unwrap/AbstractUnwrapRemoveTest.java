@@ -11,15 +11,15 @@ import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.psi.PsiElement;
-import com.intellij.testFramework.LightCodeInsightTestCase;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.kotlin.idea.test.KotlinLightCodeInsightTestCase;
 import org.jetbrains.kotlin.test.InTextDirectivesUtils;
 
 import java.io.File;
 import java.util.List;
 
-public abstract class AbstractUnwrapRemoveTest extends LightCodeInsightTestCase {
+public abstract class AbstractUnwrapRemoveTest extends KotlinLightCodeInsightTestCase {
     public void doTestExpressionRemover(@NotNull String path) throws Exception {
         doTest(path, KotlinUnwrappers.KotlinExpressionRemover.class);
     }
@@ -80,7 +80,7 @@ public abstract class AbstractUnwrapRemoveTest extends LightCodeInsightTestCase 
         Integer optionIndex = option != null ? Integer.parseInt(option) : 0;
 
         List<Pair<PsiElement, Unwrapper>> unwrappersWithPsi =
-                new KotlinUnwrapDescriptor().collectUnwrappers(getProject(), getEditor(), getFile());
+                new KotlinUnwrapDescriptor().collectUnwrappers(getProject_(), getEditor(), getFile());
 
         if (isApplicableExpected) {
             final Pair<PsiElement, Unwrapper> selectedUnwrapperWithPsi = unwrappersWithPsi.get(optionIndex);
