@@ -4,7 +4,6 @@
  */
 package org.jetbrains.kotlin.idea.debugger.test.sequence
 
-import com.intellij.debugger.streams.test.StreamChainBuilderTestCase
 import com.intellij.debugger.streams.wrapper.StreamChain
 import com.intellij.debugger.streams.wrapper.StreamChainBuilder
 import com.intellij.openapi.application.ApplicationManager
@@ -16,9 +15,10 @@ import junit.framework.TestCase
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.idea.caches.project.LibraryModificationTracker
 import org.jetbrains.kotlin.idea.debugger.test.DEBUGGER_TESTDATA_PATH_BASE
+import org.jetbrains.kotlin.idea.debugger.test.sequence.compat.KotlinStreamChainBuilderTestCase
 import org.jetbrains.kotlin.idea.test.PluginTestCaseBase
 
-abstract class KotlinPsiChainBuilderTestCase(private val relativePath: String) : StreamChainBuilderTestCase() {
+abstract class KotlinPsiChainBuilderTestCase(private val relativePath: String) : KotlinStreamChainBuilderTestCase() {
     override fun getTestDataPath(): String = "$DEBUGGER_TESTDATA_PATH_BASE/sequence/psi/$relativeTestPath"
 
     override fun getFileExtension(): String = ".kt"
