@@ -35,6 +35,8 @@ import org.jetbrains.org.objectweb.asm.Type
 
 class IrTypeMapper(private val context: JvmBackendContext) : KotlinTypeMapperBase() {
     internal val typeSystem = IrTypeCheckerContext(context.irBuiltIns)
+    private val IrTypeArgument.adjustedType
+        get() = (this as? IrTypeProjection)?.type ?: context.irBuiltIns.anyNType
 
     override fun mapClass(classifier: ClassifierDescriptor): Type =
         when (classifier) {
@@ -81,13 +83,9 @@ class IrTypeMapper(private val context: JvmBackendContext) : KotlinTypeMapperBas
         }
 
         if (type.isSuspendFunction()) {
-            val returnTypeArgument = type.arguments.last()
-            val returnType =
-                if (returnTypeArgument is IrTypeProjection) returnTypeArgument.type
-                else context.irBuiltIns.anyNType
             val arguments =
-                type.arguments.dropLast(1).map { if (it is IrTypeProjection) it.type else context.irBuiltIns.anyNType } +
-                        context.ir.symbols.continuationClass.typeWith(returnType) +
+                type.arguments.dropLast(1).map { it.adjustedType } +
+                        context.ir.symbols.continuationClass.typeWith(type.arguments.last().adjustedType) +
                         context.irBuiltIns.anyNType
             val runtimeFunctionType = context.referenceClass(context.builtIns.getFunction(arguments.size - 1)).typeWith(arguments)
             return mapType(runtimeFunctionType, mode, sw)
