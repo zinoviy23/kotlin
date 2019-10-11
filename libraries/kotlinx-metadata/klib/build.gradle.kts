@@ -31,7 +31,7 @@ dependencies {
     shadows(project(":kotlinx-metadata"))
     shadows(project(":core:metadata"))
     shadows(project(":compiler:serialization"))
-    shadows(project(":kotlin-util-klib-metadata"))
+    compile(project(":kotlin-util-klib-metadata"))
     shadows(protobufLite())
     // TODO: Add tests later
 }
@@ -50,7 +50,7 @@ tasks.register<ShadowJar>("shadowJar") {
     from(mainSourceSet.output)
     exclude("**/*.proto")
     configurations = listOf(shadows)
-    relocate("org.jetbrains.kotlin", "kotlinx.metadata.internal")
+//    relocate("org.jetbrains.kotlin", "kotlinx.metadata.internal")
 
     val artifactRef = outputs.files.singleFile
     runtimeJarArtifactBy(this, artifactRef)
