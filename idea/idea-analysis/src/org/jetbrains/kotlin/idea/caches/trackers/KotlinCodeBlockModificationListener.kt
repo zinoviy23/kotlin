@@ -251,12 +251,12 @@ class KotlinCodeBlockModificationListener(
                 }
 
                 is KtClassInitializer -> {
-                    return blockDeclaration
+                    blockDeclaration
                         .takeIf { it.isAncestor(element) }
-                        ?.let {
-                            BlockModificationScopeElement(
-                                KtPsiUtil.getTopmostParentOfTypes(blockDeclaration, KtClass::class.java) as KtElement, it
-                            )
+                        ?.let { ktClassInitializer ->
+                            (KtPsiUtil.getTopmostParentOfTypes(blockDeclaration, KtClass::class.java) as? KtElement)?.let {
+                                return BlockModificationScopeElement(it, ktClassInitializer)
+                            }
                         }
                 }
 

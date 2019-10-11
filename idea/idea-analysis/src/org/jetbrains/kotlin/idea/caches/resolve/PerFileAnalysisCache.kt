@@ -101,19 +101,20 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
             val analysisResult = cache[file]
             // step 1: perform incremental analysis IF there is a cached result for ktFile and there are inBlockModifications
             if (analysisResult != null && inBlockModifications.isNotEmpty()) {
-                var result = analysisResult!!
+                var result = analysisResult!! // smart-cast unable to handle complex conditions
 
                 // check IF incremental analysis is applicable
+                val resultCtx = result.bindingContext
                 var incrementalAnalysisApplicable =
-                    if (result.bindingContext is StackedCompositeBindingContext)
-                        (result.bindingContext as StackedCompositeBindingContext).isIncrementalAnalysisApplicable()
+                    if (resultCtx is StackedCompositeBindingContext) resultCtx.isIncrementalAnalysisApplicable()
                     else true
 
                 if (incrementalAnalysisApplicable) {
                     for (inBlockModification in inBlockModifications) {
                         val inBlockResult = analyze(inBlockModification)
-                        result = mergeResults(inBlockModification, inBlockResult, file, result)
+                        result = mergeResults(inBlockModification, inBlockResult, result)
                     }
+                    cache[file] = result
                 } else {
                     // drop existed results for file if incremental analysis is not applicable
                     // it leads to entire file analysis
@@ -146,19 +147,16 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
     private fun mergeResults(
         element: KtElement,
         elementResult: AnalysisResult,
-        parentElement: KtFile,
         parentResult: AnalysisResult
     ): AnalysisResult {
         val newBindingCtx = mergeContexts(elementResult, parentResult, element)
-        val newFileAnalysis = if (parentResult.isError())
+        return if (parentResult.isError())
             AnalysisResult.internalError(newBindingCtx, parentResult.error)
         else AnalysisResult.success(
             newBindingCtx,
             parentResult.moduleDescriptor,
             parentResult.shouldGenerateCode
         )
-        cache[parentElement] = newFileAnalysis
-        return newFileAnalysis
     }
 
     private fun mergeContexts(
@@ -287,14 +285,11 @@ private class StackedCompositeBindingContext(
     // to prevent too deep stacked binding context
     fun isIncrementalAnalysisApplicable(): Boolean = depth < 16
 
-    private fun ctx(ktElement: PsiElement?): BindingContext? =
-        when {
-            ktElement != null -> if (children.contains(ktElement)) elementContext else parentContext
-            else -> null
-        }
+    private fun ctx(ktElement: PsiElement): BindingContext =
+        if (children.contains(ktElement)) elementContext else parentContext
 
     override fun getType(expression: KtExpression): KotlinType? {
-        return ctx(expression)!!.getType(expression)
+        return ctx(expression).getType(expression)
     }
 
     override fun <K, V> get(slice: ReadOnlySlice<K, V>?, key: K?): V? {
@@ -306,9 +301,9 @@ private class StackedCompositeBindingContext(
         }
 
         if (element != null) {
-            return ctx(element)!![slice, key]
+            return ctx(element)[slice, key]
         }
-        return delegates.asSequence().map { it[slice, key] }.firstOrNull { it != null }
+        return delegates.asSequence().map { it[slice, key] }.firstOrNull()
     }
 
     override fun <K, V> getKeys(slice: WritableSlice<K, V>?): Collection<K> {
