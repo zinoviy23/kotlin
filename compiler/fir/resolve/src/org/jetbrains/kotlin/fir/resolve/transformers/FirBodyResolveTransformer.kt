@@ -93,6 +93,8 @@ open class FirBodyResolveTransformer(
     private val dataFlowAnalyzer: FirDataFlowAnalyzer = FirDataFlowAnalyzer(this)
     private val whenExhaustivenessTransformer = FirWhenExhaustivenessTransformer(this)
 
+    private val doubleColonExpressionResolver: FirDoubleColonExpressionResolver = FirDoubleColonExpressionResolver(session)
+
     override val <D> AbstractFirBasedSymbol<D>.phasedFir: D where D : FirDeclaration, D : FirSymbolOwner<D>
         get() {
             val requiredPhase = transformerPhase.prev
@@ -293,6 +295,24 @@ open class FirBodyResolveTransformer(
         // TODO: maybe replace with FirAbstractAssignment for performance?
         (result as? FirVariableAssignment)?.let { dataFlowAnalyzer.exitVariableAssignment(it) }
         return result.compose()
+    }
+
+    override fun transformCallableReferenceAccess(
+        callableReferenceAccess: FirCallableReferenceAccess,
+        data: Any?
+    ): CompositeTransformResult<FirStatement> {
+        val transformedLHS =
+            callableReferenceAccess.explicitReceiver?.transform<FirExpression, Any>(this, noExpectedType)?.single
+
+        val callableReferenceAccessWithTransformedLHS =
+            if (transformedLHS != null)
+                callableReferenceAccess.transformExplicitReceiver(StoreReceiver, transformedLHS) as FirCallableReferenceAccess
+            else
+                callableReferenceAccess
+
+        val lhsResult = doubleColonExpressionResolver.resolveDoubleColonLHS(callableReferenceAccessWithTransformedLHS)
+
+        return callResolver.resolveCallableReference(callableReferenceAccessWithTransformedLHS, lhsResult).compose()
     }
 
     override fun transformAnonymousFunction(anonymousFunction: FirAnonymousFunction, data: Any?): CompositeTransformResult<FirStatement> {
