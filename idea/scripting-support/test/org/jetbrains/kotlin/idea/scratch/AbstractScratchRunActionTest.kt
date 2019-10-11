@@ -10,6 +10,10 @@ import com.intellij.ide.scratch.ScratchRootType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.module.Module
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.project.impl.ProjectManagerImpl
+import com.intellij.openapi.project.impl.TooManyProjectLeakedException
 import com.intellij.openapi.roots.CompilerModuleExtension
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.io.FileUtil
@@ -19,6 +23,8 @@ import com.intellij.testFramework.FileEditorManagerTestCase
 import com.intellij.testFramework.MapDataContext
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.TestActionEvent
+import com.intellij.util.containers.ContainerUtil
+import com.intellij.util.ref.GCUtil
 import com.intellij.util.ui.UIUtil
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.idea.KotlinLanguage
@@ -309,7 +315,44 @@ abstract class AbstractScratchRunActionTest : FileEditorManagerTestCase() {
         ScratchFileService.getInstance().scratchesMapping.mappings.forEach { file, _ ->
             runWriteAction { file.delete(this) }
         }
+
+        checkProjectLeaksInTests()
     }
+
+    private fun checkProjectLeaksInTests() {
+        if (getLeakedProjectsCount() < 1) {
+            return
+        }
+        var i = 0
+        while (i < 3 && getLeakedProjectsCount() >= 1) {
+            GCUtil.tryGcSoftlyReachableObjects()
+            i++
+        }
+        if (getLeakedProjectsCount() >= 1) {
+            System.gc()
+            val copy: Collection<Project> = getLeakedProjects()
+            if (ContainerUtil.collect(copy.iterator()).size >= 1) {
+                throw TooManyProjectLeakedException(copy)
+            }
+        }
+    }
+
+    private fun getLeakedProjectsCount(): Int {
+        val instance = ProjectManager.getInstance()
+
+        val method = ProjectManagerImpl::class.java.getDeclaredMethod("getLeakedProjectsCount")
+        method.isAccessible = true
+        return method.invoke(instance) as Int
+    }
+
+    private fun getLeakedProjects(): ArrayList<Project> {
+        val instance = ProjectManager.getInstance()
+        val getLeakedProjects = ProjectManagerImpl::class.java.getDeclaredMethod("getLeakedProjects")
+        getLeakedProjects.isAccessible = true
+        val leakedProjects: Collection<Project> = getLeakedProjects.invoke(instance) as Collection<Project>
+        return leakedProjects.mapTo(arrayListOf()) { it }
+    }
+
 
     companion object {
         private val INSTANCE_WITH_KOTLIN_TEST = object : KotlinWithJdkAndRuntimeLightProjectDescriptor(
