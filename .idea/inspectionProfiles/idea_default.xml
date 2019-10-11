@@ -102,6 +102,8 @@
           <Problem reference="com.intellij.execution.JavaRunConfigurationExtensionManager#getInstance" reason="Can't be used in Kotlin, because method was replaced with property after J2K in 183. Use JavaRunConfigurationExtensionManagerUtil instead." />
           <Problem reference="org.jetbrains.kotlin.idea.reporter.ITNReporterCompat#submit" reason="parentComponent is nullable in AS" />
           <Problem reference="com.intellij.diagnostic.ITNReporter#submit" reason="parentComponent is nullable in AS" />
+          <Problem reference="com.intellij.testFramework.LightPlatformTestCase#getProject" reason="Absent in &lt;=192" />
+          <Problem reference="com.intellij.testFramework.LightPlatformTestCase#getModule" reason="Absent in &lt;=192." />
         </list>
       </option>
     </inspection_tool>
