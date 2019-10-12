@@ -12,9 +12,12 @@ import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccess
 import org.jetbrains.kotlin.fir.expressions.FirResolvable
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
+import org.jetbrains.kotlin.fir.references.FirResolvedCallableReference
+import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.resolve.calls.FirNamedReferenceWithCandidate
 import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.transformers.resultType
+import org.jetbrains.kotlin.fir.scopes.impl.FirClassDeclaredMemberScopeProvider
 import org.jetbrains.kotlin.fir.scopes.impl.withReplacedConeType
 import org.jetbrains.kotlin.fir.symbols.*
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -36,7 +39,9 @@ inline fun <K, V, VA : V> MutableMap<K, V>.getOrPut(key: K, defaultValue: (K) ->
 }
 
 val FirSession.firSymbolProvider: FirSymbolProvider by componentArrayAccessor()
+val FirSession.firProvider: FirProvider by componentArrayAccessor()
 val FirSession.correspondingSupertypesCache: FirCorrespondingSupertypesCache by componentArrayAccessor()
+val FirSession.declaredMemberScopeProvider: FirClassDeclaredMemberScopeProvider by componentArrayAccessor()
 
 fun ConeClassLikeLookupTag.toSymbol(useSiteSession: FirSession): FirClassLikeSymbol<*>? {
     val firSymbolProvider = useSiteSession.firSymbolProvider
@@ -191,7 +196,7 @@ fun <T : ConeKotlinType> T.withArguments(arguments: Array<out ConeKotlinTypeProj
 
 fun FirFunction<*>.constructFunctionalTypeRef(session: FirSession): FirResolvedTypeRef {
     val receiverTypeRef = when (this) {
-        is FirNamedFunction -> receiverTypeRef
+        is FirSimpleFunction -> receiverTypeRef
         is FirAnonymousFunction -> receiverTypeRef
         else -> null
     }
@@ -214,7 +219,7 @@ fun createFunctionalType(
     val receiverAndParameterTypes = listOfNotNull(receiverType) + parameters + listOf(rawReturnType)
 
     val functionalTypeId = StandardClassIds.byName("Function${receiverAndParameterTypes.size - 1}")
-    val functionalType = functionalTypeId(session.service()).constructType(receiverAndParameterTypes.toTypedArray(), isNullable = false)
+    val functionalType = functionalTypeId(session.firSymbolProvider).constructType(receiverAndParameterTypes.toTypedArray(), isNullable = false)
     return functionalType
 }
 
@@ -222,7 +227,7 @@ fun BodyResolveComponents.typeForQualifier(resolvedQualifier: FirResolvedQualifi
     val classId = resolvedQualifier.classId
     val resultType = resolvedQualifier.resultType
     if (classId != null) {
-        val classSymbol = symbolProvider.getClassLikeSymbolByFqName(classId)!!
+        val classSymbol: FirClassLikeSymbol<*> = symbolProvider.getClassLikeSymbolByFqName(classId)!!
         val declaration = classSymbol.phasedFir
         if (declaration is FirClass) {
             if (declaration.classKind == ClassKind.OBJECT) {
@@ -279,7 +284,7 @@ fun <T : FirResolvable> BodyResolveComponents.typeFromCallee(access: T): FirReso
         is FirThisReference -> {
             val labelName = newCallee.labelName
             val implicitReceiver = implicitReceiverStack[labelName]
-            FirResolvedTypeRefImpl(null, implicitReceiver?.type ?: ConeKotlinErrorType("Unresolved this@$labelName"), emptyList())
+            FirResolvedTypeRefImpl(null, implicitReceiver?.type ?: ConeKotlinErrorType("Unresolved this@$labelName"))
         }
         else -> error("Failed to extract type from: $newCallee")
     }
@@ -306,10 +311,7 @@ private fun BodyResolveComponents.typeFromSymbol(symbol: AbstractFirBasedSymbol<
                     "no enum item supertype"
                 )
             } else
-                FirResolvedTypeRefImpl(
-                    null, symbol.constructType(emptyArray(), isNullable = false),
-                    annotations = emptyList()
-                )
+                FirResolvedTypeRefImpl(null, symbol.constructType(emptyArray(), isNullable = false))
         }
         else -> error("WTF ! $symbol")
     }

@@ -15,11 +15,8 @@ import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertySetter
 import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.descriptors.FirPackageFragmentDescriptor
-import org.jetbrains.kotlin.fir.expressions.FirVariable
 import org.jetbrains.kotlin.fir.render
-import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.getOrPut
-import org.jetbrains.kotlin.fir.service
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
@@ -42,15 +39,19 @@ class Fir2IrDeclarationStorage(
     private val irSymbolTable: SymbolTable,
     private val moduleDescriptor: FirModuleDescriptor
 ) {
-    private val firSymbolProvider = session.service<FirSymbolProvider>()
+    private val firSymbolProvider = session.firSymbolProvider
+
+    private val firProvider = session.firProvider
 
     private val fragmentCache = mutableMapOf<FqName, IrExternalPackageFragment>()
+
+    private val fileCache = mutableMapOf<FirFile, IrFile>()
 
     private val classCache = mutableMapOf<FirRegularClass, IrClass>()
 
     private val typeParameterCache = mutableMapOf<FirTypeParameter, IrTypeParameter>()
 
-    private val functionCache = mutableMapOf<FirNamedFunction, IrSimpleFunction>()
+    private val functionCache = mutableMapOf<FirSimpleFunction, IrSimpleFunction>()
 
     private val constructorCache = mutableMapOf<FirConstructor, IrConstructor>()
 
@@ -61,6 +62,10 @@ class Fir2IrDeclarationStorage(
     private val localStorage = Fir2IrLocalStorage()
 
     private val unitType = session.builtinTypes.unitType.toIrType(session, this)
+
+    fun registerFile(firFile: FirFile, irFile: IrFile) {
+        fileCache[firFile] = irFile
+    }
 
     fun enterScope(descriptor: DeclarationDescriptor) {
         irSymbolTable.enterScope(descriptor)
@@ -219,8 +224,13 @@ class Fir2IrDeclarationStorage(
                 null
             }
         } else {
-            val packageFqName = callableId.packageName
-            getIrExternalPackageFragment(packageFqName)
+            val containerFile = firProvider.getFirCallableContainerFile(firBasedSymbol)
+            if (containerFile != null) {
+                fileCache[containerFile]
+            } else {
+                val packageFqName = callableId.packageName
+                getIrExternalPackageFragment(packageFqName)
+            }
         }
     }
 
@@ -262,7 +272,7 @@ class Fir2IrDeclarationStorage(
         }
         if (function !is FirConstructor) {
             val thisOrigin = IrDeclarationOrigin.DEFINED
-            if (function is FirNamedFunction) {
+            if (function is FirSimpleFunction) {
                 val receiverTypeRef = function.receiverTypeRef
                 if (receiverTypeRef != null) {
                     extensionReceiverParameter = receiverTypeRef.convertWithOffsets { startOffset, endOffset ->
@@ -326,7 +336,7 @@ class Fir2IrDeclarationStorage(
     }
 
     fun getIrFunction(
-        function: FirNamedFunction,
+        function: FirSimpleFunction,
         irParent: IrDeclarationParent? = null,
         shouldLeaveScope: Boolean = false,
         origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED
@@ -600,7 +610,7 @@ class Fir2IrDeclarationStorage(
         val firDeclaration = firFunctionSymbol.fir
         val irParent = (firDeclaration as? FirCallableMemberDeclaration<*>)?.let { findIrParent(it) }
         return when (firDeclaration) {
-            is FirNamedFunction -> {
+            is FirSimpleFunction -> {
                 val irDeclaration = getIrFunction(firDeclaration, irParent, shouldLeaveScope = true).apply {
                     setAndModifyParent(irParent)
                 }

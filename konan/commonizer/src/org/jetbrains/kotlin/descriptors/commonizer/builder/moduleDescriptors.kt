@@ -6,31 +6,30 @@
 package org.jetbrains.kotlin.descriptors.commonizer.builder
 
 import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroup
-import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.Module
-import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.ModuleNode
+import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirModule
+import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirModuleNode
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.indexOfCommon
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
-import org.jetbrains.kotlin.storage.StorageManager
 
-internal fun ModuleNode.buildDescriptors(
-    output: CommonizedGroup<ModuleDescriptorImpl>,
-    storageManager: StorageManager
+internal fun CirModuleNode.buildDescriptors(
+    components: GlobalDeclarationsBuilderComponents,
+    output: CommonizedGroup<ModuleDescriptorImpl>
 ) {
     target.forEachIndexed { index, module ->
-        module?.buildDescriptor(output, index, storageManager)
+        module?.buildDescriptor(components, output, index)
     }
 
-    common()?.buildDescriptor(output, indexOfCommon, storageManager)
+    common()?.buildDescriptor(components, output, indexOfCommon)
 }
 
-private fun Module.buildDescriptor(
+private fun CirModule.buildDescriptor(
+    components: GlobalDeclarationsBuilderComponents,
     output: CommonizedGroup<ModuleDescriptorImpl>,
-    index: Int,
-    storageManager: StorageManager
+    index: Int
 ) {
     val moduleDescriptor = ModuleDescriptorImpl(
         moduleName = name,
-        storageManager = storageManager,
+        storageManager = components.storageManager,
         builtIns = builtIns,
         capabilities = emptyMap() // TODO: preserve capabilities from the original module descriptors, KT-33998
     )

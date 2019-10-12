@@ -8,8 +8,8 @@
 package org.jetbrains.kotlin.gradle.targets.js.webpack
 
 import com.google.gson.GsonBuilder
-import org.jetbrains.kotlin.gradle.targets.js.NpmPackageVersion
 import org.jetbrains.kotlin.gradle.targets.js.NpmVersions
+import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.appendConfigsFromDir
 import org.jetbrains.kotlin.gradle.targets.js.jsQuoted
 import java.io.File
@@ -26,29 +26,30 @@ data class KotlinWebpackConfig(
     val bundleAnalyzerReportDir: File? = null,
     val reportEvaluatedConfigFile: File? = null,
     val devServer: DevServer? = null,
-    val devtool: Devtool = Devtool.EVAL_SOURCE_MAP,
+    val devtool: Devtool? = Devtool.EVAL_SOURCE_MAP,
     val showProgress: Boolean = false,
     val sourceMaps: Boolean = false,
     val export: Boolean = true,
     val progressReporter: Boolean = false,
     val progressReporterPathFilter: String? = null
 ) {
-    fun getRequiredDependencies(versions: NpmVersions) = mutableListOf<NpmPackageVersion>().also {
-        it.add(versions.webpack)
-        it.add(versions.webpackCli)
+    fun getRequiredDependencies(versions: NpmVersions) =
+        mutableListOf<RequiredKotlinJsDependency>().also {
+            it.add(versions.webpack)
+            it.add(versions.webpackCli)
 
-        if (bundleAnalyzerReportDir != null) {
-            it.add(versions.webpackBundleAnalyzer)
-        }
+            if (bundleAnalyzerReportDir != null) {
+                it.add(versions.webpackBundleAnalyzer)
+            }
 
-        if (sourceMaps) {
-            it.add(versions.sourceMapLoader)
-        }
+            if (sourceMaps) {
+                it.add(versions.kotlinSourceMapLoader)
+            }
 
-        if (devServer != null) {
-            it.add(versions.webpackDevServer)
+            if (devServer != null) {
+                it.add(versions.webpackDevServer)
+            }
         }
-    }
 
     enum class Mode(val code: String) {
         DEVELOPMENT("development"),
@@ -78,8 +79,7 @@ data class KotlinWebpackConfig(
 
     enum class Devtool(val code: String) {
         EVAL_SOURCE_MAP("eval-source-map"),
-        SOURCE_MAP("source-map"),
-        INLINE_SOURCE_MAP("inline-source-map")
+        SOURCE_MAP("source-map")
     }
 
     fun save(configFile: File) {
@@ -193,10 +193,10 @@ data class KotlinWebpackConfig(
                 // source maps
                 config.module.rules.push({
                         test: /\.js${'$'}/,
-                        use: ["source-map-loader"],
+                        use: ["kotlin-source-map-loader"],
                         enforce: "pre"
                 });
-                config.devtool = '${devtool.code}';
+                config.devtool = ${devtool?.code?.let { "'$it'" } ?: false};
                 
             """.trimIndent()
         )
@@ -231,13 +231,7 @@ data class KotlinWebpackConfig(
                     const webpack = require('webpack');
                     const handler = (percentage, message, ...args) => {
                         let p = percentage * 100;
-                        let leadingValue;
-                        if (p < 10) {
-                            leadingValue = "0"
-                        } else {
-                            leadingValue = ""
-                        }
-                        let msg = leadingValue + Math.trunc(p) + '% ' + message + ' ' + args.join(' ');
+                        let msg = `${"$"}{Math.trunc(p / 10)}${"$"}{Math.trunc(p % 10)}% ${"$"}{message} ${"$"}{args.join(' ')}`;
                         ${if (progressReporterPathFilter == null) "" else """
                             msg = msg.replace(new RegExp(${progressReporterPathFilter.jsQuoted()}, 'g'), '');
                         """.trimIndent()};

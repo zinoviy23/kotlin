@@ -22,15 +22,12 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.classId
-import org.jetbrains.kotlin.fir.declarations.superConeTypes
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.FirProvider
 import org.jetbrains.kotlin.fir.resolve.directExpansionType
+import org.jetbrains.kotlin.fir.resolve.firProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.FirSupertypeResolverTransformer
-import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.symbols.StandardClassIds
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -45,7 +42,7 @@ class FirJavaElementFinder(
     project: Project
 ) : PsiElementFinder(), KotlinFinderMarker {
     private val psiManager = PsiManager.getInstance(project)
-    private val firProvider = session.service<FirProvider>()
+    private val firProvider = session.firProvider
 
     override fun findPackage(qualifiedName: String): PsiPackage? {
         if (firProvider.getClassNamesInPackage(FqName(qualifiedName)).isEmpty()) return null
@@ -97,7 +94,7 @@ class FirJavaElementFinder(
             firClass.typeParameters.map { Pair(it.name.asString(), arrayOf(CommonClassNames.JAVA_LANG_OBJECT)) }
         )
 
-        if (firClass.supertypesComputationStatus != FirClassLikeDeclaration.SupertypesComputationStatus.COMPUTED) {
+        if (firClass.supertypesComputationStatus != SupertypesComputationStatus.COMPUTED) {
             val firForSuperClassFile = firProvider.getFirClassifierContainerFile(classId)
             FirSupertypeResolverTransformer().apply {
                 initFromFile(firForSuperClassFile)
@@ -138,7 +135,7 @@ private fun FirRegularClass.packFlags(): Int {
 }
 
 private fun PsiClassStubImpl<*>.addSupertypesReferencesLists(firRegularClass: FirRegularClass, session: FirSession) {
-    if (firRegularClass.supertypesComputationStatus == FirClassLikeDeclaration.SupertypesComputationStatus.COMPUTING) return
+    if (firRegularClass.supertypesComputationStatus == SupertypesComputationStatus.COMPUTING) return
     require(firRegularClass.superTypeRefs.all { it is FirResolvedTypeRef }) {
         "Supertypes for light class $qualifiedName are being added too early"
     }

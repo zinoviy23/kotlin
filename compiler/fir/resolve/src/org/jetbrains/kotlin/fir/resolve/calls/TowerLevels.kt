@@ -7,9 +7,7 @@ package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirCallableMemberDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirConstructor
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirImportImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedImportImpl
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
@@ -21,7 +19,6 @@ import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.impl.FirAbstractImportingScope
 import org.jetbrains.kotlin.fir.scopes.impl.FirExplicitSimpleImportingScope
 import org.jetbrains.kotlin.fir.scopes.processClassifiersByNameWithAction
-import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeAbbreviatedType
@@ -238,7 +235,10 @@ class QualifiedReceiverTowerLevel(
 
         val processorForCallables: (FirCallableSymbol<*>) -> ProcessorAction = {
             val fir = it.fir
-            if (fir is FirCallableMemberDeclaration<*> && fir.isStatic || it.callableId.classId == null) {
+            if (fir is FirCallableMemberDeclaration<*> && fir.isStatic ||
+                it.callableId.classId == null ||
+                fir is FirConstructor && !fir.isInner
+            ) {
                 @Suppress("UNCHECKED_CAST")
                 processor.consumeCandidate(it as T, null, null)
             } else {
@@ -264,7 +264,7 @@ fun FirCallableDeclaration<*>.dispatchReceiverValue(session: FirSession): ClassD
     // TODO: this is not true atCall least for inner class constructors
     if (this is FirConstructor) return null
     val id = this.symbol.callableId.classId ?: return null
-    val symbol = session.service<FirSymbolProvider>().getClassLikeSymbolByFqName(id) as? FirClassSymbol ?: return null
+    val symbol = session.firSymbolProvider.getClassLikeSymbolByFqName(id) as? FirClassSymbol ?: return null
     val regularClass = symbol.fir
 
     return ClassDispatchReceiverValue(regularClass.symbol)
@@ -300,7 +300,10 @@ private fun FirScope.processFunctionsAndConstructorsByName(
         return ProcessorAction.STOP
     }
 
-    return processFunctionsByName(name, processor)
+    return processFunctionsByName(name) {
+        if (it is FirConstructorSymbol) ProcessorAction.NEXT
+        else processor(it)
+    }
 }
 
 private fun FirScope.getFirstClassifierOrNull(name: Name): FirClassifierSymbol<*>? {

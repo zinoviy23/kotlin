@@ -6,15 +6,12 @@
 package org.jetbrains.kotlin.descriptors.commonizer.core
 
 import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroupMap
-import org.jetbrains.kotlin.descriptors.commonizer.fqNameWithTypeParameters
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.*
-import org.jetbrains.kotlin.types.KotlinType
-import java.lang.IllegalStateException
 
 internal class CommonizationVisitor(
-    private val root: RootNode
-) : NodeVisitor<Unit, Unit> {
-    override fun visitRootNode(node: RootNode, data: Unit) {
+    private val root: CirRootNode
+) : CirNodeVisitor<Unit, Unit> {
+    override fun visitRootNode(node: CirRootNode, data: Unit) {
         check(node === root)
         check(node.common() != null) // root should already be commonized
 
@@ -23,7 +20,7 @@ internal class CommonizationVisitor(
         }
     }
 
-    override fun visitModuleNode(node: ModuleNode, data: Unit) {
+    override fun visitModuleNode(node: CirModuleNode, data: Unit) {
         node.common() // commonize module
 
         node.packages.forEach { pkg ->
@@ -31,7 +28,7 @@ internal class CommonizationVisitor(
         }
     }
 
-    override fun visitPackageNode(node: PackageNode, data: Unit) {
+    override fun visitPackageNode(node: CirPackageNode, data: Unit) {
         node.common() // commonize package
 
         node.properties.forEach { property ->
@@ -51,16 +48,16 @@ internal class CommonizationVisitor(
         }
     }
 
-    override fun visitPropertyNode(node: PropertyNode, data: Unit) {
+    override fun visitPropertyNode(node: CirPropertyNode, data: Unit) {
         node.common() // commonize property
     }
 
-    override fun visitFunctionNode(node: FunctionNode, data: Unit) {
+    override fun visitFunctionNode(node: CirFunctionNode, data: Unit) {
         node.common() // commonize function
     }
 
-    override fun visitClassNode(node: ClassNode, data: Unit) {
-        val commonClass = node.common() as CommonClassDeclaration? // commonize class
+    override fun visitClassNode(node: CirClassNode, data: Unit) {
+        val commonClass = node.common() as CirCommonClass? // commonize class
 
         node.constructors.forEach { constructor ->
             constructor.accept(this, Unit)
@@ -83,7 +80,7 @@ internal class CommonizationVisitor(
             val companionObjectFqName = node.target.mapTo(HashSet()) { it!!.companion }.singleOrNull()
             if (companionObjectFqName != null) {
                 val companionObjectNode = root.cache.classes[companionObjectFqName]
-                    ?: throw IllegalStateException("Can't find companion object with FQ name $companionObjectFqName")
+                    ?: error("Can't find companion object with FQ name $companionObjectFqName")
 
                 if (companionObjectNode.common() != null) {
                     // companion object has been successfully commonized
@@ -92,7 +89,7 @@ internal class CommonizationVisitor(
             }
 
             // find out common (and commonized) supertypes
-            val supertypesMap = CommonizedGroupMap<String, KotlinType>(node.target.size)
+            val supertypesMap = CommonizedGroupMap<String, CirType>(node.target.size)
             node.target.forEachIndexed { index, clazz ->
                 for (supertype in clazz!!.supertypes) {
                     supertypesMap[supertype.fqNameWithTypeParameters][index] = supertype
@@ -107,11 +104,11 @@ internal class CommonizationVisitor(
         }
     }
 
-    override fun visitClassConstructorNode(node: ClassConstructorNode, data: Unit) {
+    override fun visitClassConstructorNode(node: CirClassConstructorNode, data: Unit) {
         node.common() // commonize constructor
     }
 
-    override fun visitTypeAliasNode(node: TypeAliasNode, data: Unit) {
+    override fun visitTypeAliasNode(node: CirTypeAliasNode, data: Unit) {
         node.common() // commonize type alias
     }
 }

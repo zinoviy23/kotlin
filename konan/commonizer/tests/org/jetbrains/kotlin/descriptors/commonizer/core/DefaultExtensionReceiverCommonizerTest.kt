@@ -5,14 +5,13 @@
 
 package org.jetbrains.kotlin.descriptors.commonizer.core
 
-import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.descriptors.commonizer.utils.EMPTY_CLASSIFIERS_CACHE
-import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.ExtensionReceiver
+import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirExtensionReceiver
+import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirType
 import org.jetbrains.kotlin.descriptors.commonizer.utils.mockClassType
-import org.jetbrains.kotlin.types.UnwrappedType
 import org.junit.Test
 
-class DefaultExtensionReceiverCommonizerTest : AbstractCommonizerTest<ExtensionReceiver?, UnwrappedType?>() {
+class DefaultExtensionReceiverCommonizerTest : AbstractCommonizerTest<CirExtensionReceiver?, CirExtensionReceiver?>() {
 
     @Test
     fun nullReceiver() = doTestSuccess(
@@ -24,7 +23,7 @@ class DefaultExtensionReceiverCommonizerTest : AbstractCommonizerTest<ExtensionR
 
     @Test
     fun sameReceiver() = doTestSuccess(
-        mockClassType("kotlin.String").unwrap(),
+        mockExtensionReceiver("kotlin.String"),
         mockExtensionReceiver("kotlin.String"),
         mockExtensionReceiver("kotlin.String"),
         mockExtensionReceiver("kotlin.String")
@@ -54,7 +53,7 @@ class DefaultExtensionReceiverCommonizerTest : AbstractCommonizerTest<ExtensionR
     override fun createCommonizer() = ExtensionReceiverCommonizer.default(EMPTY_CLASSIFIERS_CACHE)
 }
 
-private fun mockExtensionReceiver(typeFqName: String) = ExtensionReceiver(
-    annotations = Annotations.EMPTY,
-    type = mockClassType(typeFqName).unwrap()
+private fun mockExtensionReceiver(typeFqName: String) = CirExtensionReceiver(
+    annotations = emptyList(),
+    type = CirType.create(mockClassType(typeFqName))
 )

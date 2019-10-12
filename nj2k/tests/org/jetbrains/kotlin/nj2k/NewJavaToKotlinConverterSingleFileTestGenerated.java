@@ -135,6 +135,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
         public void testSuppressWarnings() throws Exception {
             runTest("nj2k/testData/newJ2k/annotations/suppressWarnings.java");
         }
+
+        @TestMetadata("typeUseAnnotation.java")
+        public void testTypeUseAnnotation() throws Exception {
+            runTest("nj2k/testData/newJ2k/annotations/typeUseAnnotation.java");
+        }
     }
 
     @TestMetadata("nj2k/testData/newJ2k/anonymousBlock")
@@ -1044,6 +1049,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
         @TestMetadata("removeNoInspectionComment.java")
         public void testRemoveNoInspectionComment() throws Exception {
             runTest("nj2k/testData/newJ2k/comments/removeNoInspectionComment.java");
+        }
+
+        @TestMetadata("shashBeforeEndOfMultilineComment.java")
+        public void testShashBeforeEndOfMultilineComment() throws Exception {
+            runTest("nj2k/testData/newJ2k/comments/shashBeforeEndOfMultilineComment.java");
         }
     }
 

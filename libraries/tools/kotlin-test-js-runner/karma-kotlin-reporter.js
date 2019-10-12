@@ -1,38 +1,11 @@
-/*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
- * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
- */
-
 const util = require('util');
-const resolve = require('url').resolve;
+const resolve = require('path').resolve;
 
-const escapeMessage = function (message) {
-    if (message === null || message === undefined) {
-        return ''
-    }
-
-    return message.toString()
-        .replace(/\|/g, '||')
-        .replace(/'/g, "|'")
-        .replace(/\n/g, '|n')
-        .replace(/\r/g, '|r')
-        .replace(/\u0085/g, '|x')
-        .replace(/\u2028/g, '|l')
-        .replace(/\u2029/g, '|p')
-        .replace(/\[/g, '|[')
-        .replace(/]/g, '|]')
-};
-
-const formatMessage = function () {
-    const args = Array.prototype.slice.call(arguments);
-
-    for (let i = args.length - 1; i > 0; i--) {
-        args[i] = escapeMessage(args[i])
-    }
-
-    return util.format.apply(null, args) + '\n'
-};
-
+/**
+ * From karma
+ * The MIT License
+ * Copyright (C) 2011-2019 Google, Inc.
+ */
 // This ErrorFormatter is copied from standard karma's,
 //  but without warning in case of failed original location finding
 function createFormatError(config, emitter) {
@@ -94,6 +67,38 @@ function createFormatError(config, emitter) {
     };
 }
 
+/**
+ * From karma-teamcity-reporter.
+ * The MIT License
+ * Copyright (C) 2011-2013 Vojta Jína and contributors
+ */
+const escapeMessage = function (message) {
+    if (message === null || message === undefined) {
+        return ''
+    }
+
+    return message.toString()
+        .replace(/\|/g, '||')
+        .replace(/'/g, "|'")
+        .replace(/\n/g, '|n')
+        .replace(/\r/g, '|r')
+        .replace(/\u0085/g, '|x')
+        .replace(/\u2028/g, '|l')
+        .replace(/\u2029/g, '|p')
+        .replace(/\[/g, '|[')
+        .replace(/]/g, '|]')
+};
+
+const formatMessage = function () {
+    const args = Array.prototype.slice.call(arguments);
+
+    for (let i = args.length - 1; i > 0; i--) {
+        args[i] = escapeMessage(args[i])
+    }
+
+    return util.format.apply(null, args) + '\n'
+};
+
 // This reporter extends karma-teamcity-reporter
 //  It is necessary, because karma-teamcity-reporter can't write browser's log
 //  And additionally it overrides flushLogs, because flushLogs adds redundant spaces after some messages
@@ -103,18 +108,31 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
 
     const formatError = createFormatError(config, emitter);
 
-    this.TEST_STD_OUT = "##teamcity[testStdOut name='%s' out='%s' flowId='']";
+    const END_KOTLIN_TEST = "'--END_KOTLIN_TEST--";
 
     const tcOnBrowserStart = this.onBrowserStart;
     this.onBrowserStart = function (browser) {
         tcOnBrowserStart.call(this, browser);
         this.browserResults[browser.id].consoleCollector = [];
+        this.browserResults[browser.id].consoleResultCollector = {};
+    };
+
+    const concatenateFqn = function (result) {
+        return `${result.suite.join(".")}.${result.description}`
     };
 
     this.onBrowserLog = (browser, log, type) => {
         const browserResult = this.browserResults[browser.id];
+
+        if (log.startsWith(END_KOTLIN_TEST)) {
+            var result = JSON.parse(log.substring(END_KOTLIN_TEST.length, log.length - 1));
+            browserResult.consoleResultCollector[concatenateFqn(result)] = browserResult.consoleCollector;
+            browserResult.consoleCollector = [];
+            return
+        }
+
         if (browserResult) {
-            browserResult.consoleCollector.push(`[${type}] ${log}\n`)
+            browserResult.consoleCollector.push(log.slice(1, -1))
         }
     };
 
@@ -123,17 +141,12 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
         tcSpecSuccess.call(this, browser, result);
 
         const log = this.getLog(browser, result);
-        const testName = result.description;
 
         const endMessage = log.pop();
-        this.browserResults[browser.id].consoleCollector.forEach(item => {
-            log.push(
-                formatMessage(this.TEST_STD_OUT, testName, item)
-            )
+        this.browserResults[browser.id].consoleResultCollector[concatenateFqn(result)].forEach(item => {
+            log.push(item)
         });
         log.push(endMessage);
-
-        this.browserResults[browser.id].consoleCollector = []
     };
 
     this.specFailure = function (browser, result) {
@@ -141,10 +154,8 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
         const testName = result.description;
 
         log.push(formatMessage(this.TEST_START, testName));
-        this.browserResults[browser.id].consoleCollector.forEach(item => {
-            log.push(
-                formatMessage(this.TEST_STD_OUT, testName, item)
-            )
+        this.browserResults[browser.id].consoleResultCollector[concatenateFqn(result)].forEach(item => {
+            log.push(item)
         });
 
         log.push(formatMessage(this.TEST_FAILED, testName,
@@ -153,8 +164,6 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
                                    .join('\n\n')
         ));
         log.push(formatMessage(this.TEST_END, testName, result.time));
-
-        this.browserResults[browser.id].consoleCollector = []
     };
 
     this.flushLogs = function (browserResult) {

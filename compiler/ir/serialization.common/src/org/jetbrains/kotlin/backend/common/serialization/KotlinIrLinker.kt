@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.backend.common.serialization
 
 import org.jetbrains.kotlin.backend.common.LoggingContext
 import org.jetbrains.kotlin.backend.common.descriptors.*
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoBodyIndex
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.ir.IrElement
@@ -33,21 +32,19 @@ import org.jetbrains.kotlin.ir.util.NaiveSourceBasedFileEntryImpl
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.protobuf.ExtensionRegistryLite.newInstance
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
+import org.jetbrains.kotlin.serialization.deserialization.ProtoContainer
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedCallableMemberDescriptor
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedClassDescriptor
 import org.jetbrains.kotlin.types.Variance
-import org.jetbrains.kotlin.backend.common.serialization.proto.Annotations as ProtoAnnotations
 import org.jetbrains.kotlin.backend.common.serialization.proto.DescriptorReference as ProtoDescriptorReference
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrDeclaration as ProtoDeclaration
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFile as ProtoFile
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoSymbolIndex
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSymbolData as ProtoSymbolData
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSymbolKind as ProtoSymbolKind
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrType as ProtoType
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoTypeIndex
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoStringIndex
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrStatement as ProtoStatement
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrExpression as ProtoExpression
+import org.jetbrains.kotlin.backend.common.serialization.proto.IrConstructorCall as ProtoConstructorCall
 
 abstract class KotlinIrLinker(
     val logger: LoggingContext,
@@ -135,7 +132,7 @@ abstract class KotlinIrLinker(
         // This is a heavy initializer
         val module = deserializeIrModuleHeader()
 
-        inner class IrDeserializerForFile(private var annotationsProto: ProtoAnnotations?, private val fileIndex: Int, onlyHeaders: Boolean) :
+        inner class IrDeserializerForFile(private var annotations: List<ProtoConstructorCall>?, private val fileIndex: Int, onlyHeaders: Boolean) :
             IrFileDeserializer(logger, builtIns, symbolTable) {
 
             private var fileLoops = mutableMapOf<Int, IrLoopBase>()
@@ -292,8 +289,8 @@ abstract class KotlinIrLinker(
             }
 
             private fun deserializeIrSymbolData(proto: ProtoSymbolData): IrSymbol {
-                val key = proto.uniqId.uniqId()
-                val topLevelKey = proto.topLevelUniqId.uniqId()
+                val key = UniqId(proto.uniqIdIndex)
+                val topLevelKey = UniqId(proto.topLevelUniqIdIndex)
 
                 val topLevelDeserializationState = getStateForID(topLevelKey)
 
@@ -332,38 +329,32 @@ abstract class KotlinIrLinker(
 
             override fun deserializeDescriptorReference(proto: ProtoDescriptorReference) =
                 descriptorReferenceDeserializer.deserializeDescriptorReference(
-                    deserializeFqName(proto.packageFqName),
-                    deserializeFqName(proto.classFqName),
+                    deserializeFqName(proto.packageFqNameList),
+                    deserializeFqName(proto.classFqNameList),
                     deserializeString(proto.name),
-                    if (proto.hasUniqId()) proto.uniqId.index else null,
-                    isEnumEntry = proto.isEnumEntry,
-                    isEnumSpecial = proto.isEnumSpecial,
-                    isDefaultConstructor = proto.isDefaultConstructor,
-                    isFakeOverride = proto.isFakeOverride,
-                    isGetter = proto.isGetter,
-                    isSetter = proto.isSetter,
-                    isTypeParameter = proto.isTypeParameter
+                    proto.flags,
+                    if (proto.hasUniqIdIndex()) proto.uniqIdIndex else null
                 )
 
-            override fun deserializeIrSymbol(proto: ProtoSymbolIndex): IrSymbol {
-                val symbolData = loadSymbolProto(proto.index)
+            override fun deserializeIrSymbol(index: Int): IrSymbol {
+                val symbolData = loadSymbolProto(index)
                 return deserializeIrSymbolData(symbolData)
             }
 
-            override fun deserializeIrType(proto: ProtoTypeIndex): IrType {
-                val typeData = loadTypeProto(proto.index)
+            override fun deserializeIrType(index: Int): IrType {
+                val typeData = loadTypeProto(index)
                 return deserializeIrTypeData(typeData)
             }
 
-            override fun deserializeString(proto: ProtoStringIndex): String =
-                loadStringProto(proto.index)
+            override fun deserializeString(index: Int): String =
+                loadStringProto(index)
 
             override fun deserializeLoopHeader(loopIndex: Int, loopBuilder: () -> IrLoopBase) =
                 fileLoops.getOrPut(loopIndex, loopBuilder)
 
-            override fun deserializeExpressionBody(proto: ProtoBodyIndex): IrExpression {
+            override fun deserializeExpressionBody(index: Int): IrExpression {
                 if (deserializeBodies) {
-                    val bodyData = loadExpressionBodyProto(proto.index)
+                    val bodyData = loadExpressionBodyProto(index)
                     return deserializeExpression(bodyData)
                 } else {
                     val errorType = IrErrorTypeImpl(null, emptyList(), Variance.INVARIANT)
@@ -371,9 +362,9 @@ abstract class KotlinIrLinker(
                 }
             }
 
-            override fun deserializeStatementBody(proto: ProtoBodyIndex): IrElement {
+            override fun deserializeStatementBody(index: Int): IrElement {
                 if (deserializeBodies) {
-                    val bodyData = loadStatementBodyProto(proto.index)
+                    val bodyData = loadStatementBodyProto(index)
                     return deserializeStatement(bodyData)
                 } else {
                     val errorType = IrErrorTypeImpl(null, emptyList(), Variance.INVARIANT)
@@ -382,9 +373,9 @@ abstract class KotlinIrLinker(
             }
 
             fun deserializeFileAnnotationsIfFirstUse() {
-                annotationsProto?.let {
+                annotations?.let {
                     file.annotations.addAll(deserializeAnnotations(it))
-                    annotationsProto = null
+                    annotations = null
                 }
             }
 
@@ -405,9 +396,9 @@ abstract class KotlinIrLinker(
 
             val fileEntry = NaiveSourceBasedFileEntryImpl(fileName, fileProto.fileEntry.lineStartOffsetsList.toIntArray())
 
-            val fileDeserializer = IrDeserializerForFile(fileProto.annotations, fileIndex, !deserializationStrategy.needBodies)
+            val fileDeserializer = IrDeserializerForFile(fileProto.annotationList, fileIndex, !deserializationStrategy.needBodies)
 
-            val fqName = fileDeserializer.deserializeFqName(fileProto.fqName)
+            val fqName = fileDeserializer.deserializeFqName(fileProto.fqNameList)
 
             val packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleDescriptor, fqName)
 
@@ -418,22 +409,23 @@ abstract class KotlinIrLinker(
             fileToDeserializerMap[file] = fileDeserializer
 
             fileProto.declarationIdList.forEach {
-                val uniqId = it.uniqId()
-                assert(uniqId.isPublic)
+                val uniqId = UniqId(it)
                 moduleReversedFileIndex.getOrPut(uniqId) { fileDeserializer }
             }
 
             val forceLoadedIds = deserializationStrategy.run {
                 when {
-                    theWholeWorld -> fileProto.declarationIdList
+                    theWholeWorld -> fileProto.declarationIdList.map { UniqId(it) }
                     explicitlyExported -> fileProto.explicitlyExportedToCompilerList.map {
-                        fileDeserializer.loadSymbolData(it.index).topLevelUniqId
+                        fileDeserializer.loadSymbolData(it).run {
+                            UniqId(topLevelUniqIdIndex)
+                        }
                     }
                     else -> emptyList()
                 }
             }
 
-            forceLoadedIds.forEach { moduleDeserializationState.addUniqID(it.uniqId().also { i -> assert(i.isPublic) }) }
+            forceLoadedIds.forEach { moduleDeserializationState.addUniqID(it.also { i -> assert(i.isPublic) }) }
 
             return file
         }
@@ -446,7 +438,6 @@ abstract class KotlinIrLinker(
             for (i in 0 until fileCount) {
                 files.add(deserializeIrFile(ProtoFile.parseFrom(readFile(moduleDescriptor, i), newInstance()), i))
             }
-
 
             return IrModuleFragmentImpl(moduleDescriptor, builtIns, files)
         }
@@ -474,9 +465,10 @@ abstract class KotlinIrLinker(
 
     private fun loadKnownBuiltinSymbols(): Long {
         var currentIndex = firstKnownBuiltinsIndex
+        val mask = 1L shl 63
         val globalDeserializedSymbols = globalDeserializationState.deserializedSymbols
         builtIns.knownBuiltins.forEach {
-            globalDeserializedSymbols[UniqId(currentIndex, isLocal = false)] = it
+            globalDeserializedSymbols[UniqId(currentIndex or mask)] = it
             assert(symbolTable.referenceSimpleFunction(it.descriptor) == it)
             currentIndex++
         }
@@ -529,7 +521,7 @@ abstract class KotlinIrLinker(
 
         val descriptorUniqId = topLevelDescriptor.getUniqId()
             ?: error("Could not get descriptor uniq id for $topLevelDescriptor")
-        val topLevelKey = UniqId(descriptorUniqId, isLocal = false)
+        val topLevelKey = UniqId(descriptorUniqId)
 
         val moduleOfOrigin = topLevelDescriptor.module
 
@@ -589,7 +581,7 @@ abstract class KotlinIrLinker(
         }
     }
 
-    private fun deserializeIrModuleHeader(
+    fun deserializeIrModuleHeader(
         moduleDescriptor: ModuleDescriptor,
         deserializationStrategy: DeserializationStrategy = DeserializationStrategy.ONLY_REFERENCED
     ): IrModuleFragment {

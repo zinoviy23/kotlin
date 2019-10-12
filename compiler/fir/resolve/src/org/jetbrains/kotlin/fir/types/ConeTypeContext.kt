@@ -9,9 +9,7 @@ import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.expandedConeType
-import org.jetbrains.kotlin.fir.declarations.superConeTypes
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.ConeInferenceContext
 import org.jetbrains.kotlin.fir.resolve.calls.ConeTypeVariableTypeConstructor
@@ -19,7 +17,6 @@ import org.jetbrains.kotlin.fir.resolve.calls.hasNullableSuperType
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.transformers.firUnsafe
-import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.StandardClassIds
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -155,7 +152,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         require(this is ConeKotlinType)
 
         return this.typeArguments.getOrNull(index)
-            ?: StandardClassIds.Any(session.service()).constructType(emptyArray(), false) // TODO wtf
+            ?: StandardClassIds.Any(session.firSymbolProvider).constructType(emptyArray(), false) // TODO wtf
     }
 
     override fun KotlinTypeMarker.asTypeArgument(): TypeArgumentMarker {

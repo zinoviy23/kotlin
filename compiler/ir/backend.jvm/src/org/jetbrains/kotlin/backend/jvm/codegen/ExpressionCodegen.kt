@@ -100,7 +100,7 @@ class ExpressionCodegen(
     override val frameMap: IrFrameMap,
     val mv: InstructionAdapter,
     val classCodegen: ClassCodegen,
-    val isInlineLambda: Boolean = false
+    val inlinedInto: ExpressionCodegen?
 ) : IrElementVisitor<PromisedValue, BlockInfo>, BaseExpressionCodegen {
 
     var finallyDepth = 0
@@ -116,7 +116,7 @@ class ExpressionCodegen(
     override val visitor: InstructionAdapter
         get() = mv
 
-    override val inlineNameGenerator: NameGenerator = NameGenerator("${classCodegen.type.internalName}\$todo") // TODO
+    override val inlineNameGenerator: NameGenerator = classCodegen.getRegeneratedObjectNameGenerator(irFunction)
 
     override val typeSystem: TypeSystemCommonBackendContext
         get() = typeMapper.typeSystem
@@ -166,6 +166,12 @@ class ExpressionCodegen(
         return StackValue.onStack(type, irType.toKotlinType())
     }
 
+    internal fun genOrGetLocal(expression: IrExpression, data: BlockInfo): StackValue =
+        if (expression is IrGetValue)
+            StackValue.local(findLocalIndex(expression.symbol), frameMap.typeOf(expression.symbol), expression.type.toKotlinType())
+        else
+            gen(expression, typeMapper.mapType(expression.type), expression.type, data)
+
     fun generate() {
         mv.visitCode()
         val startLabel = markNewLabel()
@@ -196,7 +202,12 @@ class ExpressionCodegen(
         if (state.isParamAssertionsDisabled)
             return
 
-        val isSyntheticOrBridge = irFunction.origin.isSynthetic ||
+        val notCallableFromJava = inlinedInto != null ||
+                Visibilities.isPrivate(irFunction.visibility) ||
+                irFunction.origin.isSynthetic ||
+                // TODO: refine this condition to not generate nullability assertions on parameters
+                //       corresponding to captured variables and anonymous object super constructor arguments
+                (irFunction is IrConstructor && irFunction.parentAsClass.isAnonymousObject) ||
                 // TODO: Implement this as a lowering, so that we can more easily exclude generated methods.
                 irFunction.origin == JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD ||
                 // Although these are accessible from Java, the functions they bridge to already have the assertions.
@@ -204,7 +215,7 @@ class ExpressionCodegen(
                 irFunction.origin == JvmLoweredDeclarationOrigin.DEFAULT_IMPLS_BRIDGE ||
                 irFunction.origin == JvmLoweredDeclarationOrigin.JVM_STATIC_WRAPPER ||
                 irFunction.origin == JvmLoweredDeclarationOrigin.MULTIFILE_BRIDGE
-        if (!isInlineLambda && !isSyntheticOrBridge && !Visibilities.isPrivate(irFunction.visibility)) {
+        if (!notCallableFromJava) {
             irFunction.extensionReceiverParameter?.let { generateNonNullAssertion(it) }
             irFunction.valueParameters.forEach(::generateNonNullAssertion)
         }
@@ -303,7 +314,7 @@ class ExpressionCodegen(
         visitStatementContainer(expression, data).coerce(expression.type)
 
     override fun visitCall(expression: IrCall, data: BlockInfo): PromisedValue {
-        return visitFunctionAccess(expression.createSuspendFunctionCallViewIfNeeded(context, irFunction, isInlineLambda), data)
+        return visitFunctionAccess(expression.createSuspendFunctionCallViewIfNeeded(context, irFunction, inlinedInto != null), data)
     }
 
     override fun visitFunctionAccess(expression: IrFunctionAccessExpression, data: BlockInfo): PromisedValue {
@@ -427,11 +438,13 @@ class ExpressionCodegen(
     override fun visitFieldAccess(expression: IrFieldAccessExpression, data: BlockInfo): PromisedValue {
         val callee = expression.symbol.owner
         callee.constantValue()?.let {
-            // Handling const reads before codegen is important for constant folding.
-            assert(expression is IrSetField) { "read of const val ${callee.name} not inlined by ConstLowering" }
-            // This can only be the field's initializer; JVM implementations are required
-            // to generate those for ConstantValue-marked fields automatically, so this is redundant.
-            return defaultValue(expression.type)
+            if (context.state.shouldInlineConstVals) {
+                // Handling const reads before codegen is important for constant folding.
+                assert(expression is IrSetField) { "read of const val ${callee.name} not inlined by ConstLowering" }
+                // This can only be the field's initializer; JVM implementations are required
+                // to generate those for ConstantValue-marked fields automatically, so this is redundant.
+                return defaultValue(expression.type)
+            }
         }
 
         val realField = callee.resolveFakeOverride()!!
@@ -529,7 +542,7 @@ class ExpressionCodegen(
         )
 
     override fun visitClass(declaration: IrClass, data: BlockInfo): PromisedValue {
-        classCodegen.generateLocalClass(declaration, irFunction.isInline).also {
+        classCodegen.generateLocalClass(declaration, generateSequence(this) { it.inlinedInto }.any { it.irFunction.isInline }).also {
             closureReifiedMarkers[declaration] = it
         }
         return immaterialUnitValue
@@ -982,7 +995,7 @@ class ExpressionCodegen(
 
         val original = (callee as? IrSimpleFunction)?.resolveFakeOverride() ?: irFunction
         val methodOwner = callee.parent.safeAs<IrClass>()?.let(typeMapper::mapClass) ?: MethodSignatureMapper.FAKE_OWNER_TYPE
-        val sourceCompiler = IrSourceCompilerForInline(state, element, this, data)
+        val sourceCompiler = IrSourceCompilerForInline(state, element, original, this, data)
 
         val reifiedTypeInliner = ReifiedTypeInliner(mappings, object : ReifiedTypeInliner.IntrinsicsSupport<IrType> {
             override fun putClassInstance(v: InstructionAdapter, type: IrType) {
@@ -999,7 +1012,26 @@ class ExpressionCodegen(
 
     override fun consumeReifiedOperationMarker(typeParameter: TypeParameterMarker) {
         require(typeParameter is IrTypeParameterSymbol)
-        if (typeParameter.owner.parent != irFunction) {
+        // This is a hack to work around the problem in LocalDeclarationsLowering. Specifically, suppose an inline
+        // lambda uses a reified type parameter declared by a function:
+        //
+        //     object {
+        //         inline fun <reified T : Any> f() = run { T::class.java.getName() }
+        //     }
+        //
+        // LocalDeclarationsLowering would extract that lambda into a method of the enclosing type, but will not create
+        // a reified type parameter in it (in fact, the lambda method isn't even marked as inline):
+        //
+        //     object {
+        //         /* static */ private fun `f$lambda-0`() = T::class.java.getName()
+        //         inline fun <reified T : Any> f() = run(::`f$lambda-0`)
+        //     }
+        //
+        // The parent of the type parameter then is not `irFunction` (i.e. the lambda itself), but the function
+        // it is inlined into.
+        //
+        // TODO make LocalDeclarationsLowering handle captured type parameters and only compare with `irFunction`.
+        if (generateSequence(this) { it.inlinedInto }.none { it.irFunction == typeParameter.owner.parent }) {
             classCodegen.reifiedTypeParametersUsages.addUsedReifiedParameter(typeParameter.owner.name.asString())
         }
     }
@@ -1026,7 +1058,7 @@ class ExpressionCodegen(
     }
 
     fun isFinallyMarkerRequired(): Boolean {
-        return irFunction.isInline || isInlineLambda
+        return irFunction.isInline || inlinedInto != null
     }
 
     private val IrType.isReifiedTypeParameter: Boolean

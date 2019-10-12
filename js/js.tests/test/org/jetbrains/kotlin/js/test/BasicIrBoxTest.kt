@@ -7,18 +7,16 @@ package org.jetbrains.kotlin.js.test
 
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.js.messageCollectorLogger
 import org.jetbrains.kotlin.ir.backend.js.compile
 import org.jetbrains.kotlin.ir.backend.js.generateKLib
 import org.jetbrains.kotlin.ir.backend.js.jsPhases
+import org.jetbrains.kotlin.ir.backend.js.jsResolveLibraries
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.JsConfig
 import org.jetbrains.kotlin.js.facade.MainCallParameters
 import org.jetbrains.kotlin.js.facade.TranslationUnit
-import org.jetbrains.kotlin.library.KotlinLibrary
-import org.jetbrains.kotlin.library.KotlinLibrarySearchPathResolver
-import org.jetbrains.kotlin.library.UnresolvedLibrary
-import org.jetbrains.kotlin.library.resolver.impl.libraryResolver
-import org.jetbrains.kotlin.library.toUnresolvedLibraries
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.utils.fileUtils.withReplacedExtensionOrNull
@@ -87,24 +85,8 @@ abstract class BasicIrBoxTest(
         val allKlibPaths = (runtimeKlibs + transitiveLibraries.map {
             compilationCache[it] ?: error("Can't find compiled module for dependency $it")
         }).map { File(it).absolutePath }
-        val unresolvedLibraries = allKlibPaths.toUnresolvedLibraries
 
-        // Configure the resolver to only work with absolute paths for now.
-        val libraryResolver = KotlinLibrarySearchPathResolver<KotlinLibrary>(
-            repositories = emptyList(),
-            directLibs = allKlibPaths,
-            distributionKlib = null,
-            localKotlinDir = null,
-            skipCurrentDir = true
-            // TODO: pass logger attached to message collector here.
-        ).libraryResolver()
-        val resolvedLibraries =
-            libraryResolver.resolveWithDependencies(
-                unresolvedLibraries = unresolvedLibraries,
-                noStdLib = true,
-                noDefaultLibs = true,
-                noEndorsedLibs = true
-            )
+        val resolvedLibraries = jsResolveLibraries(allKlibPaths, messageCollectorLogger(MessageCollector.NONE))
 
         val actualOutputFile = outputFile.absolutePath.let {
             if (!isMainModule) it.replace("_v5.js", "/") else it

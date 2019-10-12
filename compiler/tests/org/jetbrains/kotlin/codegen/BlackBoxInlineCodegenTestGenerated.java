@@ -640,6 +640,11 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
             runTest("compiler/testData/codegen/boxInline/assert/jvmAssertInlineLambda.kt");
         }
 
+        @TestMetadata("jvmClassInitializer.kt")
+        public void testJvmClassInitializer() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/assert/jvmClassInitializer.kt");
+        }
+
         @TestMetadata("jvmCompanion.kt")
         public void testJvmCompanion() throws Exception {
             runTest("compiler/testData/codegen/boxInline/assert/jvmCompanion.kt");
@@ -1799,6 +1804,11 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
             KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/codegen/boxInline/innerClasses"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.JVM, true);
         }
 
+        @TestMetadata("captureThisAndOuter.kt")
+        public void testCaptureThisAndOuter() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/innerClasses/captureThisAndOuter.kt");
+        }
+
         @TestMetadata("innerLambda.kt")
         public void testInnerLambda() throws Exception {
             runTest("compiler/testData/codegen/boxInline/innerClasses/innerLambda.kt");
@@ -1881,6 +1891,11 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
         @TestMetadata("regeneratedLambdaName.kt")
         public void testRegeneratedLambdaName() throws Exception {
             runTest("compiler/testData/codegen/boxInline/lambdaTransformation/regeneratedLambdaName.kt");
+        }
+
+        @TestMetadata("regeneratedLambdaName2.kt")
+        public void testRegeneratedLambdaName2() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/lambdaTransformation/regeneratedLambdaName2.kt");
         }
 
         @TestMetadata("sameCaptured.kt")
@@ -3401,6 +3416,11 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
         @TestMetadata("stackHeightBug.kt")
         public void testStackHeightBug() throws Exception {
             runTest("compiler/testData/codegen/boxInline/special/stackHeightBug.kt");
+        }
+
+        @TestMetadata("unusedInlineLambda.kt")
+        public void testUnusedInlineLambda() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/special/unusedInlineLambda.kt");
         }
     }
 

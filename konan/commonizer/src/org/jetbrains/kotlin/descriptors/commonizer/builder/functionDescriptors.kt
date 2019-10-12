@@ -10,12 +10,13 @@ import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.SimpleFunctionDescriptor
 import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.descriptors.commonizer.CommonizedGroup
-import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.Function
-import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.FunctionNode
+import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirFunction
+import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.CirFunctionNode
 import org.jetbrains.kotlin.descriptors.commonizer.mergedtree.ir.indexOfCommon
 import org.jetbrains.kotlin.descriptors.impl.SimpleFunctionDescriptorImpl
 
-internal fun FunctionNode.buildDescriptors(
+internal fun CirFunctionNode.buildDescriptors(
+    components: GlobalDeclarationsBuilderComponents,
     output: CommonizedGroup<SimpleFunctionDescriptor>,
     containingDeclarations: List<DeclarationDescriptor?>
 ) {
@@ -23,24 +24,26 @@ internal fun FunctionNode.buildDescriptors(
     val markAsExpectAndActual = commonFunction != null && commonFunction.kind != CallableMemberDescriptor.Kind.SYNTHESIZED
 
     target.forEachIndexed { index, function ->
-        function?.buildDescriptor(output, index, containingDeclarations, isActual = markAsExpectAndActual)
+        function?.buildDescriptor(components, output, index, containingDeclarations, isActual = markAsExpectAndActual)
     }
 
-    commonFunction?.buildDescriptor(output, indexOfCommon, containingDeclarations, isExpect = markAsExpectAndActual)
+    commonFunction?.buildDescriptor(components, output, indexOfCommon, containingDeclarations, isExpect = markAsExpectAndActual)
 }
 
-private fun Function.buildDescriptor(
+private fun CirFunction.buildDescriptor(
+    components: GlobalDeclarationsBuilderComponents,
     output: CommonizedGroup<SimpleFunctionDescriptor>,
     index: Int,
     containingDeclarations: List<DeclarationDescriptor?>,
     isExpect: Boolean = false,
     isActual: Boolean = false
 ) {
+    val targetComponents = components.targetComponents[index]
     val containingDeclaration = containingDeclarations[index] ?: error("No containing declaration for function $this")
 
     val functionDescriptor = SimpleFunctionDescriptorImpl.create(
         containingDeclaration,
-        annotations,
+        annotations.buildDescriptors(targetComponents),
         name,
         kind,
         SourceElement.NO_SOURCE
@@ -59,12 +62,18 @@ private fun Function.buildDescriptor(
     functionDescriptor.setHasStableParameterNames(hasStableParameterNames)
     functionDescriptor.setHasSynthesizedParameterNames(hasSynthesizedParameterNames)
 
+    val (typeParameters, typeParameterResolver) = typeParameters.buildDescriptorsAndTypeParameterResolver(
+        targetComponents,
+        containingDeclaration.getTypeParameterResolver(),
+        functionDescriptor
+    )
+
     functionDescriptor.initialize(
-        extensionReceiver?.buildExtensionReceiver(functionDescriptor),
+        extensionReceiver?.buildExtensionReceiver(targetComponents, typeParameterResolver, functionDescriptor),
         buildDispatchReceiver(functionDescriptor),
-        typeParameters.buildDescriptors(functionDescriptor),
-        valueParameters.buildDescriptors(functionDescriptor),
-        returnType,
+        typeParameters,
+        valueParameters.buildDescriptors(targetComponents, typeParameterResolver, functionDescriptor),
+        returnType.buildType(targetComponents, typeParameterResolver),
         modality,
         visibility
     )

@@ -24,7 +24,6 @@ import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.*
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
-import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig.Devtool
 import org.jetbrains.kotlin.gradle.testing.internal.reportsDir
 import org.slf4j.Logger
 import java.io.File
@@ -35,7 +34,7 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
     private val versions = nodeJs.versions
 
     private val config: KarmaConfig = KarmaConfig()
-    private val requiredDependencies = mutableSetOf<NpmPackageVersion>()
+    private val requiredDependencies = mutableSetOf<RequiredKotlinJsDependency>()
 
     private val configurators = mutableListOf<(KotlinJsTest) -> Unit>()
     private val envJsCollector = mutableMapOf<String, String>()
@@ -44,15 +43,13 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
     private var configDirectory: File? = project.projectDir.resolve("karma.config.d").takeIf { it.isDirectory }
 
     override val requiredNpmDependencies: Collection<RequiredKotlinJsDependency>
-        get() = mutableListOf<RequiredKotlinJsDependency>().also {
-            it.add(versions.kotlinJsTestRunner)
-            it.addAll(requiredDependencies)
-        }
+        get() = requiredDependencies.toList()
 
     override val settingsState: String
         get() = "KotlinKarma($config)"
 
     init {
+        requiredDependencies.add(versions.kotlinJsTestRunner)
         requiredDependencies.add(versions.karma)
 
         useKotlinReporter()
@@ -144,7 +141,6 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
 
     private fun useWebpack() {
         createAdapterJs()
-        requiredDependencies.add(versions.browserProcessHrtime)
 
         requiredDependencies.add(versions.karmaWebpack)
         requiredDependencies.add(versions.webpack)
@@ -152,7 +148,7 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
         val webpackConfigWriter = KotlinWebpackConfig(
             configDirectory = project.projectDir.resolve("webpack.config.d").takeIf { it.isDirectory },
             sourceMaps = true,
-            devtool = Devtool.INLINE_SOURCE_MAP,
+            devtool = null,
             export = false,
             progressReporter = true,
             progressReporterPathFilter = nodeJs.rootPackageDir.absolutePath
@@ -166,6 +162,17 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
             it.appendln("function createWebpackConfig() {")
 
             webpackConfigWriter.appendTo(it)
+            //language=ES6
+            it.appendln(
+                """
+                (function() {
+                    const webpack = require('webpack');
+                    config.plugins.push(new webpack.SourceMapDevToolPlugin({
+                        moduleFilenameTemplate: "[absolute-resource-path]"
+                    }))
+                })();
+            """.trimIndent()
+            )
 
             it.appendln("   return config;")
             it.appendln("}")
@@ -176,7 +183,7 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
 
         requiredDependencies.add(versions.webpack)
         requiredDependencies.add(versions.webpackCli)
-        requiredDependencies.add(versions.sourceMapLoader)
+        requiredDependencies.add(versions.kotlinSourceMapLoader)
         requiredDependencies.add(versions.sourceMapSupport)
     }
 
@@ -239,7 +246,7 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
             val npmProject = compilation.npmProject
             val files = it.nodeModulesToLoad.map { npmProject.require(it) }
 
-            val adapterJs = npmProject.dir.resolve("adapter.js")
+            val adapterJs = npmProject.dir.resolve("adapter-browser.js")
             adapterJs.printWriter().use { writer ->
                 val karmaRunner = npmProject.require("kotlin-test-js-runner/kotlin-test-karma-runner.js")
                 writer.println("require(${karmaRunner.jsQuoted()})")
@@ -354,45 +361,8 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
                         parseConsole(value)
                     }
 
-                    override fun processStackTrace(stackTrace: String): String {
-                        return stackTrace.lines()
-                            .map(::processName)
-                            .joinToString("\n") { line ->
-                                val index = line.indexOf(KARMA_SOURCE_MAP_DELIMITER)
-                                if (index == -1)
-                                    line
-                                else
-                                    line
-                                        .removeRange(index, line.length - 1)
-                                        .replace(WEBPACK_PROTOCOL, "")
-                            }
-
-                    }
-
-                    private fun processName(line: String): String {
-                        // example: "at MyTest../kotlin/check-js-test-test.js.MyTest.foo (/src/test/kotlin/MyTest.kt:7:8)"
-                        // should be "at MyTest.foo (/src/test/kotlin/MyTest.kt:7:8)"
-                        val stackTraceDelimiter = line.indexOf(STACK_TRACE_DELIMITER)
-                        val webpackLocalDelimiter = line.indexOf(WEBPACK_LOCAL_DELIMITER)
-                        if (stackTraceDelimiter == -1 || webpackLocalDelimiter == -1) {
-                            return line
-                        }
-
-                        val traceStartIndex = stackTraceDelimiter + STACK_TRACE_DELIMITER.length
-                        val name = line.substring(
-                            traceStartIndex,
-                            webpackLocalDelimiter
-                        ) // MyTest
-                        val fileStart = line.indexOf("(")
-                        val fullJsName = line.substring(webpackLocalDelimiter, fileStart) // ../kotlin/check-js-test-test.js.MyTest.foo
-
-                        val nameIndex = fullJsName.indexOf(name)
-                        if (nameIndex == -1) {
-                            return line
-                        }
-
-                        return line.replaceRange(traceStartIndex, fileStart, fullJsName.substring(nameIndex))
-                    }
+                    override fun processStackTrace(stackTrace: String): String =
+                        processKarmaStackTrace(stackTrace)
 
                     override fun getSuiteName(message: BaseTestSuiteMessage): String {
                         val src = message.suiteName.trim()
@@ -448,12 +418,6 @@ class KotlinKarma(override val compilation: KotlinJsCompilation) : KotlinJsTestF
     companion object {
         const val CHROME_BIN = "CHROME_BIN"
         const val CHROME_CANARY_BIN = "CHROME_CANARY_BIN"
-
-        const val WEBPACK_PROTOCOL = "webpack://"
-        const val KARMA_SOURCE_MAP_DELIMITER = " <-"
-
-        const val STACK_TRACE_DELIMITER = "at "
-        const val WEBPACK_LOCAL_DELIMITER = ".."
 
         val KARMA_PROBLEM = "(?m)^.*\\d{2} \\d{2} \\d{4,} \\d{2}:\\d{2}:\\d{2}.\\d{3}:(ERROR|WARN) \\[.*]: (.*)\$".toRegex()
     }

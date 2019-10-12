@@ -9,15 +9,13 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.psi.PsiManager
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.js.messageCollectorLogger
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
-import org.jetbrains.kotlin.library.KotlinLibrary
-import org.jetbrains.kotlin.library.KotlinLibrarySearchPathResolver
-import org.jetbrains.kotlin.library.UnresolvedLibrary
 import org.jetbrains.kotlin.library.resolver.KotlinLibraryResolveResult
-import org.jetbrains.kotlin.library.resolver.impl.libraryResolver
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
 import org.jetbrains.kotlin.serialization.js.ModuleKind
@@ -117,18 +115,9 @@ fun main(args: Array<String>) {
         error("Please set path to .klm file: `-o some/dir/module-name.klm`")
     }
 
-    val dependencyAbsolutePaths = dependencies.map{ File(it).absolutePath }
-    val unresolvedLibraries = dependencies.map { UnresolvedLibrary(it, null) }
-    // Configure the resolver to only understand absolute path libraries.
-    val libraryResolver = KotlinLibrarySearchPathResolver<KotlinLibrary>(
-        repositories = emptyList(),
-        directLibs = dependencyAbsolutePaths,
-        distributionKlib = null,
-        localKotlinDir = null,
-        skipCurrentDir = true
-        // TODO: pass logger attached to message collector here.
-    ).libraryResolver()
-    val resolvedLibraries = libraryResolver.resolveWithDependencies(unresolvedLibraries, true, true, true)
+    val resolvedLibraries = jsResolveLibraries(
+        dependencies, messageCollectorLogger(MessageCollector.NONE)
+    )
 
     buildKLib(File(outputPath).absolutePath, listOfKtFilesFrom(inputFiles), outputPath, resolvedLibraries, listOfKtFilesFrom(commonSources))
 }

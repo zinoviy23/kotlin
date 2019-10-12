@@ -34,13 +34,12 @@ abstract class AbstractCompletionHandlerTest(private val defaultCompletionType: 
         val fileText = FileUtil.loadFile(File(testPath))
         assertTrue("\"<caret>\" is missing in file \"$testPath\"", fileText.contains("<caret>"));
 
-        setUpFixture(testPath)
+        setUpFixture(fileName())
 
         val tempSettings = CodeStyle.getSettings(project).clone()
         CodeStyle.setTemporarySettings(project, tempSettings)
         val configured = configureCompilerOptions(fileText, project, module)
         try {
-
             val invocationCount = InTextDirectivesUtils.getPrefixedInt(fileText, INVOCATION_COUNT_PREFIX) ?: 1
             val lookupString = InTextDirectivesUtils.findStringWithPrefixes(fileText, LOOKUP_STRING_PREFIX)
             val itemText = InTextDirectivesUtils.findStringWithPrefixes(fileText, ELEMENT_TEXT_PREFIX)
@@ -97,10 +96,10 @@ abstract class AbstractCompletionHandlerTest(private val defaultCompletionType: 
     override fun getProjectDescriptor() = KotlinWithJdkAndRuntimeLightProjectDescriptor.INSTANCE
 }
 
-abstract class AbstractBasicCompletionHandlerTest() : AbstractCompletionHandlerTest(CompletionType.BASIC)
+abstract class AbstractBasicCompletionHandlerTest : AbstractCompletionHandlerTest(CompletionType.BASIC)
 
-abstract class AbstractSmartCompletionHandlerTest() : AbstractCompletionHandlerTest(CompletionType.SMART)
+abstract class AbstractSmartCompletionHandlerTest : AbstractCompletionHandlerTest(CompletionType.SMART)
 
-abstract class AbstractCompletionCharFilterTest() : AbstractCompletionHandlerTest(CompletionType.BASIC)
+abstract class AbstractCompletionCharFilterTest : AbstractCompletionHandlerTest(CompletionType.BASIC)
 
-abstract class AbstractKeywordCompletionHandlerTest() : AbstractCompletionHandlerTest(CompletionType.BASIC)
+abstract class AbstractKeywordCompletionHandlerTest : AbstractCompletionHandlerTest(CompletionType.BASIC)

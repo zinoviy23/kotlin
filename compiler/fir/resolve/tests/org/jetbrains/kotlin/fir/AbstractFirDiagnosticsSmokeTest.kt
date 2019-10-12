@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.fir.java.FirJavaModuleBasedSession
 import org.jetbrains.kotlin.fir.java.FirLibrarySession
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.FirProvider
+import org.jetbrains.kotlin.fir.resolve.firProvider
 import org.jetbrains.kotlin.fir.resolve.impl.FirProviderImpl
 import org.jetbrains.kotlin.fir.resolve.transformers.FirTotalResolveTransformer
 import org.jetbrains.kotlin.name.Name
@@ -72,6 +73,7 @@ abstract class AbstractFirDiagnosticsSmokeTest : BaseDiagnosticsTest() {
 
         val firFiles = mutableListOf<FirFile>()
 
+        // TODO: make module/session/transformer handling like in AbstractFirMultiModuleTest (IDE)
         for ((testModule, testFilesInModule) in groupedByModule) {
             val ktFiles = getKtFiles(testFilesInModule, true)
 
@@ -83,7 +85,7 @@ abstract class AbstractFirDiagnosticsSmokeTest : BaseDiagnosticsTest() {
             ktFiles.mapTo(firFiles) {
                 val firFile = firBuilder.buildFirFile(it)
 
-                (session.service<FirProvider>() as FirProviderImpl).recordFile(firFile)
+                (session.firProvider as FirProviderImpl).recordFile(firFile)
 
                 firFile
             }

@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.idea.completion.test.ExpectedCompletionUtils
 import org.jetbrains.kotlin.idea.test.KotlinLightCodeInsightFixtureTestCase
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
 
-abstract class CompletionHandlerTestBase() : KotlinLightCodeInsightFixtureTestCase() {
+abstract class CompletionHandlerTestBase : KotlinLightCodeInsightFixtureTestCase() {
     protected val fixture: JavaCodeInsightTestFixture
         get() = myFixture
 

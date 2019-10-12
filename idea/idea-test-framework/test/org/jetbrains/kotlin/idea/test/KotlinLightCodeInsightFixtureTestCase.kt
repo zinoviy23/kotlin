@@ -22,6 +22,7 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
+import com.intellij.pom.java.LanguageLevel
 import com.intellij.psi.PsiClassOwner
 import com.intellij.psi.PsiJavaFile
 import com.intellij.psi.PsiManager
@@ -29,7 +30,6 @@ import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.ProjectScope
 import com.intellij.testFramework.LightProjectDescriptor
 import com.intellij.testFramework.LoggedErrorProcessor
-import com.sun.tools.corba.se.idl.toJavaPortable.Util.fileName
 import org.apache.log4j.Logger
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.config.CompilerSettings
@@ -63,9 +63,13 @@ abstract class KotlinLightCodeInsightFixtureTestCase : KotlinLightCodeInsightFix
 
     protected open val captureExceptions = true
 
-    protected fun testDataFile(): File = File(testDataPath, fileName())
+    protected fun testDataFile(fileName: String): File = File(testDataPath, fileName)
 
-    protected fun testPath(): String = testDataFile().toString()
+    protected fun testDataFile(): File = testDataFile(fileName())
+
+    protected fun testPath(fileName: String = fileName()): String = testDataFile(fileName).toString()
+
+    protected fun testPath(): String = testPath(fileName())
 
     protected open fun fileName(): String = KotlinTestUtils.getTestDataFileName(this::class.java, this.name) ?: (getTestName(false) + ".kt")
 
@@ -176,6 +180,9 @@ abstract class KotlinLightCodeInsightFixtureTestCase : KotlinLightCodeInsightFix
 
                 InTextDirectivesUtils.isDirectiveDefined(fileText, "RUNTIME_WITH_FULL_JDK") ->
                     KotlinWithJdkAndRuntimeLightProjectDescriptor.INSTANCE_FULL_JDK
+
+                InTextDirectivesUtils.isDirectiveDefined(fileText, "RUNTIME_WITH_JDK_10") ->
+                    KotlinWithJdkAndRuntimeLightProjectDescriptor.getInstance(LanguageLevel.JDK_10)
 
                 InTextDirectivesUtils.isDirectiveDefined(fileText, "RUNTIME_WITH_REFLECT") ->
                     KotlinWithJdkAndRuntimeLightProjectDescriptor.INSTANCE_WITH_REFLECT

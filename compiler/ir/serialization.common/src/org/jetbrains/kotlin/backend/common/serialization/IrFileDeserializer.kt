@@ -39,12 +39,11 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedTypeParameterDescriptor
 import org.jetbrains.kotlin.types.Variance
-import org.jetbrains.kotlin.backend.common.serialization.proto.Annotations as ProtoAnnotations
 import org.jetbrains.kotlin.backend.common.serialization.proto.ClassKind as ProtoClassKind
 import org.jetbrains.kotlin.backend.common.serialization.proto.DescriptorReference as ProtoDescriptorReference
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrAnonymousInit as ProtoAnonymousInit
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrBlock as ProtoBlock
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoBodyIndex
+//import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoBodyIndex
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrBlockBody as ProtoBlockBody
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrBranch as ProtoBranch
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrBreak as ProtoBreak
@@ -93,7 +92,7 @@ import org.jetbrains.kotlin.backend.common.serialization.proto.IrSpreadElement a
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrStatement as ProtoStatement
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrStatementOrigin as ProtoStatementOrigin
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrStringConcat as ProtoStringConcat
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoSymbolIndex
+//import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoSymbolIndex
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSyntheticBody as ProtoSyntheticBody
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSyntheticBodyKind as ProtoSyntheticBodyKind
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrThrow as ProtoThrow
@@ -102,7 +101,7 @@ import org.jetbrains.kotlin.backend.common.serialization.proto.IrType as ProtoTy
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrTypeAbbreviation as ProtoTypeAbbreviation
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrTypeAlias as ProtoTypeAlias
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrTypeArgument as ProtoTypeArgument
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoTypeIndex
+//import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoTypeIndex
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrTypeOp as ProtoTypeOp
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrTypeOperator as ProtoTypeOperator
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrTypeParameter as ProtoTypeParameter
@@ -116,10 +115,10 @@ import org.jetbrains.kotlin.backend.common.serialization.proto.IrWhile as ProtoW
 import org.jetbrains.kotlin.backend.common.serialization.proto.Loop as ProtoLoop
 import org.jetbrains.kotlin.backend.common.serialization.proto.MemberAccessCommon as ProtoMemberAccessCommon
 import org.jetbrains.kotlin.backend.common.serialization.proto.ModalityKind as ProtoModalityKind
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoStringIndex
+//import org.jetbrains.kotlin.backend.common.serialization.proto.IrDataIndex as ProtoStringIndex
 import org.jetbrains.kotlin.backend.common.serialization.proto.TypeArguments as ProtoTypeArguments
 import org.jetbrains.kotlin.backend.common.serialization.proto.Visibility as ProtoVisibility
-import org.jetbrains.kotlin.backend.common.serialization.proto.FqName as ProtoFqName
+//import org.jetbrains.kotlin.backend.common.serialization.proto.FqName as ProtoFqName
 
 // TODO: This code still has some uses of descriptors:
 // 1. We use descriptors as keys for symbolTable -- probably symbol table related code should be refactored out from
@@ -133,24 +132,24 @@ abstract class IrFileDeserializer(
     val symbolTable: SymbolTable
 ) {
 
-    abstract fun deserializeIrSymbol(proto: ProtoSymbolIndex): IrSymbol
-    abstract fun deserializeIrType(proto: ProtoTypeIndex): IrType
+    abstract fun deserializeIrSymbol(index: Int): IrSymbol
+    abstract fun deserializeIrType(index: Int): IrType
     abstract fun deserializeDescriptorReference(proto: ProtoDescriptorReference): DeclarationDescriptor
-    abstract fun deserializeString(proto: ProtoStringIndex): String
-    abstract fun deserializeExpressionBody(proto: ProtoBodyIndex): IrExpression
-    abstract fun deserializeStatementBody(proto: ProtoBodyIndex): IrElement
+    abstract fun deserializeString(index: Int): String
+    abstract fun deserializeExpressionBody(index: Int): IrExpression
+    abstract fun deserializeStatementBody(index: Int): IrElement
     abstract fun deserializeLoopHeader(loopIndex: Int, loopBuilder: () -> IrLoopBase): IrLoopBase
 
     private val parentsStack = mutableListOf<IrDeclarationParent>()
 
-    fun deserializeFqName(proto: ProtoFqName): FqName {
-        return proto.segmentList.run {
+    fun deserializeFqName(fqn: List<Int>): FqName {
+        return fqn.run {
             if (isEmpty()) FqName.ROOT else FqName.fromSegments(map { deserializeString(it) })
         }
     }
 
-    private fun deserializeName(proto: ProtoStringIndex): Name {
-        val name = deserializeString(proto)
+    private fun deserializeName(index: Int): Name {
+        val name = deserializeString(index)
         return Name.guessByFirstCharacter(name)
     }
 
@@ -180,8 +179,8 @@ abstract class IrFileDeserializer(
 
     }
 
-    fun deserializeAnnotations(annotations: ProtoAnnotations): List<IrConstructorCall> {
-        return annotations.annotationList.map {
+    fun deserializeAnnotations(annotations: List<ProtoConstructorCall>): List<IrConstructorCall> {
+        return annotations.map {
             deserializeConstructorCall(it, 0, 0, builtIns.unitType) // TODO: need a proper deserialization here
         }
     }
@@ -192,7 +191,7 @@ abstract class IrFileDeserializer(
         logger.log { "deserializeSimpleType: symbol=$symbol" }
 
         val arguments = proto.argumentList.map { deserializeIrTypeArgument(it) }
-        val annotations = deserializeAnnotations(proto.annotations)
+        val annotations = deserializeAnnotations(proto.annotationList)
 
         val result: IrSimpleType = IrSimpleTypeImpl(
             null,
@@ -215,16 +214,16 @@ abstract class IrFileDeserializer(
             },
             proto.hasQuestionMark,
             proto.argumentList.map { deserializeIrTypeArgument(it) },
-            deserializeAnnotations(proto.annotations)
+            deserializeAnnotations(proto.annotationList)
         )
 
     private fun deserializeDynamicType(proto: ProtoDynamicType): IrDynamicType {
-        val annotations = deserializeAnnotations(proto.annotations)
+        val annotations = deserializeAnnotations(proto.annotationList)
         return IrDynamicTypeImpl(null, annotations, Variance.INVARIANT)
     }
 
     private fun deserializeErrorType(proto: ProtoErrorType): IrErrorType {
-        val annotations = deserializeAnnotations(proto.annotations)
+        val annotations = deserializeAnnotations(proto.annotationList)
         return IrErrorTypeImpl(null, annotations, Variance.INVARIANT)
     }
 
@@ -912,7 +911,7 @@ abstract class IrFileDeserializer(
             proto.coordinates.startOffset, proto.coordinates.endOffset,
             deserializeIrDeclarationOrigin(proto.origin)
         )
-        result.annotations.addAll(deserializeAnnotations(proto.annotations))
+        result.annotations.addAll(deserializeAnnotations(proto.annotationList))
         result.parent = parentsStack.peek()!!
         return result
     }
