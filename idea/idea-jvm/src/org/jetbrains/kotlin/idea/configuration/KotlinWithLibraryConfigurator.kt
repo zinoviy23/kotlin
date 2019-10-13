@@ -366,7 +366,7 @@ abstract class KotlinWithLibraryConfigurator protected constructor() : KotlinPro
             return
         }
 
-        val facetSettings = KotlinFacetSettingsProvider.getInstance(module.project).getInitializedSettings(module)
+        val facetSettings = KotlinFacetSettingsProvider.getInstance(module.project)?.getInitializedSettings(module)
         if (facetSettings != null) {
             ModuleRootModificationUtil.updateModel(module) {
                 facetSettings.apiLevel = feature.sinceVersion
