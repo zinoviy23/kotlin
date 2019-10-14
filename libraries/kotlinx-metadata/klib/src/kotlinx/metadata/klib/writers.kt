@@ -11,40 +11,54 @@ import org.jetbrains.kotlin.library.SerializedMetadata
 import org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf
 import org.jetbrains.kotlin.metadata.ProtoBuf
 
-// TODO:
-//  1. Package should be split into fragments
-class KlibPackageWriter(val stringTable: KlibMetadataStringTable) : PackageWriter(stringTable) {
+private data class SerializedPackage(val name: String, val fragments: List<ByteArray>)
 
-    fun write(packageName: String): SerializedMetadata {
-        val fragments = mutableListOf<List<ByteArray>>()
-        val fragmentNames = mutableListOf<String>()
-        val emptyPackages = mutableListOf<String>()
+class KlibPackageWriter(
+    val stringTable: KlibMetadataStringTable
+) : PackageWriter(stringTable) {
 
-        val packageProto = t.build()
+    fun write(moduleName: String, packageName: String): SerializedMetadata {
 
-        val header = serializeHeader()
-        return SerializedMetadata(TODO(), TODO(), TODO())
+        val pkg = buildPackage(packageName, t.build())
+        val packageNames = listOf(pkg.name)
+        val packages = listOf(pkg.fragments)
+
+        val header = serializeHeader(moduleName, packageNames)
+
+        // TODO: It looks like SerializedMetadata.fragments field should be called `packages`.
+        return SerializedMetadata(
+            header.toByteArray(),
+            packages,
+            packageNames
+        )
     }
 
-    private fun buildFragment(
-        packageProto: ProtoBuf.Package,
+    private fun buildPackage(
         fqName: String,
-        isEmpty: Boolean
-    ): ProtoBuf.PackageFragment {
-        val (stringTableProto, nameTableProto) = stringTable.buildProto()
-        return ProtoBuf.PackageFragment.newBuilder()
-            .setPackage(packageProto)
-            .setStrings(stringTableProto)
-            .setQualifiedNames(nameTableProto)
-            .also { packageFragment ->
-                packageFragment.setExtension(KlibMetadataProtoBuf.fqName, fqName)
-                packageFragment.setExtension(KlibMetadataProtoBuf.isEmpty, isEmpty)
-            }
-            .build()
+        packageProto: ProtoBuf.Package
+    ): SerializedPackage {
+
+        fun buildPackageFragment(
+            isEmpty: Boolean
+        ): ProtoBuf.PackageFragment {
+            val (stringTableProto, nameTableProto) = stringTable.buildProto()
+            return ProtoBuf.PackageFragment.newBuilder()
+                .setPackage(packageProto)
+                .setStrings(stringTableProto)
+                .setQualifiedNames(nameTableProto)
+                .also { packageFragment ->
+                    packageFragment.setExtension(KlibMetadataProtoBuf.fqName, fqName)
+                    packageFragment.setExtension(KlibMetadataProtoBuf.isEmpty, isEmpty)
+                }
+                .build()
+        }
+        return SerializedPackage(fqName, listOf(buildPackageFragment(false).toByteArray()))
     }
 
-    private fun serializeHeader(): KlibMetadataProtoBuf.Header {
-        val builder = KlibMetadataProtoBuf.Header.newBuilder()
-        return builder.build()
-    }
+    private fun serializeHeader(
+        moduleName: String, packageFragmentNames: List<String>
+    ) = KlibMetadataProtoBuf.Header.newBuilder().apply {
+        this.moduleName = "<$moduleName>"
+        addAllPackageFragmentName(packageFragmentNames)
+    }.build()
 }
