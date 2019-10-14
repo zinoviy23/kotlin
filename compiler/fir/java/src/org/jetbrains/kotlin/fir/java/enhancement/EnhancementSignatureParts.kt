@@ -98,7 +98,7 @@ internal class EnhancementSignatureParts(
             )
 
             if (type is FirJavaTypeRef) {
-                for (arg in type.type.typeArguments()) {
+                for (arg in type.javaType.typeArguments()) {
                     if (arg is JavaWildcardType || arg == null) {
                         add(null)
                     } else {
@@ -150,8 +150,8 @@ internal class EnhancementSignatureParts(
             is FirJavaTypeRef -> {
                 Pair(
                     // TODO: optimize
-                    type.toConeKotlinTypeWithNullability(session, javaTypeParameterStack, isNullable = false),
-                    type.toConeKotlinTypeWithNullability(session, javaTypeParameterStack, isNullable = true)
+                    javaType.toConeKotlinTypeWithNullability(session, javaTypeParameterStack, isNullable = false),
+                    javaType.toConeKotlinTypeWithNullability(session, javaTypeParameterStack, isNullable = true)
                 )
             }
             else -> return JavaTypeQualifiers.NONE

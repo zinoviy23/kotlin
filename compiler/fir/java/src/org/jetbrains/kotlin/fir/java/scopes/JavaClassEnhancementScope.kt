@@ -285,7 +285,7 @@ class JavaClassEnhancementScope(
     }
 
     private fun FirJavaTypeRef.isVoid(): Boolean {
-        return type is JavaPrimitiveType && type.type == null
+        return javaType is JavaPrimitiveType && javaType.type == null
     }
 
     // ================================================================================================

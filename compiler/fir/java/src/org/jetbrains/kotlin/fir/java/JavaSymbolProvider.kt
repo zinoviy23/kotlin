@@ -9,13 +9,11 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.addDefaultBoundIfNecessary
-import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirTypeParameterImpl
 import org.jetbrains.kotlin.fir.declarations.visibility
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
@@ -137,7 +135,7 @@ class JavaSymbolProvider(
     ) {
         require(this is FirTypeParameterImpl)
         for (upperBound in javaTypeParameter.upperBounds) {
-            bounds += upperBound.toFirResolvedTypeRef(this@JavaSymbolProvider.session, stack)
+            bounds += upperBound.toFirJavaTypeRef(this@JavaSymbolProvider.session, stack)
         }
         addDefaultBoundIfNecessary()
     }
@@ -213,6 +211,7 @@ class JavaSymbolProvider(
                         val methodId = CallableId(classId.packageFqName, classId.relativeClassName, methodName)
                         val methodSymbol = FirNamedFunctionSymbol(methodId)
                         val returnType = javaMethod.returnType
+                        val methodTypeParameters = javaMethod.typeParameters.convertTypeParameters(javaTypeParameterStack)
                         val firJavaMethod = FirJavaMethod(
                             this@JavaSymbolProvider.session, (javaMethod as? JavaElementImpl<*>)?.psi,
                             methodSymbol, methodName,
@@ -220,7 +219,7 @@ class JavaSymbolProvider(
                             returnTypeRef = returnType.toFirJavaTypeRef(this@JavaSymbolProvider.session, javaTypeParameterStack),
                             isStatic = javaMethod.isStatic
                         ).apply {
-                            this.typeParameters += javaMethod.typeParameters.convertTypeParameters(javaTypeParameterStack)
+                            this.typeParameters += methodTypeParameters
                             addAnnotationsFrom(this@JavaSymbolProvider.session, javaMethod, javaTypeParameterStack)
                             for (valueParameter in javaMethod.valueParameters) {
                                 valueParameters += valueParameter.toFirValueParameters(
