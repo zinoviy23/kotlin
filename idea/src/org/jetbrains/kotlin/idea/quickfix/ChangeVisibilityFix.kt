@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.idea.quickfix
@@ -40,8 +29,8 @@ import org.jetbrains.kotlin.resolve.ExposedVisibilityChecker
 
 open class ChangeVisibilityFix(
     element: KtModifierListOwner,
-    private val elementName: String,
-    private val visibilityModifier: KtModifierKeywordToken,
+    protected val elementName: String,
+    protected val visibilityModifier: KtModifierKeywordToken,
     private val addImplicitVisibilityModifier: Boolean = false
 ) : KotlinQuickFixAction<KtModifierListOwner>(element) {
 
@@ -80,7 +69,7 @@ open class ChangeVisibilityFix(
     }
 
     protected class ChangeToPrivateFix(element: KtModifierListOwner, elementName: String) :
-            ChangeVisibilityFix(element, elementName, KtTokens.PRIVATE_KEYWORD), HighPriorityAction {
+        ChangeVisibilityFix(element, elementName, KtTokens.PRIVATE_KEYWORD), HighPriorityAction {
 
         override fun isAvailable(project: Project, editor: Editor?, file: KtFile): Boolean {
             val element = element ?: return false
@@ -88,22 +77,32 @@ open class ChangeVisibilityFix(
         }
     }
 
+    protected class ChangeToPublicExplicitlyFix(element: KtModifierListOwner, elementName: String) : ChangeVisibilityFix(
+        element,
+        elementName,
+        KtTokens.PUBLIC_KEYWORD,
+        addImplicitVisibilityModifier = true
+    ), HighPriorityAction {
+        override fun getText() = "Make '$elementName' $visibilityModifier explicitly"
+        override fun getFamilyName() = "Make $visibilityModifier explicitly"
+    }
+
     companion object {
         fun create(
-                declaration: KtModifierListOwner,
-                descriptor: DeclarationDescriptorWithVisibility,
-                targetVisibility: Visibility
-        ) : IntentionAction? {
+            declaration: KtModifierListOwner,
+            descriptor: DeclarationDescriptorWithVisibility,
+            targetVisibility: Visibility
+        ): IntentionAction? {
             if (!ExposedVisibilityChecker().checkDeclarationWithVisibility(declaration, descriptor, targetVisibility)) return null
 
             val name = descriptor.name.asString()
 
             return when (targetVisibility) {
-                Visibilities.PRIVATE ->   ChangeToPrivateFix(declaration, name)
-                Visibilities.INTERNAL ->  ChangeToInternalFix(declaration, name)
+                Visibilities.PRIVATE -> ChangeToPrivateFix(declaration, name)
+                Visibilities.INTERNAL -> ChangeToInternalFix(declaration, name)
                 Visibilities.PROTECTED -> ChangeToProtectedFix(declaration, name)
-                Visibilities.PUBLIC ->    ChangeToPublicFix(declaration, name)
-                else ->      null
+                Visibilities.PUBLIC -> ChangeToPublicFix(declaration, name)
+                else -> null
             }
         }
     }
@@ -115,11 +114,9 @@ open class ChangeVisibilityFix(
             val descriptor = factory.cast(diagnostic).a as? DeclarationDescriptorWithVisibility ?: return emptyList()
             val element = diagnostic.psiElement as? KtModifierListOwner ?: return emptyList()
             return listOf(
-                ChangeVisibilityFix(
+                ChangeToPublicExplicitlyFix(
                     element,
-                    descriptor.name.asString(),
-                    KtTokens.PUBLIC_KEYWORD,
-                    addImplicitVisibilityModifier = true
+                    descriptor.name.asString()
                 )
             )
         }

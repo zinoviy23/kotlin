@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.resolve.checkers
 
 import org.jetbrains.kotlin.config.AnalysisFlags
-import org.jetbrains.kotlin.config.ApiMode
+import org.jetbrains.kotlin.config.ExplicitApiMode
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.diagnostics.Errors
@@ -18,10 +18,10 @@ import org.jetbrains.kotlin.psi.psiUtil.visibilityModifier
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.descriptorUtil.isEffectivelyPublicApi
 
-class ApiModeDeclarationChecker : DeclarationChecker {
+class ExplicitApiDeclarationChecker : DeclarationChecker {
     override fun check(declaration: KtDeclaration, descriptor: DeclarationDescriptor, context: DeclarationCheckerContext) {
         val state = isEnabled(context.languageVersionSettings)
-        if (state == ApiMode.DISABLED) return
+        if (state == ExplicitApiMode.DISABLED) return
 
         val isApi = (descriptor as? DeclarationDescriptorWithVisibility)?.isEffectivelyPublicApi ?: return
         if (!isApi) return
@@ -31,7 +31,7 @@ class ApiModeDeclarationChecker : DeclarationChecker {
     }
 
     private fun checkVisibilityModifier(
-        state: ApiMode,
+        state: ExplicitApiMode,
         declaration: KtDeclaration,
         descriptor: DeclarationDescriptorWithVisibility,
         context: DeclarationCheckerContext
@@ -41,7 +41,7 @@ class ApiModeDeclarationChecker : DeclarationChecker {
 
         if (excludeForDiagnostic(descriptor)) return
         val diagnostic =
-            if (state == ApiMode.ENABLED)
+            if (state == ExplicitApiMode.STRICT)
                 Errors.NO_EXPLICIT_VISIBILITY_IN_API_MODE.on(declaration, descriptor)
             else
                 Errors.NO_EXPLICIT_VISIBILITY_IN_API_MODE_MIGRATION.on(declaration, descriptor)
@@ -49,7 +49,7 @@ class ApiModeDeclarationChecker : DeclarationChecker {
     }
 
     private fun checkExplicitReturnType(
-        state: ApiMode,
+        state: ExplicitApiMode,
         declaration: KtDeclaration,
         descriptor: DeclarationDescriptor,
         context: DeclarationCheckerContext
@@ -65,7 +65,7 @@ class ApiModeDeclarationChecker : DeclarationChecker {
         )
         if (shouldReport) {
             val diagnostic =
-                if (state == ApiMode.ENABLED)
+                if (state == ExplicitApiMode.STRICT)
                     Errors.NO_EXPLICIT_RETURN_TYPE_IN_API_MODE.on(declaration)
                 else
                     Errors.NO_EXPLICIT_RETURN_TYPE_IN_API_MODE_MIGRATION
@@ -77,8 +77,9 @@ class ApiModeDeclarationChecker : DeclarationChecker {
     /**
      * Exclusion list:
      * 1. Primary constructors of public API classes
-     * 3. Members of public API interfaces
-     * 4. do not report overrides of public API? effectively, this means 'no report on overrides at all'
+     * 2. Members of public API interfaces
+     * 3. do not report overrides of public API? effectively, this means 'no report on overrides at all'
+     * 4. Getters and setters (because getters can't change visibility and setter-only explicit visibility looks ugly)
      *
      * Do we need something like @PublicApiFile to disable (or invert) this inspection per-file?
      */
@@ -86,14 +87,15 @@ class ApiModeDeclarationChecker : DeclarationChecker {
         /* 1. */ if ((descriptor as? ClassConstructorDescriptor)?.isPrimary == true) return true
         val isMemberOfPublicInterface =
             (descriptor.containingDeclaration as? ClassDescriptor)?.let { DescriptorUtils.isInterface(it) && it.effectiveVisibility().publicApi }
-        /* 3. */ if (descriptor is CallableDescriptor && isMemberOfPublicInterface == true) return true
-        /* 4. */ if ((descriptor as? CallableDescriptor)?.overriddenDescriptors?.isNotEmpty() == true) return true
+        /* 2. */ if (descriptor is CallableDescriptor && isMemberOfPublicInterface == true) return true
+        /* 3. */ if ((descriptor as? CallableDescriptor)?.overriddenDescriptors?.isNotEmpty() == true) return true
+        /* 4. */ if (descriptor is PropertyAccessorDescriptor) return true
         return false
     }
 
     companion object {
-        fun isEnabled(settings: LanguageVersionSettings): ApiMode {
-            return settings.getFlag(AnalysisFlags.apiMode)
+        fun isEnabled(settings: LanguageVersionSettings): ExplicitApiMode {
+            return settings.getFlag(AnalysisFlags.explicitApiMode)
         }
 
         fun returnTypeRequired(
