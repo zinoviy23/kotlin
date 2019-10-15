@@ -29,8 +29,43 @@ public class DiagnosticsWithExplicitApiGenerated extends AbstractDiagnosticsWith
         KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/diagnostics/testsWithExplicitApi"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.ANY, true);
     }
 
-    @TestMetadata("basic.kt")
-    public void testBasic() throws Exception {
-        runTest("compiler/testData/diagnostics/testsWithExplicitApi/basic.kt");
+    @TestMetadata("classes.kt")
+    public void testClasses() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/classes.kt");
+    }
+
+    @TestMetadata("companionObject.kt")
+    public void testCompanionObject() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/companionObject.kt");
+    }
+
+    @TestMetadata("constructors.kt")
+    public void testConstructors() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/constructors.kt");
+    }
+
+    @TestMetadata("inlineClasses.kt")
+    public void testInlineClasses() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/inlineClasses.kt");
+    }
+
+    @TestMetadata("interfaces.kt")
+    public void testInterfaces() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/interfaces.kt");
+    }
+
+    @TestMetadata("mustBeEffectivelyPublic.kt")
+    public void testMustBeEffectivelyPublic() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/mustBeEffectivelyPublic.kt");
+    }
+
+    @TestMetadata("properties.kt")
+    public void testProperties() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/properties.kt");
+    }
+
+    @TestMetadata("toplevel.kt")
+    public void testToplevel() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithExplicitApi/toplevel.kt");
     }
 }
