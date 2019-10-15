@@ -185,6 +185,7 @@ class JavaSymbolProvider(
                     val parentId = ClassId(classId.packageFqName, parentFqName, false)
                     val parentClassSymbol = getClassLikeSymbolByFqName(parentId) as? FirClassSymbol
                     val parentClass = parentClassSymbol?.fir
+                    // NB: parent class MUST BE FirJavaClass
                     if (parentClass is FirJavaClass) {
                         javaTypeParameterStack.addStack(parentClass.javaTypeParameterStack)
                     }
