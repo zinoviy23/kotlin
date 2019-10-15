@@ -33,6 +33,14 @@ abstract class KotlinGradleAbstractMultiplatformModuleBuilder(
 
     override fun getNodeIcon(): Icon = KotlinIcons.MPP
 
+    override fun createWizardSteps(wizardContext: WizardContext, modulesProvider: ModulesProvider): Array<ModuleWizardStep> {
+        super.createWizardSteps(wizardContext, modulesProvider)  // initializes GradleModuleBuilder.myWizardContext
+        return arrayOf(
+            // Let us have to edit project name only
+            GradleStructureWizardStep(this, wizardContext)
+        )
+    }
+
     private fun setupMppModule(module: Module, parentDir: VirtualFile): VirtualFile? {
         val moduleDir = parentDir.createChildDirectory(this, mppDirName)
         val buildGradle = moduleDir.createChildData(null, "build.gradle")
