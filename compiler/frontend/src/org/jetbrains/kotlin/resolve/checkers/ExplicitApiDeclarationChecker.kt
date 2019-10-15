@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.psiUtil.visibilityModifier
-import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.descriptorUtil.isEffectivelyPublicApi
 
 class ExplicitApiDeclarationChecker : DeclarationChecker {
@@ -44,7 +43,7 @@ class ExplicitApiDeclarationChecker : DeclarationChecker {
             if (state == ExplicitApiMode.STRICT)
                 Errors.NO_EXPLICIT_VISIBILITY_IN_API_MODE.on(declaration, descriptor)
             else
-                Errors.NO_EXPLICIT_VISIBILITY_IN_API_MODE_MIGRATION.on(declaration, descriptor)
+                Errors.NO_EXPLICIT_VISIBILITY_IN_API_MODE_WARNING.on(declaration, descriptor)
         context.trace.reportDiagnosticOnce(diagnostic)
     }
 
@@ -68,7 +67,7 @@ class ExplicitApiDeclarationChecker : DeclarationChecker {
                 if (state == ExplicitApiMode.STRICT)
                     Errors.NO_EXPLICIT_RETURN_TYPE_IN_API_MODE.on(declaration)
                 else
-                    Errors.NO_EXPLICIT_RETURN_TYPE_IN_API_MODE_MIGRATION
+                    Errors.NO_EXPLICIT_RETURN_TYPE_IN_API_MODE_WARNING
                         .on(declaration)
             context.trace.reportDiagnosticOnce(diagnostic)
         }
