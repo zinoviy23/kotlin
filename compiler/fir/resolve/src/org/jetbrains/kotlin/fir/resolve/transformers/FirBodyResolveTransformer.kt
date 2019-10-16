@@ -14,7 +14,9 @@ import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyExpressionBlock
 import org.jetbrains.kotlin.fir.expressions.impl.FirExpressionWithSmartcastImpl
-import org.jetbrains.kotlin.fir.references.*
+import org.jetbrains.kotlin.fir.references.FirDelegateFieldReference
+import org.jetbrains.kotlin.fir.references.FirResolvedCallableReference
+import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.impl.FirExplicitThisReference
 import org.jetbrains.kotlin.fir.references.impl.FirSimpleNamedReference
 import org.jetbrains.kotlin.fir.resolve.*
@@ -26,8 +28,11 @@ import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.addImportingScopes
 import org.jetbrains.kotlin.fir.scopes.impl.FirLocalScope
 import org.jetbrains.kotlin.fir.scopes.impl.withReplacedConeType
-import org.jetbrains.kotlin.fir.symbols.*
+import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.StandardClassIds
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
+import org.jetbrains.kotlin.fir.symbols.invoke
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.*
 import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
@@ -81,7 +86,7 @@ open class FirBodyResolveTransformer(
     private val callCompleter: FirCallCompleter = FirCallCompleter(this)
     private val qualifiedResolver: FirQualifiedNameResolver = FirQualifiedNameResolver(this)
     final override val resolutionStageRunner: ResolutionStageRunner = ResolutionStageRunner(inferenceComponents)
-    private val callResolver: FirCallResolver = FirCallResolver(
+    override val callResolver: FirCallResolver = FirCallResolver(
         this,
         topLevelScopes,
         localScopes,
@@ -93,7 +98,7 @@ open class FirBodyResolveTransformer(
     private val dataFlowAnalyzer: FirDataFlowAnalyzer = FirDataFlowAnalyzer(this)
     private val whenExhaustivenessTransformer = FirWhenExhaustivenessTransformer(this)
 
-    private val doubleColonExpressionResolver: FirDoubleColonExpressionResolver = FirDoubleColonExpressionResolver(session)
+    override val doubleColonExpressionResolver: FirDoubleColonExpressionResolver = FirDoubleColonExpressionResolver(session)
 
     override val <D> AbstractFirBasedSymbol<D>.phasedFir: D where D : FirDeclaration, D : FirSymbolOwner<D>
         get() {
@@ -310,9 +315,7 @@ open class FirBodyResolveTransformer(
             else
                 callableReferenceAccess
 
-        val lhsResult = doubleColonExpressionResolver.resolveDoubleColonLHS(callableReferenceAccessWithTransformedLHS)
-
-        return callResolver.resolveCallableReference(callableReferenceAccessWithTransformedLHS, lhsResult).compose()
+        return callableReferenceAccessWithTransformedLHS.compose()
     }
 
     override fun transformAnonymousFunction(anonymousFunction: FirAnonymousFunction, data: Any?): CompositeTransformResult<FirStatement> {
