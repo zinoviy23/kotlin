@@ -1,0 +1,6 @@
+FILE: test.kt
+    public final fun test(): R|kotlin/Unit| {
+        lval base: R|Base<kotlin/String>| = R|/Base.Base|<R|kotlin/String|>()
+        lval s: R|ft<kotlin/String, kotlin/String?>!| = R|<local>/base|.R|FakeOverride</Base.foo: R|ft<kotlin/String, kotlin/String?>!|>|()
+        lval length: R|kotlin/Int| = R|<local>/s|.R|kotlin/String.length|
+    }

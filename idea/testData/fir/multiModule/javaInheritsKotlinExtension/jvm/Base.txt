@@ -9,4 +9,9 @@ FILE: Base.kt
         public open fun R|First|.foo(s: R|kotlin/String|, i: R|kotlin/Int|): R|kotlin/Unit| {
         }
 
+        public open val R|First|.bar: R|kotlin/Int|
+            public get(): R|kotlin/Int| {
+                ^ Int(42)
+            }
+
     }

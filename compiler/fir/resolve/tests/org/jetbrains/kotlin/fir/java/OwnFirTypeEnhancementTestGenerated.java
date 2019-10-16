@@ -56,6 +56,11 @@ public class OwnFirTypeEnhancementTestGenerated extends AbstractOwnFirTypeEnhanc
             runTest("compiler/fir/resolve/testData/enhancement/jsr305/Strange.java");
         }
 
+        @TestMetadata("SupertypeEnhancement.java")
+        public void testSupertypeEnhancement() throws Exception {
+            runTest("compiler/fir/resolve/testData/enhancement/jsr305/SupertypeEnhancement.java");
+        }
+
         @TestMetadata("compiler/fir/resolve/testData/enhancement/jsr305/typeQualifierDefault")
         @TestDataPath("$PROJECT_ROOT")
         @RunWith(JUnit3RunnerWithInners.class)

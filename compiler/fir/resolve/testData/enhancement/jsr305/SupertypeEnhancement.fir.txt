@@ -1,0 +1,10 @@
+public open class Base<T : R|kotlin/CharSequence|, R|kotlin/CharSequence|> : R|kotlin/Any| {
+    public open operator fun foo(): R|ft<T, T?>!|
+
+    public constructor<T : R|kotlin/CharSequence|, R|kotlin/CharSequence|>(): R|Base<T>|
+
+}
+public open class Derived : R|Base<kotlin/String>| {
+    public constructor(): R|Derived|
+
+}

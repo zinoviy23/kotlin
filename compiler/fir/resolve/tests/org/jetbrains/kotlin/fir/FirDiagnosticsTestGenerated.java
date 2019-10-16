@@ -105,6 +105,11 @@ public class FirDiagnosticsTestGenerated extends AbstractFirDiagnosticsTest {
         public void testOuterInnerClasses() throws Exception {
             runTest("compiler/fir/resolve/testData/diagnostics/j+k/outerInnerClasses.kt");
         }
+
+        @TestMetadata("SpecificEnhancements.kt")
+        public void testSpecificEnhancements() throws Exception {
+            runTest("compiler/fir/resolve/testData/diagnostics/j+k/SpecificEnhancements.kt");
+        }
     }
 
     @TestMetadata("compiler/fir/resolve/testData/diagnostics/samConstructors")
