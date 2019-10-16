@@ -19,16 +19,16 @@ abstract class AbstractFirUseSiteScope(
     protected val declaredMemberScope: FirScope
 ) : AbstractFirOverrideScope(session) {
     override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> ProcessorAction): ProcessorAction {
-        val seen = mutableSetOf<FirFunctionSymbol<*>>()
+        val overrideCandidates = mutableSetOf<FirFunctionSymbol<*>>()
         if (!declaredMemberScope.processFunctionsByName(name) {
-                seen += it
+                overrideCandidates += it
                 processor(it)
             }
         ) return ProcessorAction.STOP
 
         return superTypesScope.processFunctionsByName(name) {
 
-            val overriddenBy = it.getOverridden(seen)
+            val overriddenBy = it.getOverridden(overrideCandidates)
             if (overriddenBy == null) {
                 processor(it)
             } else {

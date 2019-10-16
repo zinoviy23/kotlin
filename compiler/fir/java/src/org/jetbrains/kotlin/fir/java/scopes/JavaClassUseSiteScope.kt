@@ -35,9 +35,6 @@ class JavaClassUseSiteScope(
     private val javaTypeParameterStack: JavaTypeParameterStack =
         if (klass is FirJavaClass) klass.javaTypeParameterStack else JavaTypeParameterStack.EMPTY
 
-    //base symbol as key, overridden as value
-    internal val overriddenByBase = mutableMapOf<FirCallableSymbol<*>, FirCallableSymbol<*>?>()
-
     private fun isEqualTypes(a: ConeKotlinType, b: ConeKotlinType, substitutor: ConeSubstitutor): Boolean {
         if (a is ConeFlexibleType) return isEqualTypes(a.lowerBound, b, substitutor)
         if (b is ConeFlexibleType) return isEqualTypes(a, b.lowerBound, substitutor)
@@ -56,18 +53,19 @@ class JavaClassUseSiteScope(
             substitutor
         )
 
-    private fun isOverriddenFunCheck(overriddenInJava: FirSimpleFunction, base: FirSimpleFunction): Boolean {
-        val receiverTypeRef = base.receiverTypeRef
-        val baseParameterTypes = listOfNotNull(receiverTypeRef) + base.valueParameters.map { it.returnTypeRef }
+    override fun isOverriddenFunCheck(overrideCandidate: FirSimpleFunction, baseDeclaration: FirSimpleFunction): Boolean {
+        // NB: overrideCandidate is from Java and has no receiver
+        val receiverTypeRef = baseDeclaration.receiverTypeRef
+        val baseParameterTypes = listOfNotNull(receiverTypeRef) + baseDeclaration.valueParameters.map { it.returnTypeRef }
 
-        if (overriddenInJava.valueParameters.size != baseParameterTypes.size) return false
-        if (overriddenInJava.typeParameters.size != base.typeParameters.size) return false
+        if (overrideCandidate.valueParameters.size != baseParameterTypes.size) return false
+        if (overrideCandidate.typeParameters.size != baseDeclaration.typeParameters.size) return false
 
-        val types = base.typeParameters.map {
+        val types = baseDeclaration.typeParameters.map {
             ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), false)
         }
-        val substitution = substitutorByMap(overriddenInJava.typeParameters.map { it.symbol }.zip(types).toMap())
-        if (!overriddenInJava.typeParameters.zip(base.typeParameters).all { (a, b) ->
+        val substitution = substitutorByMap(overrideCandidate.typeParameters.map { it.symbol }.zip(types).toMap())
+        if (!overrideCandidate.typeParameters.zip(baseDeclaration.typeParameters).all { (a, b) ->
                 a.bounds.size == b.bounds.size && a.bounds.zip(b.bounds).all { (aBound, bBound) ->
                     isEqualTypes(aBound, bBound, substitution)
                 }
@@ -75,29 +73,33 @@ class JavaClassUseSiteScope(
         ) return false
 
 
-        return overriddenInJava.valueParameters.zip(baseParameterTypes).all { (paramFromJava, baseType) ->
+        return overrideCandidate.valueParameters.zip(baseParameterTypes).all { (paramFromJava, baseType) ->
             isEqualTypes(paramFromJava.returnTypeRef, baseType, substitution)
         }
     }
 
-    private fun isOverriddenPropertyCheck(overriddenInJava: FirSimpleFunction, base: FirProperty): Boolean {
-        val receiverTypeRef = base.receiverTypeRef
-        if (receiverTypeRef == null) {
-            // TODO: setters
-            return overriddenInJava.valueParameters.isEmpty()
-        } else {
-            if (overriddenInJava.valueParameters.size != 1) return false
-            return isEqualTypes(receiverTypeRef, overriddenInJava.valueParameters.single().returnTypeRef, ConeSubstitutor.Empty)
-        }
-    }
-
-    private fun isOverriddenPropertyCheck(overriddenInKotlin: FirProperty, base: FirProperty): Boolean {
-        val receiverTypeRef = base.receiverTypeRef
-        val overriddenReceiverTypeRef = overriddenInKotlin.receiverTypeRef
-        return when {
-            receiverTypeRef == null -> overriddenReceiverTypeRef == null
-            overriddenReceiverTypeRef == null -> false
-            else -> isEqualTypes(receiverTypeRef, overriddenReceiverTypeRef, ConeSubstitutor.Empty)
+    override fun isOverriddenPropertyCheck(overrideCandidate: FirCallableMemberDeclaration<*>, baseDeclaration: FirProperty): Boolean {
+        if (baseDeclaration.modality == Modality.FINAL) return false
+        val receiverTypeRef = baseDeclaration.receiverTypeRef
+        return when (overrideCandidate) {
+            is FirSimpleFunction -> {
+                if (receiverTypeRef == null) {
+                    // TODO: setters
+                    return overrideCandidate.valueParameters.isEmpty()
+                } else {
+                    if (overrideCandidate.valueParameters.size != 1) return false
+                    return isEqualTypes(receiverTypeRef, overrideCandidate.valueParameters.single().returnTypeRef, ConeSubstitutor.Empty)
+                }
+            }
+            is FirProperty -> {
+                val overrideReceiverTypeRef = overrideCandidate.receiverTypeRef
+                return when {
+                    receiverTypeRef == null -> overrideReceiverTypeRef == null
+                    overrideReceiverTypeRef == null -> false
+                    else -> isEqualTypes(receiverTypeRef, overrideReceiverTypeRef, ConeSubstitutor.Empty)
+                }
+            }
+            else -> false
         }
     }
 
@@ -112,70 +114,6 @@ class JavaClassUseSiteScope(
         superTypesScope.processFunctionsByName(name) {
             it.getOverridden(overrideCandidates)
             NEXT
-        }
-    }
-
-    override fun FirCallableSymbol<*>.getOverridden(seen: Set<FirCallableSymbol<*>>): FirCallableSymbol<*>? {
-        if (overriddenByBase.containsKey(this)) return overriddenByBase[this]
-
-        val overriding = when (this) {
-            is FirNamedFunctionSymbol -> {
-                val self = this.fir
-                seen.firstOrNull {
-                    val overridden = (it as? FirNamedFunctionSymbol)?.fir
-                    overridden != null && self.modality != Modality.FINAL && isOverriddenFunCheck(overridden, self)
-                }
-            }
-            is FirConstructorSymbol, is FirFieldSymbol -> {
-                null
-            }
-            is FirPropertySymbol -> {
-                val self = fir
-                seen.firstOrNull {
-                    when (it) {
-                        is FirNamedFunctionSymbol -> {
-                            val overridden = it.fir
-                            self.modality != Modality.FINAL && isOverriddenPropertyCheck(overridden, self)
-                        }
-                        is FirPropertySymbol -> {
-                            val overridden = it.fir
-                            self.modality != Modality.FINAL && isOverriddenPropertyCheck(overridden, self)
-                        }
-                        else -> false
-                    }
-
-                }
-            }
-            is FirAccessorSymbol -> {
-                val self = fir
-                seen.firstOrNull {
-                    val overridden = (it as? FirNamedFunctionSymbol)?.fir
-                    overridden != null && self.modality != Modality.FINAL && isOverriddenFunCheck(overridden, self)
-                }
-            }
-            else -> error("Unexpected callable symbol: $this")
-        }
-        // TODO: two or more overrides for one fun?
-        overriddenByBase[this] = overriding
-        return overriding
-    }
-
-    override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> ProcessorAction): ProcessorAction {
-        val seen = mutableSetOf<FirCallableSymbol<*>>()
-        if (!declaredMemberScope.processFunctionsByName(name) {
-                seen += it
-                processor(it)
-            }
-        ) return STOP
-
-        return superTypesScope.processFunctionsByName(name) {
-
-            val overriddenBy = it.getOverridden(seen)
-            if (overriddenBy == null) {
-                processor(it)
-            } else {
-                NEXT
-            }
         }
     }
 
