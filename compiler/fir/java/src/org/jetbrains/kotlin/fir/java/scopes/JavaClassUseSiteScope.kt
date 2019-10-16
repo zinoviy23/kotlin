@@ -16,20 +16,20 @@ import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction.*
+import org.jetbrains.kotlin.fir.scopes.impl.AbstractFirUseSiteScope
 import org.jetbrains.kotlin.fir.scopes.impl.FirSuperTypeScope
 import org.jetbrains.kotlin.fir.symbols.*
 import org.jetbrains.kotlin.fir.symbols.impl.*
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.name.Name
 
 class JavaClassUseSiteScope(
     klass: FirRegularClass,
-    private val session: FirSession,
-    private val superTypesScope: FirSuperTypeScope,
-    private val declaredMemberScope: FirScope
-) : FirScope() {
+    session: FirSession,
+    superTypesScope: FirSuperTypeScope,
+    declaredMemberScope: FirScope
+) : AbstractFirUseSiteScope(session, superTypesScope, declaredMemberScope) {
     internal val symbol = klass.symbol
 
     private val javaTypeParameterStack: JavaTypeParameterStack =
@@ -37,8 +37,6 @@ class JavaClassUseSiteScope(
 
     //base symbol as key, overridden as value
     internal val overriddenByBase = mutableMapOf<FirCallableSymbol<*>, FirCallableSymbol<*>?>()
-
-    private val context: ConeTypeContext = session.typeContext
 
     private fun isEqualTypes(a: ConeKotlinType, b: ConeKotlinType, substitutor: ConeSubstitutor): Boolean {
         if (a is ConeFlexibleType) return isEqualTypes(a.lowerBound, b, substitutor)
@@ -117,13 +115,13 @@ class JavaClassUseSiteScope(
         }
     }
 
-    private fun FirCallableSymbol<*>.getOverridden(candidates: Set<FirCallableSymbol<*>>): FirCallableSymbol<*>? {
+    override fun FirCallableSymbol<*>.getOverridden(seen: Set<FirCallableSymbol<*>>): FirCallableSymbol<*>? {
         if (overriddenByBase.containsKey(this)) return overriddenByBase[this]
 
         val overriding = when (this) {
             is FirNamedFunctionSymbol -> {
                 val self = this.fir
-                candidates.firstOrNull {
+                seen.firstOrNull {
                     val overridden = (it as? FirNamedFunctionSymbol)?.fir
                     overridden != null && self.modality != Modality.FINAL && isOverriddenFunCheck(overridden, self)
                 }
@@ -133,7 +131,7 @@ class JavaClassUseSiteScope(
             }
             is FirPropertySymbol -> {
                 val self = fir
-                candidates.firstOrNull {
+                seen.firstOrNull {
                     when (it) {
                         is FirNamedFunctionSymbol -> {
                             val overridden = it.fir
@@ -150,7 +148,7 @@ class JavaClassUseSiteScope(
             }
             is FirAccessorSymbol -> {
                 val self = fir
-                candidates.firstOrNull {
+                seen.firstOrNull {
                     val overridden = (it as? FirNamedFunctionSymbol)?.fir
                     overridden != null && self.modality != Modality.FINAL && isOverriddenFunCheck(overridden, self)
                 }
@@ -163,16 +161,16 @@ class JavaClassUseSiteScope(
     }
 
     override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> ProcessorAction): ProcessorAction {
-        val overrideCandidates = mutableSetOf<FirFunctionSymbol<*>>()
+        val seen = mutableSetOf<FirCallableSymbol<*>>()
         if (!declaredMemberScope.processFunctionsByName(name) {
-                overrideCandidates += it
+                seen += it
                 processor(it)
             }
         ) return STOP
 
         return superTypesScope.processFunctionsByName(name) {
 
-            val overriddenBy = it.getOverridden(overrideCandidates)
+            val overriddenBy = it.getOverridden(seen)
             if (overriddenBy == null) {
                 processor(it)
             } else {

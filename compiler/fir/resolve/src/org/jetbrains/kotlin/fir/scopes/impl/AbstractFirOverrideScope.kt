@@ -23,7 +23,7 @@ abstract class AbstractFirOverrideScope(val session: FirSession) : FirScope() {
     //base symbol as key
     val overrides = mutableMapOf<FirCallableSymbol<*>, FirCallableSymbol<*>?>()
 
-    val context: ConeTypeContext = session.typeContext
+    protected val context: ConeTypeContext = session.typeContext
 
     private fun isEqualTypes(a: ConeKotlinType, b: ConeKotlinType, substitution: ConeSubstitutor) =
         AbstractStrictEqualityTypeChecker.strictEqualTypes(context, substitution.substituteOrSelf(a), substitution.substituteOrSelf(b))
@@ -58,7 +58,7 @@ abstract class AbstractFirOverrideScope(val session: FirSession) : FirScope() {
         }
     }
 
-    protected fun FirCallableSymbol<*>.isOverridden(seen: Set<FirCallableSymbol<*>>): FirCallableSymbol<*>? {
+    protected open fun FirCallableSymbol<*>.getOverridden(seen: Set<FirCallableSymbol<*>>): FirCallableSymbol<*>? {
         if (overrides.containsKey(this)) return overrides[this]
 
         fun similarFunctionsOrBothProperties(declaration: FirCallableDeclaration<*>, self: FirCallableDeclaration<*>): Boolean {
