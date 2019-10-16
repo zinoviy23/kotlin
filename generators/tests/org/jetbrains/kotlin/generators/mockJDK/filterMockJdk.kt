@@ -69,7 +69,10 @@ private fun transformJar(sourceJar: JarFile, targetJar: JarOutputStream) {
 }
 
 private val missingSuperInterfaces = setOf(
-    "java/io/Flushable"
+    "java/io/Flushable",
+    "java/io/DataOutput",
+    "java/io/DataInput",
+    "java/io/ObjectStreamConstants"
 )
 
 internal class InterfacesFilter(classVisitor: ClassVisitor) : ClassVisitor(Opcodes.API_VERSION, classVisitor) {
