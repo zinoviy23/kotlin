@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.resolve.calls.checkers.CallChecker
 import org.jetbrains.kotlin.resolve.calls.checkers.CallCheckerContext
 import org.jetbrains.kotlin.resolve.calls.checkers.isComputingDeferredType
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.classId
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedMemberDescriptor
@@ -103,7 +104,13 @@ object MissingDependencyClassChecker : CallChecker {
 
             for (supertype in classifierType.supertypes()) {
                 val supertypeDeclarationDescriptor = supertype.constructor.declarationDescriptor
-                if (supertypeDeclarationDescriptor is NotFoundClasses.MockClassDescriptor) {
+                if (supertypeDeclarationDescriptor !is ClassDescriptor) continue
+                if (supertypeDeclarationDescriptor.visibility == Visibilities.LOCAL) continue
+
+                val superTypeClassId = supertypeDeclarationDescriptor.classId ?: continue // or error
+                val dependency = context.moduleDescriptor.findClassAcrossModuleDependencies(superTypeClassId)
+
+                if (dependency == null || dependency is NotFoundClasses.MockClassDescriptor) {
                     context.trace.report(
                         MISSING_DEPENDENCY_SUPERCLASS.on(element, supertypeDeclarationDescriptor.fqNameSafe, targetDescriptor.fqNameSafe)
                     )
