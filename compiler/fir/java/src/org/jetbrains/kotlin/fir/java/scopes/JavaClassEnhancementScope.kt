@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.java.scopes
 
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
@@ -76,7 +77,11 @@ class JavaClassEnhancementScope(
         original: FirCallableSymbol<*>,
         name: Name
     ): FirCallableSymbol<*> {
-        when (val firElement = original.fir) {
+        val firElement = original.fir
+        if (firElement !is FirCallableMemberDeclaration<*> || firElement.visibility == Visibilities.PRIVATE) {
+            return original
+        }
+        when (firElement) {
             is FirJavaField -> {
                 if (firElement.returnTypeRef !is FirJavaTypeRef) return original
                 val memberContext = context.copyWithNewDefaultTypeQualifiers(typeQualifierResolver, jsr305State, firElement.annotations)
@@ -123,6 +128,9 @@ class JavaClassEnhancementScope(
             return original
         }
         if (firMethod !is FirMemberFunction<*>) throw AssertionError()
+        if (firMethod.visibility == Visibilities.PRIVATE) {
+            return original
+        }
         return enhanceMethod(firMethod, original.callableId, name)
     }
 
