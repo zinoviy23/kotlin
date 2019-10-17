@@ -3,25 +3,33 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.core.script
+package org.jetbrains.kotlin.idea.core.script.configuration
 
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.containers.SLRUMap
-import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationMemoryCache.Companion.MAX_SCRIPTS_CACHED
+import org.jetbrains.kotlin.idea.core.script.configuration.ScriptConfigurationMemoryCache.Companion.MAX_SCRIPTS_CACHED
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-class ScriptConfigurationMemoryCache internal constructor() : ScriptConfigurationCache {
+class ScriptConfigurationMemoryCache internal constructor() :
+    ScriptConfigurationCache {
     companion object {
         const val MAX_SCRIPTS_CACHED = 50
     }
 
-    private val scriptDependenciesCache = BlockingSLRUMap<VirtualFile, CachedConfiguration>()
+    private val scriptDependenciesCache =
+        BlockingSLRUMap<VirtualFile, CachedConfiguration>()
 
     override fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
-        scriptDependenciesCache.replace(file, CachedConfiguration(file, configuration))
+        scriptDependenciesCache.replace(
+            file,
+            CachedConfiguration(
+                file,
+                configuration
+            )
+        )
     }
 
     override fun all(): Collection<CachedConfiguration> = scriptDependenciesCache.getAll().map { it.value }

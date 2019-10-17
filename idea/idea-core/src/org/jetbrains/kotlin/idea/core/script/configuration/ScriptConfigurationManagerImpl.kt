@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.core.script
+package org.jetbrains.kotlin.idea.core.script.configuration
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.application.ApplicationManager
@@ -17,7 +17,8 @@ import com.intellij.ui.EditorNotifications
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.jetbrains.annotations.TestOnly
-import org.jetbrains.kotlin.idea.core.script.dependencies.*
+import org.jetbrains.kotlin.idea.core.script.*
+import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.EDT
 import org.jetbrains.kotlin.idea.util.application.runReadAction
@@ -34,11 +35,12 @@ import kotlin.script.experimental.api.valueOrNull
 class ScriptConfigurationManagerImpl internal constructor(override val project: Project) : AbstractScriptConfigurationManager() {
     private val rootsManager = ScriptClassRootsManager(project)
 
-    override val cache: ScriptConfigurationCache = ScriptCompositeCache(
-        project,
-        ScriptConfigurationMemoryCache(),
-        ScriptConfigurationFileAttributeCache(project)
-    )
+    override val cache: ScriptConfigurationCache =
+        ScriptCompositeCache(
+            project,
+            ScriptConfigurationMemoryCache(),
+            ScriptConfigurationFileAttributeCache(project)
+        )
 
     private val fromRefinedLoader = FromRefinedConfigurationLoader()
     private val loaders = arrayListOf(
@@ -46,7 +48,8 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
         fromRefinedLoader
     )
 
-    private val backgroundLoader = BackgroundLoader(project, rootsManager)
+    private val backgroundLoader =
+        BackgroundLoader(project, rootsManager)
 
     private val listener = ScriptsListener(project, this)
 

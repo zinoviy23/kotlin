@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.core.script
+package org.jetbrains.kotlin.idea.core.script.configuration
 
 import com.intellij.ProjectTopics
 import com.intellij.openapi.extensions.Extensions
@@ -21,7 +21,10 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.NonClasspathDirectoriesScope
 import com.intellij.util.containers.ConcurrentFactoryMap
 import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
-import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.idea.core.script.KotlinScriptDependenciesClassFinder
+import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager
+import org.jetbrains.kotlin.idea.core.script.ScriptDependenciesModificationTracker
+import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.write
@@ -84,7 +87,8 @@ class AllScriptsConfigurationImpl(
 
         kotlinScriptDependenciesClassFinder.clearCache()
 
-        ScriptDependenciesModificationTracker.getInstance(provider.project).incModificationCount()
+        ScriptDependenciesModificationTracker.getInstance(provider.project)
+            .incModificationCount()
     }
 
     private fun getScriptSdk(compilationConfiguration: ScriptCompilationConfigurationWrapper?): Sdk? {
@@ -101,7 +105,9 @@ class AllScriptsConfigurationImpl(
     private val scriptsSdksCache: MutableMap<VirtualFile, Sdk?> =
         ConcurrentFactoryMap.createWeakMap { file ->
             val compilationConfiguration = provider.getConfiguration(file)
-            return@createWeakMap getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(provider.project)
+            return@createWeakMap getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(
+                provider.project
+            )
         }
 
     private fun scriptSdk(file: VirtualFile): Sdk? {
@@ -109,14 +115,18 @@ class AllScriptsConfigurationImpl(
     }
 
     internal fun hasNotCachedRoots(compilationConfiguration: ScriptCompilationConfigurationWrapper): Boolean {
-        val scriptSdk = getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(provider.project)
+        val scriptSdk = getScriptSdk(compilationConfiguration) ?: ScriptConfigurationManager.getScriptDefaultSdk(
+            provider.project
+        )
         val wasSdkChanged = scriptSdk != null && !allSdks.contains(scriptSdk)
         if (wasSdkChanged) {
             debug { "sdk was changed: $compilationConfiguration" }
             return true
         }
 
-        val newClassRoots = ScriptConfigurationManager.toVfsRoots(compilationConfiguration.dependenciesClassPath)
+        val newClassRoots = ScriptConfigurationManager.toVfsRoots(
+            compilationConfiguration.dependenciesClassPath
+        )
         for (newClassRoot in newClassRoots) {
             if (!allDependenciesClassFiles.contains(newClassRoot)) {
                 debug { "class root was changed: $newClassRoot" }
@@ -124,7 +134,9 @@ class AllScriptsConfigurationImpl(
             }
         }
 
-        val newSourceRoots = ScriptConfigurationManager.toVfsRoots(compilationConfiguration.dependenciesSources)
+        val newSourceRoots = ScriptConfigurationManager.toVfsRoots(
+            compilationConfiguration.dependenciesSources
+        )
         for (newSourceRoot in newSourceRoots) {
             if (!allDependenciesSources.contains(newSourceRoot)) {
                 debug { "source root was changed: $newSourceRoot" }
@@ -166,7 +178,9 @@ class AllScriptsConfigurationImpl(
         val scriptDependenciesClasspath = provider.allConfigurations
             .flatMap { it.result.dependenciesClassPath }.distinct()
 
-        sdkFiles + ScriptConfigurationManager.toVfsRoots(scriptDependenciesClasspath)
+        sdkFiles + ScriptConfigurationManager.toVfsRoots(
+            scriptDependenciesClasspath
+        )
     }
 
     val allDependenciesSources by ClearableLazyValue(cacheLock) {
@@ -175,10 +189,14 @@ class AllScriptsConfigurationImpl(
 
         val scriptDependenciesSources = provider.allConfigurations
             .flatMap { it.result.dependenciesSources }.distinct()
-        sdkSources + ScriptConfigurationManager.toVfsRoots(scriptDependenciesSources)
+        sdkSources + ScriptConfigurationManager.toVfsRoots(
+            scriptDependenciesSources
+        )
     }
 
-    val allDependenciesClassFilesScope by ClearableLazyValue(cacheLock) {
+    val allDependenciesClassFilesScope by ClearableLazyValue(
+        cacheLock
+    ) {
         NonClasspathDirectoriesScope.compose(allDependenciesClassFiles)
     }
 
@@ -204,11 +222,17 @@ class AllScriptsConfigurationImpl(
 
             @Suppress("FoldInitializerAndIfToElvis")
             if (sdk == null) {
-                return@createWeakMap NonClasspathDirectoriesScope.compose(ScriptConfigurationManager.toVfsRoots(roots))
+                return@createWeakMap NonClasspathDirectoriesScope.compose(
+                    ScriptConfigurationManager.toVfsRoots(
+                        roots
+                    )
+                )
             }
 
             return@createWeakMap NonClasspathDirectoriesScope.compose(
-                sdk.rootProvider.getFiles(OrderRootType.CLASSES).toList() + ScriptConfigurationManager.toVfsRoots(roots)
+                sdk.rootProvider.getFiles(OrderRootType.CLASSES).toList() + ScriptConfigurationManager.toVfsRoots(
+                    roots
+                )
             )
         }
 
