@@ -193,7 +193,7 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
         debug(file) { "configuration changed = $newConfiguration" }
 
         if (newConfiguration != null) {
-            if (allScripts.hasNotCachedRoots(newConfiguration)) {
+            if (hasNotCachedRoots(newConfiguration)) {
                 rootsManager.markNewRoot(file, newConfiguration)
             }
 
@@ -201,7 +201,7 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
                 this.cache[file] = newConfiguration
             }
 
-            allScripts.clearClassRootsCaches()
+            clearClassRootsCaches()
         }
 
         updateHighlighting(listOf(file))
@@ -278,7 +278,7 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
             "PsiFile should be a KtFile, otherwise script dependencies cannot be loaded"
         }
 
-        if (isConfigurationUpToDate(file.virtualFile)) return
+        if (cache[file.virtualFile]?.isUpToDate == true) return
 
         rootsManager.transaction {
             val result = fromRefinedLoader.loadDependencies(true, file as KtFile, scriptDefinition)
