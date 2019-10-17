@@ -74,7 +74,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
 
         val ktFile = getKtFile(virtualFile, preloadedKtFile) ?: return null
         return rootsManager.transaction {
-            reloadConfiguration(true, ktFile)?.valueOrNull()
+            reloadConfiguration(ktFile, true)?.valueOrNull()
         }
     }
 
@@ -85,7 +85,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
             files.forEach { file ->
                 val state = cache[file.originalFile.virtualFile]
                 if (state == null || !state.isUpToDate) {
-                    reloadConfiguration(state == null, file)
+                    reloadConfiguration(file, state == null)
                 }
             }
         }
@@ -93,7 +93,10 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
         return false
     }
 
-    protected abstract fun reloadConfiguration(isFirstLoad: Boolean, file: KtFile): ScriptCompilationConfigurationResult?
+    internal abstract fun reloadConfiguration(
+        file: KtFile,
+        isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null
+    ): ScriptCompilationConfigurationResult?
 
     /**
      * Clear configuration caches

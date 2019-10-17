@@ -46,7 +46,7 @@ internal class ScriptsListener(
             private fun runScriptDependenciesUpdateIfNeeded(file: VirtualFile) {
                 val ktFile = getKtFileToStartConfigurationUpdate(file) ?: return
 
-                scriptsManager.updateConfigurationsIfNotCached(listOf(ktFile))
+                scriptsManager.reloadConfiguration(ktFile)
             }
         })
 

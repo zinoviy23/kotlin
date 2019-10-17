@@ -42,7 +42,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
     private val backgroundExecutor = BackgroundExecutor(project, rootsManager)
     private val listener = ScriptsListener(project, this)
 
-    override fun reloadConfiguration(isFirstLoad: Boolean, file: KtFile): ScriptCompilationConfigurationResult? {
+    override fun reloadConfiguration(file: KtFile, isFirstLoad: Boolean): ScriptCompilationConfigurationResult? {
         // todo: who will initiate loading of scripts configuration when definition manager will be ready?
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
         val scriptDefinition = file.findScriptDefinition() ?: return null
