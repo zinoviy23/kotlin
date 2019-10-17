@@ -5,14 +5,11 @@
 
 package org.jetbrains.kotlin.idea.core.script.configuration
 
-import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ServiceManager
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiManager
 import com.intellij.ui.EditorNotifications
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -22,23 +19,18 @@ import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptComposite
 import org.jetbrains.kotlin.idea.core.script.configuration.loaders.FromRefinedConfigurationLoader
 import org.jetbrains.kotlin.idea.core.script.configuration.loaders.OutsiderFileDependenciesLoader
 import org.jetbrains.kotlin.idea.core.script.configuration.loaders.ScriptDependenciesLoader
-import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.EDT
-import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition
 import org.jetbrains.kotlin.scripting.definitions.findScriptDefinition
-import org.jetbrains.kotlin.scripting.definitions.isNonScript
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import org.jetbrains.kotlin.scripting.resolve.ScriptReportSink
 import kotlin.script.experimental.api.ScriptDiagnostic
 import kotlin.script.experimental.api.valueOrNull
 
-class ScriptConfigurationManagerImpl internal constructor(override val project: Project) : AbstractScriptConfigurationManager() {
-    private val rootsManager = ScriptClassRootsManager(project)
-
+internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScriptConfigurationManager(project) {
     override val cache = ScriptCompositeCache(project)
 
     private val fromRefinedLoader = FromRefinedConfigurationLoader()
@@ -50,41 +42,7 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
     private val backgroundExecutor = BackgroundExecutor(project, rootsManager)
     private val listener = ScriptsListener(project, this)
 
-    override fun getConfiguration(
-        virtualFile: VirtualFile,
-        preloadedKtFile: KtFile?
-    ): ScriptCompilationConfigurationWrapper? {
-        val cached = cache[virtualFile]
-        if (cached != null) return cached.result
-
-        val ktFile = getKtFile(virtualFile, preloadedKtFile) ?: return null
-        return rootsManager.transaction {
-            reloadConfiguration(true, ktFile)?.valueOrNull()
-        }
-    }
-
-    /**
-     * Start configuration update for files if configuration isn't up to date.
-     * Start indexing for new class/source roots.
-     *
-     * @return true if update was started for any file, false if all configurations are cached
-     */
-    override fun updateConfigurationsIfNotCached(files: List<KtFile>): Boolean {
-        if (!ScriptDefinitionsManager.getInstance(project).isReady()) return false
-
-        rootsManager.transaction {
-            files.forEach { file ->
-                val state = cache[file.originalFile.virtualFile]
-                if (state == null || !state.isUpToDate) {
-                    reloadConfiguration(state == null, file)
-                }
-            }
-        }
-
-        return false
-    }
-
-    private fun reloadConfiguration(isFirstLoad: Boolean, file: KtFile): ScriptCompilationConfigurationResult? {
+    override fun reloadConfiguration(isFirstLoad: Boolean, file: KtFile): ScriptCompilationConfigurationResult? {
         // todo: who will initiate loading of scripts configuration when definition manager will be ready?
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
         val scriptDefinition = file.findScriptDefinition() ?: return null
@@ -222,52 +180,6 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
 
                 EditorNotifications.getInstance(project).updateAllNotifications()
             }
-        }
-    }
-
-    private fun updateHighlighting(files: List<VirtualFile>) {
-        if (files.isEmpty()) return
-
-        GlobalScope.launch(EDT(project)) {
-            if (project.isDisposed) return@launch
-
-            val openFiles = FileEditorManager.getInstance(project).openFiles
-            val openScripts = files.filter { it.isValid && openFiles.contains(it) }
-
-            openScripts.forEach {
-                PsiManager.getInstance(project).findFile(it)?.let { psiFile ->
-                    DaemonCodeAnalyzer.getInstance(project).restart(psiFile)
-                }
-            }
-        }
-    }
-
-    /**
-     * Clear configuration caches
-     * Start re-highlighting for opened scripts
-     */
-    override fun clearConfigurationCachesAndRehighlight() {
-        ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
-
-        if (project.isOpen) {
-            rehighlightOpenedScripts()
-        }
-    }
-
-    private fun rehighlightOpenedScripts() {
-        val openedScripts = FileEditorManager.getInstance(project).openFiles.filterNot { it.isNonScript() }
-        updateHighlighting(openedScripts)
-    }
-
-    private fun getKtFile(
-        virtualFile: VirtualFile,
-        preloadedKtFile: KtFile? = null
-    ): KtFile? {
-        if (preloadedKtFile != null) {
-            check(preloadedKtFile.virtualFile == virtualFile)
-            return preloadedKtFile
-        } else {
-            return runReadAction { PsiManager.getInstance(project).findFile(virtualFile) as? KtFile }
         }
     }
 

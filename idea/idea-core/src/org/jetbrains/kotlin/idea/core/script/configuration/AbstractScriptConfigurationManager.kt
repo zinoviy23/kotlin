@@ -5,7 +5,9 @@
 
 package org.jetbrains.kotlin.idea.core.script.configuration
 
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.extensions.Extensions
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
@@ -18,11 +20,17 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.NonClasspathDirectoriesScope
 import com.intellij.util.containers.ConcurrentFactoryMap
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
 import org.jetbrains.kotlin.idea.core.script.*
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager.Companion.toVfsRoots
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCache
+import org.jetbrains.kotlin.idea.core.util.EDT
+import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.scripting.definitions.isNonScript
+import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.write
@@ -30,14 +38,16 @@ import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty0
 import kotlin.reflect.jvm.isAccessible
+import kotlin.script.experimental.api.valueOrNull
 
-abstract class AbstractScriptConfigurationManager : ScriptConfigurationManager {
-    protected abstract val project: Project
+internal abstract class AbstractScriptConfigurationManager(protected val project: Project) : ScriptConfigurationManager {
     protected abstract val cache: ScriptConfigurationCache
+
+    protected val rootsManager = ScriptClassRootsManager(project)
 
     @Deprecated("Use getScriptClasspath(KtFile) instead")
     override fun getScriptClasspath(file: VirtualFile): List<VirtualFile> {
-        val ktFile = PsiManager.getInstance(project).findFile(file) as? KtFile ?: return emptyList()
+        val ktFile = getKtFile(file) ?: return emptyList()
         return getScriptClasspath(ktFile)
     }
 
@@ -47,23 +57,88 @@ abstract class AbstractScriptConfigurationManager : ScriptConfigurationManager {
     fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? =
         cache[file]?.result
 
-    /**
-     * Check if configuration is already cached for [file] (in cache or FileAttributes).
-     * Don't check if file was changed after the last update.
-     * Supposed to be used to switch highlighting off for scripts without configuration.
-     * to avoid all file being highlighted in red.
-     */
     override fun isConfigurationCached(file: KtFile): Boolean {
         return getCachedConfiguration(file.originalFile.virtualFile) != null
     }
 
-    protected abstract fun getConfiguration(
-        virtualFile: VirtualFile,
-        preloadedKtFile: KtFile? = null
-    ): ScriptCompilationConfigurationWrapper?
-
     override fun getConfiguration(file: KtFile): ScriptCompilationConfigurationWrapper? {
         return getConfiguration(file.virtualFile, file)
+    }
+
+    fun getConfiguration(
+        virtualFile: VirtualFile,
+        preloadedKtFile: KtFile? = null
+    ): ScriptCompilationConfigurationWrapper? {
+        val cached = cache[virtualFile]
+        if (cached != null) return cached.result
+
+        val ktFile = getKtFile(virtualFile, preloadedKtFile) ?: return null
+        return rootsManager.transaction {
+            reloadConfiguration(true, ktFile)?.valueOrNull()
+        }
+    }
+
+    override fun updateConfigurationsIfNotCached(files: List<KtFile>): Boolean {
+        if (!ScriptDefinitionsManager.getInstance(project).isReady()) return false
+
+        rootsManager.transaction {
+            files.forEach { file ->
+                val state = cache[file.originalFile.virtualFile]
+                if (state == null || !state.isUpToDate) {
+                    reloadConfiguration(state == null, file)
+                }
+            }
+        }
+
+        return false
+    }
+
+    protected abstract fun reloadConfiguration(isFirstLoad: Boolean, file: KtFile): ScriptCompilationConfigurationResult?
+
+    /**
+     * Clear configuration caches
+     * Start re-highlighting for opened scripts
+     */
+    override fun clearConfigurationCachesAndRehighlight() {
+        ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
+
+        if (project.isOpen) {
+            rehighlightOpenedScripts()
+        }
+    }
+
+    private fun rehighlightOpenedScripts() {
+        val openedScripts = FileEditorManager.getInstance(project).openFiles.filterNot { it.isNonScript() }
+        updateHighlighting(openedScripts)
+    }
+
+    protected fun updateHighlighting(files: List<VirtualFile>) {
+        if (files.isEmpty()) return
+
+        GlobalScope.launch(EDT(project)) {
+            if (project.isDisposed) return@launch
+
+            val openFiles = FileEditorManager.getInstance(project).openFiles
+            val openScripts = files.filter { it.isValid && openFiles.contains(it) }
+
+            openScripts.forEach {
+                PsiManager.getInstance(project).findFile(it)?.let { psiFile ->
+                    DaemonCodeAnalyzer.getInstance(project).restart(psiFile)
+                }
+            }
+        }
+    }
+
+    private fun getKtFile(
+        virtualFile: VirtualFile,
+        preloadedKtFile: KtFile? = null
+    ): KtFile? {
+        if (preloadedKtFile != null) {
+            check(preloadedKtFile.virtualFile == virtualFile)
+            return preloadedKtFile
+        } else {
+            return runReadAction { PsiManager.getInstance(project).findFile(virtualFile) as? KtFile }
+        }
     }
 
     ///////////////////

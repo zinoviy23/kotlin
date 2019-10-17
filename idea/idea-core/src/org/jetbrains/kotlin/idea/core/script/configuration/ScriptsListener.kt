@@ -22,7 +22,7 @@ import org.jetbrains.kotlin.idea.util.ProjectRootsUtil
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.definitions.isNonScript
 
-class ScriptsListener(
+internal class ScriptsListener(
     private val project: Project,
     private val scriptsManager: ScriptConfigurationManagerImpl
 ) {

@@ -12,7 +12,7 @@ import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
 import kotlin.script.experimental.api.asSuccess
 
-class OutsiderFileDependenciesLoader(private val manager: ScriptConfigurationManagerImpl) :
+internal class OutsiderFileDependenciesLoader(private val manager: ScriptConfigurationManagerImpl) :
     ScriptDependenciesLoader {
     override val cache: Boolean
         get() = false

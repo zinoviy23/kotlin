@@ -148,7 +148,7 @@ internal class BackgroundExecutor(
                             }
                         }
 
-                        next?.actions()
+                        next?.actions?.invoke()
                     }
                 }
             } finally {

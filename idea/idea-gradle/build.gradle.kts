@@ -16,6 +16,8 @@ dependencies {
 
     compile(project(":js:js.frontend"))
 
+    compile(files("/Users/Sergey.Rostov/Downloads/gradle-kotlin-dsl-tooling-models-6.0-20191002230139+0000.jar"))
+
     compileOnly(intellijDep())
     compileOnly(intellijPluginDep("gradle"))
     Platform[193].orHigher {
