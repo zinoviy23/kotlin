@@ -83,6 +83,9 @@ class KlibPropertyExtension : KlibPropertyExtensionVisitor(), KmPropertyExtensio
 
     override fun accept(visitor: KmPropertyExtensionVisitor) {
         require(visitor is KlibPropertyExtensionVisitor)
+        annotations.forEach(visitor::visitAnnotation)
+        getterAnnotations.forEach(visitor::visitGetterAnnotation)
+        setterAnnotations.forEach(visitor::visitSetterAnnotation)
     }
 }
 
@@ -99,7 +102,15 @@ class KlibTypeParameterExtension : KlibTypeParameterExtensionVisitor(), KmTypePa
 }
 
 class KlibPackageExtension : KlibPackageExtensionVisitor(), KmPackageExtension {
+
+    val classes: MutableList<KmClass> = mutableListOf()
+
+    override fun visitClass(klass: KmClass) {
+        classes += klass
+    }
+
     override fun accept(visitor: KmPackageExtensionVisitor) {
         require(visitor is KlibPackageExtensionVisitor)
+        classes.forEach(visitor::visitClass)
     }
 }

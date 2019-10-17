@@ -49,7 +49,7 @@ class KlibMetadataExtensions : MetadataExtensions {
             override fun visitAnnotation(annotation: KmAnnotation) {
                 proto.setExtension(
                     KlibMetadataProtoBuf.classAnnotation,
-                    mutableListOf(annotation.writeAnnotation(c.strings).build())
+                    listOf(annotation.writeAnnotation(c.strings).build())
                 )
             }
         }
@@ -62,7 +62,12 @@ class KlibMetadataExtensions : MetadataExtensions {
     ): KmPackageExtensionVisitor? {
         if (type != KlibPackageExtensionVisitor.TYPE) return null
         return object : KlibPackageExtensionVisitor() {
-
+            override fun visitClass(klass: KmClass) {
+//                proto.setExtension(
+//                    KlibMetadataProtoBuf.className,
+//                    listOf(0)
+//                )
+            }
         }
     }
 

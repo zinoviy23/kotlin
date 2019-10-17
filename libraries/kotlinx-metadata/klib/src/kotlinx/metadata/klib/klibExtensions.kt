@@ -21,3 +21,6 @@ val KmProperty.setterAnnotations: MutableList<KmAnnotation>
 
 val KmProperty.getterAnnotations: MutableList<KmAnnotation>
     get() = klibExtensions.getterAnnotations
+
+val KmPackage.classes: MutableList<KmClass>
+    get() = klibExtensions.classes

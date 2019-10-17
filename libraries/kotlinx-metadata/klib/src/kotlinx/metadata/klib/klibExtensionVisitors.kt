@@ -75,6 +75,9 @@ abstract class KlibTypeParameterExtensionVisitor : KmTypeParameterExtensionVisit
 }
 
 abstract class KlibPackageExtensionVisitor : KmPackageExtensionVisitor {
+
+    abstract fun visitClass(klass: KmClass)
+
     override val type: KmExtensionType
         get() = TYPE
 

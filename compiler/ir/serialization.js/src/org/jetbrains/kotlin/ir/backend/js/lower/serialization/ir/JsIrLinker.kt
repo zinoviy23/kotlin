@@ -54,5 +54,8 @@ class JsIrLinker(
         return declarationDescriptor.isPublishedApi() || declarationDescriptor.visibility.let { it.isPublicAPI || it == Visibilities.INTERNAL }
     }
 
+    override fun DeclarationDescriptor.hasNoDeserializedForm(): Boolean =
+        false
+
     private val ModuleDescriptor.userName get() = kotlinLibrary.libraryFile.absolutePath
 }
