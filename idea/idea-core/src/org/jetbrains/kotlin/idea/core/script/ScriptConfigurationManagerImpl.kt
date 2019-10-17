@@ -65,17 +65,48 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
             get() = memoryCache.all()
     })
 
-    /**
-     * Save configurations into cache.
-     * Start indexing for new class/source roots.
-     * Re-highlight opened scripts with changed configuration.
-     */
-    override fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>) {
-        rootsManager.transaction {
-            for ((file, result) in files) {
-                saveConfiguration(file, result, skipNotification = true)
+    private fun getConfiguration(
+        virtualFile: VirtualFile,
+        preloadedKtFile: KtFile? = null
+    ): ScriptCompilationConfigurationWrapper? {
+        val cached = getCachedConfiguration(virtualFile)
+        if (cached != null) {
+            return cached
+        }
+
+        if (ScriptDefinitionsManager.getInstance(project).isReady() && !isConfigurationUpToDate(virtualFile)) {
+            val ktFile = if (preloadedKtFile != null) preloadedKtFile.also { check(it.virtualFile == virtualFile) }
+            else runReadAction { PsiManager.getInstance(project).findFile(virtualFile) as? KtFile } ?: return null
+
+            rootsManager.transaction {
+                reloadConfiguration(ktFile)
             }
         }
+
+        return getCachedConfiguration(virtualFile)
+    }
+
+    override fun getConfiguration(file: KtFile): ScriptCompilationConfigurationWrapper? {
+        return getConfiguration(file.virtualFile, file)
+    }
+
+    @Deprecated("Use getScriptClasspath(KtFile) instead")
+    override fun getScriptClasspath(file: VirtualFile): List<VirtualFile> {
+        val ktFile = PsiManager.getInstance(project).findFile(file) as? KtFile ?: return emptyList()
+        return getScriptClasspath(ktFile)
+    }
+
+    override fun getScriptClasspath(file: KtFile): List<VirtualFile> =
+        toVfsRoots(getConfiguration(file)?.dependenciesClassPath.orEmpty())
+
+    /**
+     * Check if configuration is already cached for [file] (in cache or FileAttributes).
+     * Don't check if file was changed after the last update.
+     * Supposed to be used to switch highlighting off for scripts without configuration.
+     * to avoid all file being highlighted in red.
+     */
+    override fun isConfigurationCached(file: KtFile): Boolean {
+        return isConfigurationCached(file.originalFile.virtualFile)
     }
 
     /**
@@ -101,16 +132,6 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
     }
 
     /**
-     * Check if configuration is already cached for [file] (in cache or FileAttributes).
-     * Don't check if file was changed after the last update.
-     * Supposed to be used to switch highlighting off for scripts without configuration.
-     * to avoid all file being highlighted in red.
-     */
-    override fun isConfigurationCached(file: KtFile): Boolean {
-        return isConfigurationCached(file.originalFile.virtualFile)
-    }
-
-    /**
      * Clear configuration caches
      * Start re-highlighting for opened scripts
      */
@@ -120,40 +141,6 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
         if (project.isOpen) {
             rehighlightOpenedScripts()
         }
-    }
-
-    @Deprecated("Use getScriptClasspath(KtFile) instead")
-    override fun getScriptClasspath(file: VirtualFile): List<VirtualFile> {
-        val ktFile = PsiManager.getInstance(project).findFile(file) as? KtFile ?: return emptyList()
-        return getScriptClasspath(ktFile)
-    }
-
-    override fun getScriptClasspath(file: KtFile): List<VirtualFile> =
-        toVfsRoots(getConfiguration(file)?.dependenciesClassPath.orEmpty())
-
-    private fun getConfiguration(
-        virtualFile: VirtualFile,
-        preloadedKtFile: KtFile? = null
-    ): ScriptCompilationConfigurationWrapper? {
-        val cached = getCachedConfiguration(virtualFile)
-        if (cached != null) {
-            return cached
-        }
-
-        if (ScriptDefinitionsManager.getInstance(project).isReady() && !isConfigurationUpToDate(virtualFile)) {
-            val ktFile = if (preloadedKtFile != null) preloadedKtFile.also { check(it.virtualFile == virtualFile) }
-            else runReadAction { PsiManager.getInstance(project).findFile(virtualFile) as? KtFile } ?: return null
-
-            rootsManager.transaction {
-                reloadConfiguration(ktFile)
-            }
-        }
-
-        return getCachedConfiguration(virtualFile)
-    }
-
-    override fun getConfiguration(file: KtFile): ScriptCompilationConfigurationWrapper? {
-        return getConfiguration(file.virtualFile, file)
     }
 
     @TestOnly
@@ -211,6 +198,19 @@ class ScriptConfigurationManagerImpl internal constructor(private val project: P
             val result = loader.loadDependencies(firstLoad, file, scriptDefinition)
             if (result != null) {
                 return saveConfiguration(file.originalFile.virtualFile, result, loader.skipNotification, loader.cache)
+            }
+        }
+    }
+
+    /**
+     * Save configurations into cache.
+     * Start indexing for new class/source roots.
+     * Re-highlight opened scripts with changed configuration.
+     */
+    override fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>) {
+        rootsManager.transaction {
+            for ((file, result) in files) {
+                saveConfiguration(file, result, skipNotification = true)
             }
         }
     }

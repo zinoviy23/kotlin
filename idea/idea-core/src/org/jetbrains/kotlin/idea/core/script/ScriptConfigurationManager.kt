@@ -70,20 +70,20 @@ interface ScriptConfigurationManager {
     fun getScriptClasspath(file: KtFile): List<VirtualFile>
 
     /**
-     * Start configuration update for files if configuration isn't up to date.
-     * Start indexing for new class/source roots.
-     *
-     * @return true if update was started for any file, false if all configurations are cached
-     */
-    fun updateConfigurationsIfNotCached(files: List<KtFile>): Boolean
-
-    /**
      * Check if configuration is already cached for [file] (in cache or FileAttributes).
      * Don't check if file was changed after the last update.
      * Supposed to be used to switch highlighting off for scripts without configuration.
      * to avoid all file being highlighted in red.
      */
     fun isConfigurationCached(file: KtFile): Boolean
+
+    /**
+     * Start configuration update for files if configuration isn't up to date.
+     * Start indexing for new class/source roots.
+     *
+     * @return true if update was started for any file, false if all configurations are cached
+     */
+    fun updateConfigurationsIfNotCached(files: List<KtFile>): Boolean
 
     /**
      * Clear configuration caches
