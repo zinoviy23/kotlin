@@ -6,12 +6,12 @@
 package org.jetbrains.kotlin.fir.references.impl
 
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.fir.FirPureAbstractElement
 import org.jetbrains.kotlin.fir.references.FirResolvedRealCallableReference
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
-import org.jetbrains.kotlin.fir.visitors.FirTransformer
-import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.fir.visitors.*
 
 /*
  * This file was generated automatically
@@ -22,7 +22,7 @@ class FirResolvedRealCallableReferenceImpl(
     override val psi: PsiElement?,
     override val name: Name,
     override val resolvedSymbol: AbstractFirBasedSymbol<*>
-) : FirResolvedRealCallableReference {
+) : FirPureAbstractElement(), FirResolvedRealCallableReference {
     override val candidateSymbol: AbstractFirBasedSymbol<*>? get() = null
     override val inferredTypeArguments: MutableList<ConeKotlinType> = mutableListOf()
 
