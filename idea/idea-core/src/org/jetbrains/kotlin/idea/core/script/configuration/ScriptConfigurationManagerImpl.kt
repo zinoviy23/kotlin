@@ -19,9 +19,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.idea.core.script.*
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptCompositeCache
-import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCache
-import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationFileAttributeCache
-import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationMemoryCache
 import org.jetbrains.kotlin.idea.core.script.configuration.loaders.FromRefinedConfigurationLoader
 import org.jetbrains.kotlin.idea.core.script.configuration.loaders.OutsiderFileDependenciesLoader
 import org.jetbrains.kotlin.idea.core.script.configuration.loaders.ScriptDependenciesLoader
@@ -50,7 +47,7 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
         fromRefinedLoader
     )
 
-    private val backgroundLoader = BackgroundLoader(project, rootsManager)
+    private val backgroundExecutor = BackgroundExecutor(project, rootsManager)
     private val listener = ScriptsListener(project, this)
 
     override fun getConfiguration(
@@ -97,7 +94,7 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
 
         if (asyncLoaders.isNotEmpty()) {
             val hasSomething = isFirstLoad || syncResult != null
-            backgroundLoader.ensureScheduled(file.virtualFile) {
+            backgroundExecutor.ensureScheduled(file.virtualFile) {
                 reloadConfigurationBy(hasSomething, file, scriptDefinition, asyncLoaders)
             }
         }
