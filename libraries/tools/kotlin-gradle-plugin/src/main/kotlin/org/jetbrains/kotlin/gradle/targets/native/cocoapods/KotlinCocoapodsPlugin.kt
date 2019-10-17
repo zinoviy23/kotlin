@@ -136,23 +136,19 @@ open class KotlinCocoapodsPlugin: Plugin<Project> {
 
         // We create a fat framework only for device platforms which have several
         // device architectures: iosArm64, iosArm32, watchosArm32 and watchosArm64.
-        val fatFrameworkPlatforms: List<KonanTarget> = when (requestedTargetName) {
+        val frameworkPlatforms: List<KonanTarget> = when (requestedTargetName) {
             KOTLIN_TARGET_FOR_IOS_DEVICE -> listOf(KonanTarget.IOS_ARM64, KonanTarget.IOS_ARM32)
             KOTLIN_TARGET_FOR_WATCHOS_DEVICE -> listOf(KonanTarget.WATCHOS_ARM32, KonanTarget.WATCHOS_ARM64)
-            else -> {
-                // A requested target doesn't require building a fat framework.
-                createSyncForRegularFramework(project, kotlinExtension, requestedBuildType, HostManager().targetByName(requestedTargetName))
-                return@whenEvaluated
-            }
+            else -> listOf(HostManager().targetByName(requestedTargetName)) // A requested target doesn't require building a fat framework.
         }
 
-        val fatFrameworkTargets = fatFrameworkPlatforms.flatMap { kotlinExtension.targetsForPlatform(it) }
-        if (fatFrameworkTargets.size == 1) {
+        val frameworkTargets = frameworkPlatforms.flatMap { kotlinExtension.targetsForPlatform(it) }
+        if (frameworkTargets.size == 1) {
             // Fast path: there is only one device target. There is no need to build a fat framework.
-            createSyncForRegularFramework(project, kotlinExtension, requestedBuildType, fatFrameworkTargets.single().konanTarget)
+            createSyncForRegularFramework(project, kotlinExtension, requestedBuildType, frameworkTargets.single().konanTarget)
         } else {
             // There are several device targets so we need to build a fat framework.
-            createSyncForFatFramework(project, kotlinExtension, requestedBuildType, fatFrameworkPlatforms)
+            createSyncForFatFramework(project, kotlinExtension, requestedBuildType, frameworkPlatforms)
         }
     }
 
