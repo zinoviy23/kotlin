@@ -5,45 +5,15 @@
 
 package org.jetbrains.kotlin.idea.core.script.configuration.cache
 
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.containers.SLRUMap
-import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationMemoryCache.Companion.MAX_SCRIPTS_CACHED
-import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-class ScriptConfigurationMemoryCache internal constructor() :
-    ScriptConfigurationCache {
-    companion object {
-        const val MAX_SCRIPTS_CACHED = 50
-    }
-
-    private val scriptDependenciesCache =
-        BlockingSLRUMap<VirtualFile, CachedConfiguration>()
-
-    override fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
-        scriptDependenciesCache.replace(
-            file,
-            CachedConfiguration(
-                file,
-                configuration
-            )
-        )
-    }
-
-    override fun all(): Collection<CachedConfiguration> = scriptDependenciesCache.getAll().map { it.value }
-
-    override fun get(file: VirtualFile): CachedConfiguration? = scriptDependenciesCache.get(file)
-}
-
-private class BlockingSLRUMap<K, V> {
+internal class BlockingSLRUMap<K, V>(val size: Int) {
     private val lock = ReentrantReadWriteLock()
 
-    val cache = SLRUMap<K, V>(
-        MAX_SCRIPTS_CACHED,
-        MAX_SCRIPTS_CACHED
-    )
+    val cache = SLRUMap<K, V>(size, size)
 
     fun get(value: K): V? = lock.read {
         cache[value]

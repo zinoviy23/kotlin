@@ -12,41 +12,51 @@ import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrap
 
 class CachedConfiguration(
     val file: VirtualFile,
-    val result: ScriptCompilationConfigurationWrapper
-) {
+    val result: ScriptCompilationConfigurationWrapper,
     val modificationStamp: Long = file.modificationStamp
-
+) {
     val isUpToDate
         get() = file.modificationStamp == modificationStamp
 }
 
-interface ScriptConfigurationCache {
-    operator fun get(file: VirtualFile): CachedConfiguration?
-    operator fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper)
+class ScriptCompositeCache(val project: Project) {
+    companion object {
+        const val MAX_SCRIPTS_CACHED = 50
+    }
 
-    fun all(): Collection<CachedConfiguration>
-}
+    private val memoryCache = BlockingSLRUMap<VirtualFile, CachedConfiguration>(MAX_SCRIPTS_CACHED)
+    private val fileAttributeCache = ScriptConfigurationFileAttributeCache(project)
 
-class ScriptCompositeCache(
-    val project: Project,
-    val memoryCache: ScriptConfigurationCache,
-    val fileAttributeCache: ScriptConfigurationFileAttributeCache
-): ScriptConfigurationCache {
-    override fun get(file: VirtualFile): CachedConfiguration? {
-        val fromMemory = memoryCache[file]
+    operator fun get(file: VirtualFile): CachedConfiguration? {
+        val fromMemory = memoryCache.get(file)
         if (fromMemory != null) return fromMemory
 
         val fromAttributes = fileAttributeCache.load(file) ?: return null
-        memoryCache[file] = fromAttributes
+
+        memoryCache.replace(
+            file,
+            CachedConfiguration(
+                file,
+                fromAttributes,
+                0 // to reload on first request
+            )
+        )
+
         return CachedConfiguration(file, fromAttributes)
     }
 
-    override fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
-        memoryCache[file] = configuration
+    operator fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
+        memoryCache.replace(
+            file,
+            CachedConfiguration(
+                file,
+                configuration
+            )
+        )
 
         debug(file) { "configuration saved to file attributes: $configuration" }
         fileAttributeCache.save(file, configuration)
     }
 
-    override fun all(): Collection<CachedConfiguration> = memoryCache.all()
+    fun all(): Collection<CachedConfiguration> = memoryCache.getAll().map { it.value }
 }

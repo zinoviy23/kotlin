@@ -42,23 +42,15 @@ import kotlin.script.experimental.api.valueOrNull
 class ScriptConfigurationManagerImpl internal constructor(override val project: Project) : AbstractScriptConfigurationManager() {
     private val rootsManager = ScriptClassRootsManager(project)
 
-    override val cache: ScriptConfigurationCache =
-        ScriptCompositeCache(
-            project,
-            ScriptConfigurationMemoryCache(),
-            ScriptConfigurationFileAttributeCache(project)
-        )
+    override val cache = ScriptCompositeCache(project)
 
-    private val fromRefinedLoader =
-        FromRefinedConfigurationLoader()
+    private val fromRefinedLoader = FromRefinedConfigurationLoader()
     private val loaders = arrayListOf(
         OutsiderFileDependenciesLoader(this),
         fromRefinedLoader
     )
 
-    private val backgroundLoader =
-        BackgroundLoader(project, rootsManager)
-
+    private val backgroundLoader = BackgroundLoader(project, rootsManager)
     private val listener = ScriptsListener(project, this)
 
     override fun getConfiguration(
