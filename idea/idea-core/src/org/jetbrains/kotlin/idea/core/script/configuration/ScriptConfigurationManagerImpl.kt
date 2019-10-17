@@ -22,6 +22,9 @@ import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptComposite
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCache
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationFileAttributeCache
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationMemoryCache
+import org.jetbrains.kotlin.idea.core.script.configuration.loaders.FromRefinedConfigurationLoader
+import org.jetbrains.kotlin.idea.core.script.configuration.loaders.OutsiderFileDependenciesLoader
+import org.jetbrains.kotlin.idea.core.script.configuration.loaders.ScriptDependenciesLoader
 import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.EDT
@@ -46,7 +49,8 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
             ScriptConfigurationFileAttributeCache(project)
         )
 
-    private val fromRefinedLoader = FromRefinedConfigurationLoader()
+    private val fromRefinedLoader =
+        FromRefinedConfigurationLoader()
     private val loaders = arrayListOf(
         OutsiderFileDependenciesLoader(this),
         fromRefinedLoader
