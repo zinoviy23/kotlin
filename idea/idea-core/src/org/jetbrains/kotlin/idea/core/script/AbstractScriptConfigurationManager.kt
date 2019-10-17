@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrap
 
 abstract class AbstractScriptConfigurationManager : ScriptConfigurationManager {
     protected abstract val project: Project
-    protected abstract val memoryCache: ScriptConfigurationCache
+    protected abstract val cache: ScriptConfigurationCache
     protected val allScripts = AllScriptsConfigurationImpl(object : InternalScriptConfigurationsProvider {
         override val project: Project
             get() = this@AbstractScriptConfigurationManager.project
@@ -26,7 +26,7 @@ abstract class AbstractScriptConfigurationManager : ScriptConfigurationManager {
         }
 
         override val allConfigurations: Collection<CachedConfiguration>
-            get() = memoryCache.all()
+            get() = cache.all()
     })
 
     @Deprecated("Use getScriptClasspath(KtFile) instead")
@@ -38,7 +38,12 @@ abstract class AbstractScriptConfigurationManager : ScriptConfigurationManager {
     override fun getScriptClasspath(file: KtFile): List<VirtualFile> =
         toVfsRoots(getConfiguration(file)?.dependenciesClassPath.orEmpty())
 
-    protected abstract fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper?
+    fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? =
+        cache[file]?.result
+
+    fun isConfigurationUpToDate(file: VirtualFile): Boolean {
+        return cache[file]?.isUpToDate == true
+    }
 
     /**
      * Check if configuration is already cached for [file] (in cache or FileAttributes).

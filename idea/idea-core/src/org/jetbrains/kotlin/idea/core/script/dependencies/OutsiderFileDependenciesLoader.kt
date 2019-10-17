@@ -25,11 +25,10 @@ class OutsiderFileDependenciesLoader(private val manager: ScriptConfigurationMan
         file: KtFile,
         scriptDefinition: ScriptDefinition
     ): ScriptCompilationConfigurationResult? {
-        val virtualFile = file.virtualFile ?: return null
         val project = file.project
-
+        val virtualFile = file.virtualFile ?: return null
         val fileOrigin = OutsidersPsiFileSupportUtils.getOutsiderFileOrigin(project, virtualFile) ?: return null
-        val psiFileOrigin = PsiManager.getInstance(project).findFile(fileOrigin) as? KtFile ?: return null
-        return manager.getConfiguration(psiFileOrigin)?.asSuccess()
+
+        return manager.getCachedConfiguration(fileOrigin)?.asSuccess()
     }
 }

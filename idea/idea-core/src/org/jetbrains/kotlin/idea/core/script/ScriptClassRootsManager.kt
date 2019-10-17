@@ -34,9 +34,9 @@ internal class ScriptClassRootsManager(val project: Project) {
         check(concurrentTransactions.get() > 0)
     }
 
-    inline fun transaction(body: () -> Unit) {
+    inline fun <T> transaction(body: () -> T): T {
         startTransaction()
-        try {
+        return try {
             body()
         } finally {
             commit()

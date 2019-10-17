@@ -10,16 +10,13 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
-import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.ui.EditorNotifications
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.jetbrains.annotations.TestOnly
-import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager.Companion.toVfsRoots
 import org.jetbrains.kotlin.idea.core.script.dependencies.*
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.EDT
@@ -37,7 +34,7 @@ import kotlin.script.experimental.api.valueOrNull
 class ScriptConfigurationManagerImpl internal constructor(override val project: Project) : AbstractScriptConfigurationManager() {
     private val rootsManager = ScriptClassRootsManager(project)
 
-    override val memoryCache: ScriptConfigurationCache = ScriptCompositeCache(
+    override val cache: ScriptConfigurationCache = ScriptCompositeCache(
         project,
         ScriptConfigurationMemoryCache(),
         ScriptConfigurationFileAttributeCache(project)
@@ -49,35 +46,21 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
         fromRefinedLoader
     )
 
-    private val backgroundLoader = BackgroundLoader(project, rootsManager, ::reloadConfigurationAsync)
+    private val backgroundLoader = BackgroundLoader(project, rootsManager)
 
     private val listener = ScriptsListener(project, this)
-
-    override fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? =
-        memoryCache[file]?.result
-
-    private fun isConfigurationUpToDate(file: VirtualFile): Boolean {
-        return memoryCache[file]?.isUpToDate == true
-    }
 
     override fun getConfiguration(
         virtualFile: VirtualFile,
         preloadedKtFile: KtFile?
     ): ScriptCompilationConfigurationWrapper? {
-        val cached = getCachedConfiguration(virtualFile)
-        if (cached != null) {
-            return cached
+        val cached = cache[virtualFile]
+        if (cached != null) return cached.result
+
+        val ktFile = getKtFile(virtualFile, preloadedKtFile) ?: return null
+        return rootsManager.transaction {
+            reloadConfiguration(true, ktFile)?.valueOrNull()
         }
-
-        if (ScriptDefinitionsManager.getInstance(project).isReady() && !isConfigurationUpToDate(virtualFile)) {
-            val ktFile = getKtFile(virtualFile, preloadedKtFile) ?: return null
-
-            rootsManager.transaction {
-                reloadConfiguration(ktFile)
-            }
-        }
-
-        return getCachedConfiguration(virtualFile)
     }
 
     /**
@@ -89,88 +72,51 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
     override fun updateConfigurationsIfNotCached(files: List<KtFile>): Boolean {
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return false
 
-        val notCached = files.filterNot { isConfigurationUpToDate(it.originalFile.virtualFile) }
-        if (notCached.isNotEmpty()) {
-            rootsManager.transaction {
-                for (file in notCached) {
-                    reloadConfiguration(file)
+        rootsManager.transaction {
+            files.forEach { file ->
+                val state = cache[file.originalFile.virtualFile]
+                if (state == null || !state.isUpToDate) {
+                    reloadConfiguration(state == null, file)
                 }
             }
-            return true
         }
 
         return false
     }
 
-    /**
-     * Clear configuration caches
-     * Start re-highlighting for opened scripts
-     */
-    override fun clearConfigurationCachesAndRehighlight() {
-        ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
-
-        if (project.isOpen) {
-            rehighlightOpenedScripts()
-        }
-    }
-
-    @TestOnly
-    fun updateScriptDependenciesSynchronously(file: PsiFile) {
-        val scriptDefinition = file.findScriptDefinition() ?: return
-        assert(file is KtFile) {
-            "PsiFile should be a KtFile, otherwise script dependencies cannot be loaded"
-        }
-
-        if (isConfigurationUpToDate(file.virtualFile)) return
-
-        rootsManager.transaction {
-            val result = fromRefinedLoader.loadDependencies(true, file as KtFile, scriptDefinition)
-            if (result != null) {
-                saveConfiguration(file.originalFile.virtualFile, result, skipNotification = true, cache = false)
-            }
-        }
-    }
-
-    private fun reloadConfiguration(file: KtFile) {
-        val virtualFile = file.originalFile.virtualFile
-
-        TODO("lock to do it only once at same time")
-//        memoryCache.setUpToDate(virtualFile)
-
-        val scriptDefinition = file.findScriptDefinition() ?: return
-
+    private fun reloadConfiguration(isFirstLoad: Boolean, file: KtFile): ScriptCompilationConfigurationResult? {
+        // todo: who will initiate loading of scripts configuration when definition manager will be ready?
+        if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
+        val scriptDefinition = file.findScriptDefinition() ?: return null
         val (asyncLoaders, syncLoaders) = loaders.partition { it.isAsync(file, scriptDefinition) }
 
-        reloadConfigurationBy(file, scriptDefinition, syncLoaders)
+        val syncResult = reloadConfigurationBy(isFirstLoad, file, scriptDefinition, syncLoaders)
 
         if (asyncLoaders.isNotEmpty()) {
-            backgroundLoader.scheduleAsync(file)
-        }
-    }
-
-    private fun reloadConfigurationAsync(file: KtFile) {
-        val scriptDefinition = file.findScriptDefinition() ?: return
-
-        val asyncLoaders = loaders.filter { it.isAsync(file, scriptDefinition) }
-
-        if (asyncLoaders.size > 1) {
-            LOG.warn("There are more than one async compilation configuration loader. " +
-                             "This mean that the last one will overwrite the results of the previous ones: " +
-                             asyncLoaders.joinToString { it.javaClass.name })
-        }
-
-        reloadConfigurationBy(file, scriptDefinition, asyncLoaders)
-    }
-
-    private fun reloadConfigurationBy(file: KtFile, scriptDefinition: ScriptDefinition, loaders: List<ScriptDependenciesLoader>) {
-        val firstLoad = memoryCache[file.originalFile.virtualFile]?.result == null
-
-        loaders.forEach { loader ->
-            val result = loader.loadDependencies(firstLoad, file, scriptDefinition)
-            if (result != null) {
-                return saveConfiguration(file.originalFile.virtualFile, result, loader.skipNotification, loader.cache)
+            val hasSomething = isFirstLoad || syncResult != null
+            backgroundLoader.ensureScheduled(file.virtualFile) {
+                reloadConfigurationBy(hasSomething, file, scriptDefinition, asyncLoaders)
             }
         }
+
+        return syncResult
+    }
+
+    private fun reloadConfigurationBy(
+        isFirstLoad: Boolean,
+        file: KtFile,
+        scriptDefinition: ScriptDefinition,
+        loaders: List<ScriptDependenciesLoader>
+    ): ScriptCompilationConfigurationResult? {
+        loaders.forEach { loader ->
+            val result = loader.loadDependencies(isFirstLoad, file, scriptDefinition)
+            if (result != null) {
+                saveConfiguration(file.originalFile.virtualFile, result, loader.skipNotification, loader.cache)
+                return result
+            }
+        }
+
+        return null
     }
 
     /**
@@ -252,7 +198,7 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
             }
 
             if (cache) {
-                memoryCache[file] = newConfiguration
+                this.cache[file] = newConfiguration
             }
 
             allScripts.clearClassRootsCaches()
@@ -296,6 +242,18 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
         }
     }
 
+    /**
+     * Clear configuration caches
+     * Start re-highlighting for opened scripts
+     */
+    override fun clearConfigurationCachesAndRehighlight() {
+        ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
+
+        if (project.isOpen) {
+            rehighlightOpenedScripts()
+        }
+    }
+
     private fun rehighlightOpenedScripts() {
         val openedScripts = FileEditorManager.getInstance(project).openFiles.filterNot { it.isNonScript() }
         updateHighlighting(openedScripts)
@@ -310,6 +268,23 @@ class ScriptConfigurationManagerImpl internal constructor(override val project: 
             return preloadedKtFile
         } else {
             return runReadAction { PsiManager.getInstance(project).findFile(virtualFile) as? KtFile }
+        }
+    }
+
+    @TestOnly
+    fun updateScriptDependenciesSynchronously(file: PsiFile) {
+        val scriptDefinition = file.findScriptDefinition() ?: return
+        assert(file is KtFile) {
+            "PsiFile should be a KtFile, otherwise script dependencies cannot be loaded"
+        }
+
+        if (isConfigurationUpToDate(file.virtualFile)) return
+
+        rootsManager.transaction {
+            val result = fromRefinedLoader.loadDependencies(true, file as KtFile, scriptDefinition)
+            if (result != null) {
+                saveConfiguration(file.originalFile.virtualFile, result, skipNotification = true, cache = false)
+            }
         }
     }
 }

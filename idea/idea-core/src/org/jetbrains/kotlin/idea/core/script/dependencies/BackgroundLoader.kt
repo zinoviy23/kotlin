@@ -12,27 +12,25 @@ import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.idea.core.script.ScriptClassRootsManager
 import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
-import org.jetbrains.kotlin.psi.KtFile
 import java.util.concurrent.ConcurrentLinkedQueue
 
 internal class BackgroundLoader(
     private val project: Project,
-    private val rootsManager: ScriptClassRootsManager,
-    private val loadDependencies: (KtFile) -> Unit
+    private val rootsManager: ScriptClassRootsManager
 ) {
     private var task: Task? = null
 
     @Synchronized
-    fun scheduleAsync(file: KtFile) {
+    fun ensureScheduled(key: Any, actions: () -> Unit) {
         if (task == null) {
-            startBatch(file)
+            startBatch(actions)
         } else {
-            task!!.addTask(file)
+            task!!.addTask(actions)
         }
     }
 
     @Synchronized
-    private fun startBatch(file: KtFile) {
+    private fun startBatch(file: () -> Unit) {
         rootsManager.startTransaction()
         task = Task()
         task!!.addTask(file)
@@ -46,7 +44,7 @@ internal class BackgroundLoader(
     }
 
     private inner class Task {
-        private val sequenceOfFiles: ConcurrentLinkedQueue<KtFile> = ConcurrentLinkedQueue()
+        private val sequenceOfFiles: ConcurrentLinkedQueue<() -> Unit> = ConcurrentLinkedQueue()
         private var forceStop: Boolean = false
         private var startedSilently: Boolean = false
 
@@ -80,7 +78,7 @@ internal class BackgroundLoader(
             }.queue()
         }
 
-        fun addTask(file: KtFile) {
+        fun addTask(file: () -> Unit) {
             if (file in sequenceOfFiles) return
 
             debug(file) { "added to update queue" }
@@ -101,7 +99,7 @@ internal class BackgroundLoader(
                     return
                 }
 
-                loadDependencies(sequenceOfFiles.poll())
+                sequenceOfFiles.poll()()
             }
         }
     }
