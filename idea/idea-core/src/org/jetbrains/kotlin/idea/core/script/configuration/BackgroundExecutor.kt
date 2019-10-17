@@ -57,6 +57,7 @@ internal class BackgroundExecutor(
             debug(task.key) { "added to update queue" }
 
             batchMaxSize = maxOf(batchMaxSize, queue.size)
+            updateProgress()
 
             // If the queue is longer than 3, show progress and cancel button
             if (queue.size > 3) {
@@ -99,8 +100,16 @@ internal class BackgroundExecutor(
     @Synchronized
     fun updateProgress() {
         underProgressWorker?.progressIndicator?.let {
-            it.isIndeterminate = true
             it.text2 = currentFile?.path ?: ""
+            if (queue.size == 0) {
+                // last file
+                it.isIndeterminate = true
+            } else {
+                it.isIndeterminate = false
+                val total = batchMaxSize.toDouble() + 1
+                val remaining = queue.size.toDouble()
+                it.fraction = 1 - remaining / total
+            }
         }
     }
 
@@ -116,6 +125,7 @@ internal class BackgroundExecutor(
         check(inTransaction)
         rootsManager.commit()
         inTransaction = false
+        batchMaxSize = 0
     }
 
     private abstract inner class Worker {
