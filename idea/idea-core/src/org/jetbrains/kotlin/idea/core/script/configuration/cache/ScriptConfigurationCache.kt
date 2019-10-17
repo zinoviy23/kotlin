@@ -19,7 +19,14 @@ class CachedConfiguration(
         get() = file.modificationStamp == modificationStamp
 }
 
-class ScriptCompositeCache(val project: Project) {
+interface ScriptConfigurationCache {
+    operator fun get(file: VirtualFile): CachedConfiguration?
+    operator fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper)
+
+    fun all(): Collection<CachedConfiguration>
+}
+
+class ScriptCompositeCache(val project: Project): ScriptConfigurationCache {
     companion object {
         const val MAX_SCRIPTS_CACHED = 50
     }
@@ -27,7 +34,7 @@ class ScriptCompositeCache(val project: Project) {
     private val memoryCache = BlockingSLRUMap<VirtualFile, CachedConfiguration>(MAX_SCRIPTS_CACHED)
     private val fileAttributeCache = ScriptConfigurationFileAttributeCache(project)
 
-    operator fun get(file: VirtualFile): CachedConfiguration? {
+    override operator fun get(file: VirtualFile): CachedConfiguration? {
         val fromMemory = memoryCache.get(file)
         if (fromMemory != null) return fromMemory
 
@@ -45,7 +52,7 @@ class ScriptCompositeCache(val project: Project) {
         return CachedConfiguration(file, fromAttributes)
     }
 
-    operator fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
+    override operator fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
         memoryCache.replace(
             file,
             CachedConfiguration(
@@ -58,5 +65,5 @@ class ScriptCompositeCache(val project: Project) {
         fileAttributeCache.save(file, configuration)
     }
 
-    fun all(): Collection<CachedConfiguration> = memoryCache.getAll().map { it.value }
+    override fun all(): Collection<CachedConfiguration> = memoryCache.getAll().map { it.value }
 }
