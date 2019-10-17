@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
 import org.jetbrains.kotlin.idea.core.script.KotlinScriptDependenciesClassFinder
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager
 import org.jetbrains.kotlin.idea.core.script.ScriptDependenciesModificationTracker
+import org.jetbrains.kotlin.idea.core.script.configuration.cache.CachedConfiguration
 import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -55,7 +56,7 @@ interface InternalScriptConfigurationsProvider {
 
 class AllScriptsConfigurationImpl(
     val provider: InternalScriptConfigurationsProvider
-): AllScriptsConfiguration {
+) : AllScriptsConfiguration {
     init {
         val connection = provider.project.messageBus.connect()
         connection.subscribe(ProjectTopics.PROJECT_ROOTS, object : ModuleRootListener {
