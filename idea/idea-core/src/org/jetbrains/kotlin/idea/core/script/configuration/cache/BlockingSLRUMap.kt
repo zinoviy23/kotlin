@@ -11,15 +11,13 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 internal class BlockingSLRUMap<K, V>(val size: Int) {
-    private val lock = ReentrantReadWriteLock()
-
     val cache = SLRUMap<K, V>(size, size)
 
-    fun get(value: K): V? = lock.read {
-        cache[value]
-    }
+    @Synchronized
+    fun get(value: K): V? = cache[value]
 
-    fun getOrPut(key: K, defaultValue: () -> V): V = lock.write {
+    @Synchronized
+    fun getOrPut(key: K, defaultValue: () -> V): V {
         val value = cache.get(key)
         return if (value == null) {
             val answer = defaultValue()
@@ -30,21 +28,23 @@ internal class BlockingSLRUMap<K, V>(val size: Int) {
         }
     }
 
-    fun remove(file: K) = lock.write {
+    @Synchronized
+    fun remove(file: K) {
         cache.remove(file)
     }
 
-    fun getAll(): Collection<Map.Entry<K, V>> = lock.read {
-        cache.entrySet()
-    }
+    @Synchronized
+    fun getAll(): Collection<Map.Entry<K, V>> = cache.entrySet()
 
-    fun clear() = lock.write {
+    @Synchronized
+    fun clear() {
         cache.clear()
     }
 
-    fun replace(file: K, value: V): V? = lock.write {
+    @Synchronized
+    fun replace(file: K, value: V): V? {
         val old = get(file)
         cache.put(file, value)
-        old
+        return old
     }
 }
