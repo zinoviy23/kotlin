@@ -40,6 +40,7 @@ internal class BackgroundExecutor(
     private var longRunningAlaramRequested = false
 
     private var inTransaction: Boolean = false
+    private var currentFile: VirtualFile? = null
 
     class LoadTask(val key: VirtualFile, val actions: () -> Unit) {
         override fun equals(other: Any?) =
@@ -84,6 +85,7 @@ internal class BackgroundExecutor(
         silentWorker?.stopGracefully()
         if (underProgressWorker == null) {
             underProgressWorker = UnderProgressWorker().also { it.start() }
+            updateProgress()
         }
     }
 
@@ -95,10 +97,10 @@ internal class BackgroundExecutor(
     }
 
     @Synchronized
-    fun updateProgress(next: VirtualFile) {
+    fun updateProgress() {
         underProgressWorker?.progressIndicator?.let {
             it.isIndeterminate = true
-            it.text2 = next.path
+            it.text2 = currentFile?.path ?: ""
         }
     }
 
@@ -144,11 +146,16 @@ internal class BackgroundExecutor(
                             }
 
                             queue.poll()?.also {
-                                updateProgress(it.key)
+                                currentFile = it.key
+                                updateProgress()
                             }
                         }
 
                         next?.actions?.invoke()
+
+                        synchronized(work) {
+                            currentFile = null
+                        }
                     }
                 }
             } finally {
