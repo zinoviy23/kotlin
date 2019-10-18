@@ -225,9 +225,11 @@ private class AddContinuationLowering(private val context: JvmBackendContext) : 
                     }
                     createCall.putValueArgument(if (receiverField != null) 1 else 0, irGet(function.valueParameters.last()))
                 }, "create")
-                // In old BE 'create' function was responsible for putting arguments into fields, but in IR_BE I do not generate create,
+                // In old BE 'create' function was responsible for putting arguments into fields, but in IR_BE we do not generate create,
                 // unless suspend lambda has no or one parameter, including extension receiver
-                // Thus, we put arguments into fields
+                // This is because 'create' is called only from 'createCoroutineUnintercepted' from stdlib. And we have only versions
+                // for suspend lambdas without parameters and for ones with exactly one parameter (or extension receiver).
+                // Thus, we put arguments into fields in 'invoke'.
                 if (parametersWithoutArguments.isNotEmpty()) {
                     for ((index, param) in function.valueParameters.drop(if (receiverField != null) 1 else 0).dropLast(1).withIndex()) {
                         +irSetField(irGet(newlyCreatedObject), parametersWithoutArguments[index], irGet(param))
