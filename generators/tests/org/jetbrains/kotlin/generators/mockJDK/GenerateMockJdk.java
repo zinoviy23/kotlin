@@ -329,7 +329,7 @@ public class GenerateMockJdk {
         return entrySet;
     }
 
-    private static Set<String> getClassFileEntries() {
+    /* package-private */ static Set<String> getClassFileEntries() {
         return new HashSet<>(Arrays.asList(ENTRIES));
     }
 

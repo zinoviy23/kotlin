@@ -68,21 +68,36 @@ private fun transformJar(sourceJar: JarFile, targetJar: JarOutputStream) {
     }
 }
 
-private val missingSuperInterfaces = setOf(
-    "java/io/Flushable",
-    "java/io/DataOutput",
-    "java/io/DataInput",
-    "java/io/ObjectStreamConstants"
-)
-
 internal class InterfacesFilter(classVisitor: ClassVisitor) : ClassVisitor(Opcodes.API_VERSION, classVisitor) {
-    override fun visit(version: Int, access: Int, name: String?, signature: String?, superName: String?, interfaces: Array<out String>?) {
-        val allowedInterfaces = filterInterfaces(interfaces)
-        super.visit(version, access, name, signature, superName, allowedInterfaces)
+    private val mockJdkEntries: Set<String> by lazy {
+        GenerateMockJdk.getClassFileEntries().mapNotNull { entry ->
+            val classSuffix = ".class"
+            if (entry.endsWith(classSuffix))
+                entry.substring(0 until (entry.length - classSuffix.length))
+            else null
+        }.toSet()
     }
+
+    override fun visit(version: Int, access: Int, name: String?, signature: String?, superName: String?, interfaces: Array<out String>?) {
+        if (name !in mockJdkEntries) {
+            super.visit(version, access, name, signature, superName, interfaces)
+            return
+        }
+
+        val allowedInterfaces = filterInterfaces(interfaces)
+        val allowedSuperclass = filterSuperclass(superName)
+        super.visit(version, access, name, signature, allowedSuperclass, allowedInterfaces)
+    }
+
+    private fun filterSuperclass(oldSuperclass: String?): String? =
+        oldSuperclass?.let {
+            if (it !in mockJdkEntries)
+                "java/lang/Object"
+            else it
+        } ?: oldSuperclass
 
     private fun filterInterfaces(oldInterfaces: Array<out String>?): Array<out String>? =
         oldInterfaces
-            ?.filter { it !in missingSuperInterfaces }
+            ?.filter { it in mockJdkEntries }
             ?.toTypedArray()
 }
