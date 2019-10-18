@@ -26,7 +26,7 @@ internal class OutsiderFileDependenciesLoader(private val manager: ScriptConfigu
         scriptDefinition: ScriptDefinition
     ): ScriptCompilationConfigurationResult? {
         val project = file.project
-        val virtualFile = file.virtualFile ?: return null
+        val virtualFile = file.originalFile.virtualFile ?: return null
         val fileOrigin = OutsidersPsiFileSupportUtils.getOutsiderFileOrigin(project, virtualFile) ?: return null
 
         return manager.getCachedConfiguration(fileOrigin)?.asSuccess()

@@ -43,17 +43,19 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
     private val listener = ScriptsListener(project, this)
 
     override fun reloadConfiguration(file: KtFile, isFirstLoad: Boolean): ScriptCompilationConfigurationResult? {
+        val virtualFile = file.originalFile.virtualFile ?: return null
+
         // todo: who will initiate loading of scripts configuration when definition manager will be ready?
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
         val scriptDefinition = file.findScriptDefinition() ?: return null
         val (asyncLoaders, syncLoaders) = loaders.partition { it.isAsync(file, scriptDefinition) }
 
-        val syncResult = reloadConfigurationBy(isFirstLoad, file, scriptDefinition, syncLoaders)
+        val syncResult = reloadConfigurationBy(isFirstLoad, virtualFile, file, scriptDefinition, syncLoaders)
 
         if (asyncLoaders.isNotEmpty()) {
             val hasSomething = isFirstLoad || syncResult != null
-            backgroundExecutor.ensureScheduled(file.virtualFile) {
-                reloadConfigurationBy(hasSomething, file, scriptDefinition, asyncLoaders)
+            backgroundExecutor.ensureScheduled(virtualFile) {
+                reloadConfigurationBy(hasSomething, virtualFile, file, scriptDefinition, asyncLoaders)
             }
         }
 
@@ -62,6 +64,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
 
     private fun reloadConfigurationBy(
         isFirstLoad: Boolean,
+        virtualFile: VirtualFile,
         file: KtFile,
         scriptDefinition: ScriptDefinition,
         loaders: List<ScriptDependenciesLoader>
@@ -69,7 +72,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         loaders.forEach { loader ->
             val result = loader.loadDependencies(isFirstLoad, file, scriptDefinition)
             if (result != null) {
-                saveConfiguration(file.originalFile.virtualFile, result, loader.skipNotification, loader.cache)
+                saveConfiguration(virtualFile, result, loader.skipNotification, loader.cache)
                 return result
             }
         }

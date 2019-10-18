@@ -54,15 +54,17 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
     override fun getScriptClasspath(file: KtFile): List<VirtualFile> =
         toVfsRoots(getConfiguration(file)?.dependenciesClassPath.orEmpty())
 
-    fun getCachedConfiguration(file: VirtualFile): ScriptCompilationConfigurationWrapper? =
-        cache[file]?.result
+    fun getCachedConfiguration(file: VirtualFile?): ScriptCompilationConfigurationWrapper? {
+        if (file == null) return null
+        return cache[file]?.result
+    }
 
     override fun isConfigurationCached(file: KtFile): Boolean {
         return getCachedConfiguration(file.originalFile.virtualFile) != null
     }
 
     override fun getConfiguration(file: KtFile): ScriptCompilationConfigurationWrapper? {
-        return getConfiguration(file.virtualFile, file)
+        return getConfiguration(file.originalFile.virtualFile, file)
     }
 
     fun getConfiguration(
@@ -83,9 +85,12 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
 
         rootsManager.transaction {
             files.forEach { file ->
-                val state = cache[file.originalFile.virtualFile]
-                if (state == null || !state.isUpToDate) {
-                    reloadConfiguration(file, state == null)
+                val virtualFile = file.originalFile.virtualFile
+                if (virtualFile != null) {
+                    val state = cache[virtualFile]
+                    if (state == null || !state.isUpToDate) {
+                        reloadConfiguration(file, state == null)
+                    }
                 }
             }
         }
@@ -133,12 +138,13 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
     }
 
     private fun getKtFile(
-        virtualFile: VirtualFile,
-        preloadedKtFile: KtFile? = null
+        virtualFile: VirtualFile?,
+        ktFile: KtFile? = null
     ): KtFile? {
-        if (preloadedKtFile != null) {
-            check(preloadedKtFile.virtualFile == virtualFile)
-            return preloadedKtFile
+        if (virtualFile == null) return null
+        if (ktFile != null) {
+            check(ktFile.virtualFile == virtualFile)
+            return ktFile
         } else {
             return runReadAction { PsiManager.getInstance(project).findFile(virtualFile) as? KtFile }
         }
