@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.name.Name
 
-class JavaClassUseSiteScope(
+open class JavaClassUseSiteScope(
     klass: FirRegularClass,
     session: FirSession,
     superTypesScope: FirSuperTypeScope,
