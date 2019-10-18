@@ -8,4 +8,4 @@ fun f(
 
 }
 
-// DEPENDENCIES: classpath:lib-classes; imports:custom.library.*
+// DEPENDENCIES: classpath:lib-classes; imports:custom.library.*; javaHome:default
