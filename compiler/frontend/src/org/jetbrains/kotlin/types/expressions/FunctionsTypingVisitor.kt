@@ -28,6 +28,8 @@ import org.jetbrains.kotlin.resolve.BindingTrace
 import org.jetbrains.kotlin.resolve.FunctionDescriptorUtil
 import org.jetbrains.kotlin.resolve.calls.context.ContextDependency
 import org.jetbrains.kotlin.resolve.calls.inference.model.TypeVariableTypeConstructor
+import org.jetbrains.kotlin.resolve.checkers.TrailingCommaChecker
+import org.jetbrains.kotlin.resolve.checkers.TrailingCommaDeclarationChecker
 import org.jetbrains.kotlin.resolve.checkers.UnderscoreChecker
 import org.jetbrains.kotlin.resolve.lazy.ForceResolveUtil
 import org.jetbrains.kotlin.resolve.scopes.LexicalWritableScope
@@ -144,6 +146,12 @@ internal class FunctionsTypingVisitor(facade: ExpressionTypingInternals) : Expre
             components.identifierChecker.checkDeclaration(it, context.trace)
             UnderscoreChecker.checkNamed(it, context.trace, components.languageVersionSettings, allowSingleUnderscore = true)
         }
+        TrailingCommaChecker.check(
+            expression.functionLiteral.valueParameterList?.trailingComma,
+            context.trace,
+            context.languageVersionSettings
+        )
+        context.languageVersionSettings
         val safeReturnType = computeReturnType(expression, context, functionDescriptor, functionTypeExpected)
         functionDescriptor.setReturnType(safeReturnType)
 

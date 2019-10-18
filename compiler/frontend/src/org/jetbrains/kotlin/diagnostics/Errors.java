@@ -757,6 +757,8 @@ public interface Errors {
 
     DiagnosticFactory0<PsiElement> IMPLICIT_NOTHING_AS_TYPE_PARAMETER = DiagnosticFactory0.create(WARNING);
 
+    DiagnosticFactory0<PsiElement> TRAILING_COMMA_IS_NOT_SUPPORTED_YET = DiagnosticFactory0.create(ERROR);
+
     // Reflection
 
     DiagnosticFactory1<KtExpression, CallableMemberDescriptor> EXTENSION_IN_CLASS_REFERENCE_NOT_ALLOWED = DiagnosticFactory1.create(ERROR);

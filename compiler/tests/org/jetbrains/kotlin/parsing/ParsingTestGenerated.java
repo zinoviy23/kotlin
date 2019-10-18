@@ -646,6 +646,16 @@ public class ParsingTestGenerated extends AbstractParsingTest {
             runTest("compiler/testData/psi/Super.kt");
         }
 
+        @TestMetadata("trailingCommaAllowed.kt")
+        public void testTrailingCommaAllowed() throws Exception {
+            runTest("compiler/testData/psi/trailingCommaAllowed.kt");
+        }
+
+        @TestMetadata("trailingCommaForbidden.kt")
+        public void testTrailingCommaForbidden() throws Exception {
+            runTest("compiler/testData/psi/trailingCommaForbidden.kt");
+        }
+
         @TestMetadata("TraitConstructor.kt")
         public void testTraitConstructor() throws Exception {
             runTest("compiler/testData/psi/TraitConstructor.kt");

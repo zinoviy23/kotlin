@@ -1,5 +1,5 @@
 package MyPackage
 
-fun test(x: Int,) {
+fun test(<!UNUSED_PARAMETER!>x<!>: Int,) {
 
 }

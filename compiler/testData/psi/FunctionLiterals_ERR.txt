@@ -245,10 +245,7 @@ KtFile: FunctionLiterals_ERR.kt
                   REFERENCE_EXPRESSION
                     PsiElement(IDENTIFIER)('b')
             PsiElement(COMMA)(',')
-            PsiWhiteSpace(' ')
-            VALUE_PARAMETER
-              PsiErrorElement:Expecting parameter name
-                <empty list>
+          PsiWhiteSpace(' ')
           PsiElement(ARROW)('->')
           PsiWhiteSpace(' ')
           BLOCK
@@ -306,10 +303,7 @@ KtFile: FunctionLiterals_ERR.kt
             VALUE_PARAMETER
               PsiElement(IDENTIFIER)('a')
             PsiElement(COMMA)(',')
-            PsiWhiteSpace(' ')
-            VALUE_PARAMETER
-              PsiErrorElement:Expecting parameter name
-                <empty list>
+          PsiWhiteSpace(' ')
           PsiElement(ARROW)('->')
           PsiWhiteSpace(' ')
           BLOCK
