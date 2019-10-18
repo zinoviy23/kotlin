@@ -30,9 +30,15 @@ internal class BackgroundExecutor(
     val project: Project,
     val rootsManager: ScriptClassRootsManager
 ) {
-    private var batchMaxSize = 0
     private val work = Any()
     private val queue: Queue<LoadTask> = HashSetQueue()
+
+    /**
+     * Let's fix queue size when progress bar displayed.
+     * Progress for rest items will be counted from zero
+     */
+    private var currentProgressSize: Int = 0
+    private var currentProgressDone: Int = 0
 
     private var silentWorker: SilentWorker? = null
     private var underProgressWorker: UnderProgressWorker? = null
@@ -56,7 +62,6 @@ internal class BackgroundExecutor(
         if (queue.add(task)) {
             debug(task.key) { "added to update queue" }
 
-            batchMaxSize = maxOf(batchMaxSize, queue.size)
             updateProgress()
 
             // If the queue is longer than 3, show progress and cancel button
@@ -80,21 +85,28 @@ internal class BackgroundExecutor(
     }
 
     @Synchronized
+    private fun requireSilentWorker() {
+        if (silentWorker == null && underProgressWorker == null) {
+            silentWorker = SilentWorker().also { it.start() }
+        }
+    }
+
+    @Synchronized
     private fun requireUnderProgressWorker() {
         if (queue.isEmpty() && silentWorker == null) return
 
         silentWorker?.stopGracefully()
         if (underProgressWorker == null) {
             underProgressWorker = UnderProgressWorker().also { it.start() }
+            restartProgressBar()
             updateProgress()
         }
     }
 
     @Synchronized
-    private fun requireSilentWorker() {
-        if (silentWorker == null && underProgressWorker == null) {
-            silentWorker = SilentWorker().also { it.start() }
-        }
+    private fun restartProgressBar() {
+        currentProgressSize = queue.size
+        currentProgressDone = 0
     }
 
     @Synchronized
@@ -106,9 +118,10 @@ internal class BackgroundExecutor(
                 it.isIndeterminate = true
             } else {
                 it.isIndeterminate = false
-                val total = batchMaxSize.toDouble() + 1
-                val remaining = queue.size.toDouble()
-                it.fraction = 1 - remaining / total
+                if (currentProgressDone > currentProgressSize) {
+                    restartProgressBar()
+                }
+                it.fraction = currentProgressDone.toDouble() / currentProgressSize.toDouble()
             }
         }
     }
@@ -125,7 +138,6 @@ internal class BackgroundExecutor(
         check(inTransaction)
         rootsManager.commit()
         inTransaction = false
-        batchMaxSize = 0
     }
 
     private abstract inner class Worker {
@@ -157,6 +169,7 @@ internal class BackgroundExecutor(
 
                             queue.poll()?.also {
                                 currentFile = it.key
+                                currentProgressDone++
                                 updateProgress()
                             }
                         }
