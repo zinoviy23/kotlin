@@ -34,7 +34,7 @@ private const val FIR_DUMP_PATH = "C:/fir_tmp/firDump"
 private const val FIR_HTML_DUMP_PATH = "C:/fir_tmp/firDump-html"
 const val FIR_LOGS_PATH = "C:/fir_tmp/fir-logs"
 
-private val DUMP_FIR = System.getProperty("fir.bench.dump", "true") == "true"
+private const val DUMP_FIR = false
 internal val PASSES = System.getProperty("fir.bench.passes")?.toInt() ?: 3
 internal val SEPARATE_PASS_DUMP = System.getProperty("fir.bench.dump.separate_pass", "false") == "true"
 
