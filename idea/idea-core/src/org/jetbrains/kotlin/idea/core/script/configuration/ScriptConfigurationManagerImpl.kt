@@ -52,14 +52,21 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         // todo: who will initiate loading of scripts configuration when definition manager will be ready?
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
         val scriptDefinition = file.findScriptDefinition() ?: return null
+        val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
+
+        fun List<ScriptDependenciesLoader>.onlyAutoApplied(isFirstLoad: Boolean): List<ScriptDependenciesLoader> =
+            filter { isFirstLoad || loadEvenWillNotBeApplied || it.skipNotification || autoReloadEnabled }
+
         val (asyncLoaders, syncLoaders) = loaders.partition { it.isAsync(file, scriptDefinition) }
 
-        val syncResult = reloadConfigurationBy(isFirstLoad, loadEvenWillNotBeApplied, virtualFile, file, scriptDefinition, syncLoaders)
+        val filteredSyncLoaders = syncLoaders.onlyAutoApplied(isFirstLoad)
+        val syncResult = reloadConfigurationBy(virtualFile, file, scriptDefinition, filteredSyncLoaders)
 
-        if (asyncLoaders.isNotEmpty()) {
-            val asyncFirstLoad = isFirstLoad && syncResult == null
+        val asyncFirstLoad = isFirstLoad && syncResult == null
+        val filteredAsyncLoaders = asyncLoaders.onlyAutoApplied(asyncFirstLoad)
+        if (filteredAsyncLoaders.isNotEmpty()) {
             backgroundExecutor.ensureScheduled(virtualFile) {
-                reloadConfigurationBy(asyncFirstLoad, loadEvenWillNotBeApplied, virtualFile, file, scriptDefinition, asyncLoaders)
+                reloadConfigurationBy(virtualFile, file, scriptDefinition, filteredAsyncLoaders)
             }
         }
 
@@ -67,23 +74,16 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
     }
 
     private fun reloadConfigurationBy(
-        isFirstLoad: Boolean,
-        loadEvenIfWillNotBeApplied: Boolean,
         virtualFile: VirtualFile,
         file: KtFile,
         scriptDefinition: ScriptDefinition,
         loaders: List<ScriptDependenciesLoader>
     ): ScriptCompilationConfigurationResult? {
-        val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
-
         loaders.forEach { loader ->
-            val willBeApplied = loader.skipNotification || autoReloadEnabled
-            if (isFirstLoad || loadEvenIfWillNotBeApplied || willBeApplied) {
-                val result = loader.loadDependencies(isFirstLoad, file, scriptDefinition)
-                if (result != null) {
-                    saveConfiguration(virtualFile, result, loader.skipNotification, loader.cache)
-                    return result
-                }
+            val result = loader.loadDependencies(file, scriptDefinition)
+            if (result != null) {
+                saveConfiguration(virtualFile, result, loader.skipNotification, loader.cache)
+                return result
             }
         }
 
@@ -206,7 +206,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         if (cache[file.virtualFile]?.isUpToDate == true) return
 
         rootsManager.transaction {
-            val result = fromRefinedLoader.loadDependencies(true, file as KtFile, scriptDefinition)
+            val result = fromRefinedLoader.loadDependencies(file as KtFile, scriptDefinition)
             if (result != null) {
                 saveConfiguration(file.originalFile.virtualFile, result, skipNotification = true, cache = false)
             }

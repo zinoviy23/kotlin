@@ -21,7 +21,6 @@ internal class OutsiderFileDependenciesLoader(private val manager: ScriptConfigu
         get() = true
 
     override fun loadDependencies(
-        firstLoad: Boolean,
         file: KtFile,
         scriptDefinition: ScriptDefinition
     ): ScriptCompilationConfigurationResult? {

@@ -24,7 +24,6 @@ class FromRefinedConfigurationLoader internal constructor() :
     }
 
     override fun loadDependencies(
-        firstLoad: Boolean,
         file: KtFile,
         scriptDefinition: ScriptDefinition
     ): ScriptCompilationConfigurationResult? {
