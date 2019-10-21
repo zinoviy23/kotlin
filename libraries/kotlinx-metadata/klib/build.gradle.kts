@@ -28,9 +28,9 @@ configurations.getByName("testCompile").extendsFrom(shadows)
 
 dependencies {
     compile(kotlinStdlib())
-    shadows(project(":kotlinx-metadata"))
-    shadows(project(":core:metadata"))
-    shadows(project(":compiler:serialization"))
+    compile(project(":kotlinx-metadata"))
+    compile(project(":core:metadata"))
+    compile(project(":compiler:serialization"))
     compile(project(":kotlin-util-klib-metadata"))
     shadows(protobufLite())
     // TODO: Add tests later
