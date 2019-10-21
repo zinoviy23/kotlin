@@ -42,7 +42,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
     private val backgroundExecutor = BackgroundExecutor(project, rootsManager)
     private val listener = ScriptsListener(project, this)
 
-    override fun reloadConfiguration(
+    override fun reloadConfigurationInTransaction(
         file: KtFile,
         isFirstLoad: Boolean,
         loadEvenWillNotBeApplied: Boolean
