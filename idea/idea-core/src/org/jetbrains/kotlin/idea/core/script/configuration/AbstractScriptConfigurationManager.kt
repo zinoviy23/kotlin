@@ -80,7 +80,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
         }
     }
 
-    override fun updateConfigurationsIfNotCached(files: List<KtFile>): Boolean {
+    override fun ensureUpToDate(files: List<KtFile>, loadEvenWillNotBeApplied: Boolean): Boolean {
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return false
 
         rootsManager.transaction {
@@ -89,7 +89,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
                 if (virtualFile != null) {
                     val state = cache[virtualFile]
                     if (state == null || !state.isUpToDate) {
-                        reloadConfiguration(file, state == null)
+                        reloadConfiguration(file, state == null, loadEvenWillNotBeApplied)
                     }
                 }
             }
@@ -100,7 +100,8 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
 
     internal abstract fun reloadConfiguration(
         file: KtFile,
-        isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null
+        isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null,
+        loadEvenWillNotBeApplied: Boolean = true
     ): ScriptCompilationConfigurationResult?
 
     /**

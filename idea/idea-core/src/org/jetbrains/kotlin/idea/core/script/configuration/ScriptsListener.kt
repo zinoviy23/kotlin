@@ -59,7 +59,7 @@ internal class ScriptsListener(
                 scriptsQueue.cancelAllRequests()
 
                 scriptsQueue.addRequest(
-                    { scriptsManager.updateConfigurationsIfNotCached(listOf(ktFile)) },
+                    { scriptsManager.ensureUpToDate(listOf(ktFile), true) },
                     scriptChangesListenerDelay,
                     true
                 )

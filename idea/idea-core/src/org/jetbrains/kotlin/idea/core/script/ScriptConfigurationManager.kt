@@ -79,12 +79,13 @@ interface ScriptConfigurationManager {
     fun isConfigurationCached(file: KtFile): Boolean
 
     /**
-     * Start configuration update for files if configuration isn't up to date.
+     * Start configuration update for [files] if configuration isn't up to date and not started already.
      * Start indexing for new class/source roots.
      *
+     * @param loadEvenWillNotBeApplied start loading even if the result will be not applied automatically
      * @return true if update was started for any file, false if all configurations are cached
      */
-    fun updateConfigurationsIfNotCached(files: List<KtFile>): Boolean
+    fun ensureUpToDate(files: List<KtFile>, loadEvenWillNotBeApplied: Boolean): Boolean
 
     /**
      * Clear configuration caches
