@@ -16,9 +16,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.idea.core.script.*
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptCompositeCache
-import org.jetbrains.kotlin.idea.core.script.configuration.loaders.FromRefinedConfigurationLoader
-import org.jetbrains.kotlin.idea.core.script.configuration.loaders.OutsiderFileDependenciesLoader
-import org.jetbrains.kotlin.idea.core.script.configuration.loaders.ScriptDependenciesLoader
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.EDT
 import org.jetbrains.kotlin.psi.KtFile
@@ -33,11 +30,7 @@ import kotlin.script.experimental.api.valueOrNull
 internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScriptConfigurationManager(project) {
     override val cache = ScriptCompositeCache(project)
 
-    private val fromRefinedLoader = FromRefinedConfigurationLoader()
-    private val loaders = arrayListOf(
-        OutsiderFileDependenciesLoader(this),
-        fromRefinedLoader
-    )
+    private val loader = FromRefinedConfigurationLoader()
 
     private val backgroundExecutor = BackgroundExecutor(project, rootsManager)
     private val listener = ScriptsListener(project, this)
@@ -47,48 +40,30 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         isFirstLoad: Boolean,
         loadEvenWillNotBeApplied: Boolean
     ): ScriptCompilationConfigurationResult? {
+        val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
+        val shouldLoad = isFirstLoad || loadEvenWillNotBeApplied || autoReloadEnabled
+        if (!shouldLoad) return null
+
         val virtualFile = file.originalFile.virtualFile ?: return null
 
         // todo: who will initiate loading of scripts configuration when definition manager will be ready?
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
         val scriptDefinition = file.findScriptDefinition() ?: return null
-        val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
 
-        fun List<ScriptDependenciesLoader>.onlyAutoApplied(isFirstLoad: Boolean): List<ScriptDependenciesLoader> =
-            filter { isFirstLoad || loadEvenWillNotBeApplied || it.skipNotification || autoReloadEnabled }
-
-        val (asyncLoaders, syncLoaders) = loaders.partition { it.isAsync(file, scriptDefinition) }
-
-        val filteredSyncLoaders = syncLoaders.onlyAutoApplied(isFirstLoad)
-        val syncResult = reloadConfigurationBy(virtualFile, file, scriptDefinition, filteredSyncLoaders)
-
-        val asyncFirstLoad = isFirstLoad && syncResult == null
-        val filteredAsyncLoaders = asyncLoaders.onlyAutoApplied(asyncFirstLoad)
-        if (filteredAsyncLoaders.isNotEmpty()) {
+        return if (loader.isAsync(scriptDefinition)) {
             backgroundExecutor.ensureScheduled(virtualFile) {
-                reloadConfigurationBy(virtualFile, file, scriptDefinition, filteredAsyncLoaders)
+                doReloadConfiguration(virtualFile, file, scriptDefinition)
             }
-        }
-
-        return syncResult
+            null
+        } else doReloadConfiguration(virtualFile, file, scriptDefinition)
     }
 
-    private fun reloadConfigurationBy(
+    private fun doReloadConfiguration(
         virtualFile: VirtualFile,
         file: KtFile,
-        scriptDefinition: ScriptDefinition,
-        loaders: List<ScriptDependenciesLoader>
-    ): ScriptCompilationConfigurationResult? {
-        loaders.forEach { loader ->
-            val result = loader.loadDependencies(file, scriptDefinition)
-            if (result != null) {
-                saveConfiguration(virtualFile, result, loader.skipNotification, loader.cache)
-                return result
-            }
-        }
-
-        return null
-    }
+        scriptDefinition: ScriptDefinition
+    ) = loader.loadDependencies(file, scriptDefinition)
+        ?.also { saveConfiguration(virtualFile, it) }
 
     /**
      * Save configurations into cache.
@@ -98,7 +73,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
     override fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>) {
         rootsManager.transaction {
             for ((file, result) in files) {
-                saveConfiguration(file, result, skipNotification = true)
+                saveConfiguration(file, result)
             }
         }
     }
@@ -113,9 +88,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
      */
     private fun saveConfiguration(
         file: VirtualFile,
-        newResult: ScriptCompilationConfigurationResult,
-        skipNotification: Boolean = false,
-        cache: Boolean = false
+        newResult: ScriptCompilationConfigurationResult
     ) {
         debug(file) { "configuration received = $newResult" }
 
@@ -127,8 +100,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
             if (oldConfiguration == newConfiguration) {
                 file.removeScriptDependenciesNotificationPanel(project)
             } else {
-                val autoReload = skipNotification
-                        || oldConfiguration == null
+                val autoReload = oldConfiguration == null
                         || KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
                         || ApplicationManager.getApplication().isUnitTestMode
 
@@ -136,7 +108,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
                     if (oldConfiguration != null) {
                         file.removeScriptDependenciesNotificationPanel(project)
                     }
-                    saveChangedConfiguration(file, newConfiguration, cache)
+                    saveChangedConfiguration(file, newConfiguration)
                 } else {
                     debug(file) {
                         "configuration changed, notification is shown: old = $oldConfiguration, new = $newConfiguration"
@@ -146,7 +118,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
                         onClick = {
                             file.removeScriptDependenciesNotificationPanel(project)
                             rootsManager.transaction {
-                                saveChangedConfiguration(file, it, cache)
+                                saveChangedConfiguration(file, it)
                             }
                         }
                     )
@@ -157,8 +129,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
 
     private fun saveChangedConfiguration(
         file: VirtualFile,
-        newConfiguration: ScriptCompilationConfigurationWrapper?,
-        cache: Boolean
+        newConfiguration: ScriptCompilationConfigurationWrapper?
     ) {
         rootsManager.checkInTransaction()
         debug(file) { "configuration changed = $newConfiguration" }
@@ -168,9 +139,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
                 rootsManager.markNewRoot(file, newConfiguration)
             }
 
-            if (cache) {
-                this.cache[file] = newConfiguration
-            }
+            this.cache[file] = newConfiguration
 
             clearClassRootsCaches()
         }
@@ -206,9 +175,9 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         if (cache[file.virtualFile]?.isUpToDate == true) return
 
         rootsManager.transaction {
-            val result = fromRefinedLoader.loadDependencies(file as KtFile, scriptDefinition)
+            val result = loader.loadDependencies(file as KtFile, scriptDefinition)
             if (result != null) {
-                saveConfiguration(file.originalFile.virtualFile, result, skipNotification = true, cache = false)
+                saveConfiguration(file.originalFile.virtualFile, result)
             }
         }
     }

@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.idea.core.script.*
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager.Companion.toVfsRoots
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCache
 import org.jetbrains.kotlin.idea.core.util.EDT
+import org.jetbrains.kotlin.idea.highlighter.OutsidersPsiFileSupportUtils
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.definitions.isNonScript
@@ -71,6 +72,11 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
         virtualFile: VirtualFile,
         preloadedKtFile: KtFile? = null
     ): ScriptCompilationConfigurationWrapper? {
+        val fileOrigin = OutsidersPsiFileSupportUtils.getOutsiderFileOrigin(project, virtualFile)
+        if (fileOrigin != null) {
+            return getCachedConfiguration(fileOrigin)
+        }
+
         val cached = cache[virtualFile]
         if (cached != null) return cached.result
 
