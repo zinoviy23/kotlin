@@ -31,7 +31,6 @@ import org.jetbrains.kotlin.container.get
 import org.jetbrains.kotlin.context.GlobalContext
 import org.jetbrains.kotlin.context.withModule
 import org.jetbrains.kotlin.context.withProject
-import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.diagnostics.Diagnostic
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
@@ -50,7 +49,6 @@ import org.jetbrains.kotlin.resolve.diagnostics.Diagnostics
 import org.jetbrains.kotlin.resolve.diagnostics.DiagnosticsElementsCache
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.resolve.lazy.ResolveSession
-import org.jetbrains.kotlin.resolve.source.getPsi
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.util.slicedMap.ReadOnlySlice
 import org.jetbrains.kotlin.util.slicedMap.WritableSlice
@@ -96,32 +94,8 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
         return synchronized(this) {
             ProgressIndicatorProvider.checkCanceled()
 
-            val inBlockModifications = file.inBlockModifications
-
-            val analysisResult = cache[file]
-            // step 1: perform incremental analysis IF there is a cached result for ktFile and there are inBlockModifications
-            if (analysisResult != null && inBlockModifications.isNotEmpty()) {
-                var result = analysisResult!! // smart-cast unable to handle complex conditions
-
-                // check IF incremental analysis is applicable
-                val resultCtx = result.bindingContext
-                var incrementalAnalysisApplicable =
-                    if (resultCtx is StackedCompositeBindingContext) resultCtx.isIncrementalAnalysisApplicable()
-                    else true
-
-                if (incrementalAnalysisApplicable) {
-                    for (inBlockModification in inBlockModifications) {
-                        val inBlockResult = analyze(inBlockModification)
-                        result = mergeResults(inBlockModification, inBlockResult, result)
-                    }
-                    cache[file] = result
-                } else {
-                    // drop existed results for file if incremental analysis is not applicable
-                    // it leads to entire file analysis
-                    cache.clear()
-                }
-                file.clearInBlockModifications()
-            }
+            // step 1: perform incremental analysis IF it is applicable
+            getIncrementalAnalysisResult()?.let { return it }
 
             // cache does not contain AnalysisResult per each kt/psi element
             // instead it looks up analysis for its parents - see lookUp(analyzableElement)
@@ -135,13 +109,42 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
             val result = analyze(analyzableParent)
             cache[analyzableParent] = result
 
-            if (analyzableParent == file) {
-                // clean up in-block modifications as current analyze already picked up changed items
-                file.clearInBlockModifications()
-            }
-
             return@synchronized result
         }
+    }
+
+    private fun getIncrementalAnalysisResult(): AnalysisResult? {
+        val inBlockModifications = file.inBlockModifications
+        if (inBlockModifications.isNotEmpty()) {
+            try {// there is a cached result for ktFile and there are inBlockModifications
+                cache[file]?.let { result ->
+                    // drop existed results for entire cache:
+                    // if incremental analysis is applicable it will produce a single value for file
+                    // otherwise those results are potentially stale
+                    cache.clear()
+
+                    // check IF incremental analysis is applicable
+                    val resultCtx = result.bindingContext
+
+                    val incrementalAnalysisApplicable =
+                        if (resultCtx is StackedCompositeBindingContext) resultCtx.isIncrementalAnalysisApplicable()
+                        else true
+
+                    if (incrementalAnalysisApplicable) {
+                        var analysisResult = result
+                        for (inBlockModification in inBlockModifications) {
+                            val inBlockResult = analyze(inBlockModification)
+                            analysisResult = mergeResults(inBlockModification, inBlockResult, result)
+                        }
+                        cache[file] = analysisResult
+                        return analysisResult
+                    }
+                }
+            } finally {
+                file.clearInBlockModifications()
+            }
+        }
+        return null
     }
 
     private fun mergeResults(
@@ -200,23 +203,11 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
 
         return StackedCompositeBindingContext(
             depth,
-            element, findAllChildren(element),
+            element,
             thisCtx, ctx,
             parentDiagnostics,
             diagnostics
         )
-    }
-
-    private fun findAllChildren(element: KtElement): Set<PsiElement> {
-        val set = mutableSetOf<PsiElement>()
-        val visitor = object : KtTreeVisitor<Unit>() {
-            override fun visitKtElement(ktElement: KtElement, data: Unit): Void? {
-                set.add(ktElement)
-                return super.visitKtElement(ktElement, Unit)
-            }
-        }
-        element.acceptChildren(visitor, Unit)
-        return set.toSet()
     }
 
     private fun analyze(analyzableElement: KtElement): AnalysisResult {
@@ -273,7 +264,6 @@ private class MergedDiagnostics(val diagnostics: Collection<Diagnostic>, overrid
 private class StackedCompositeBindingContext(
     val depth: Int, // depth of stack over original ktFile bindingContext
     val element: KtElement,
-    val children: Set<PsiElement>,
     val elementContext: BindingContext,
     val parentContext: BindingContext,
     val parentDiagnostics: List<Diagnostic>,
@@ -285,25 +275,12 @@ private class StackedCompositeBindingContext(
     // to prevent too deep stacked binding context
     fun isIncrementalAnalysisApplicable(): Boolean = depth < 16
 
-    private fun ctx(ktElement: PsiElement): BindingContext =
-        if (children.contains(ktElement)) elementContext else parentContext
-
     override fun getType(expression: KtExpression): KotlinType? {
-        return ctx(expression).getType(expression)
+        return elementContext.getType(expression) ?: parentContext.getType(expression)
     }
 
     override fun <K, V> get(slice: ReadOnlySlice<K, V>?, key: K?): V? {
-        val element: PsiElement? = when (key) {
-            is PsiElement -> key
-            is Call -> key.callElement
-            is DeclarationDescriptorWithSource -> key.source.getPsi()
-            else -> null
-        }
-
-        if (element != null) {
-            return ctx(element)[slice, key]
-        }
-        return delegates.asSequence().map { it[slice, key] }.firstOrNull()
+        return elementContext.get(slice, key) ?: parentContext.get(slice, key)
     }
 
     override fun <K, V> getKeys(slice: WritableSlice<K, V>?): Collection<K> {
