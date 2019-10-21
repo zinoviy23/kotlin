@@ -78,7 +78,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
 
         loaders.forEach { loader ->
             val willBeApplied = loader.skipNotification || autoReloadEnabled
-            if (isFirstLoad && (loadEvenIfWillNotBeApplied || willBeApplied)) {
+            if (isFirstLoad || loadEvenIfWillNotBeApplied || willBeApplied) {
                 val result = loader.loadDependencies(isFirstLoad, file, scriptDefinition)
                 if (result != null) {
                     saveConfiguration(virtualFile, result, loader.skipNotification, loader.cache)
