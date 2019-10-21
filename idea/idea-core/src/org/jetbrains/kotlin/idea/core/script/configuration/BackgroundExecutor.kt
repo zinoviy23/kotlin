@@ -196,6 +196,7 @@ internal class BackgroundExecutor(
             object : Task.Backgroundable(project, "Kotlin: Loading script dependencies...", true) {
                 override fun run(indicator: ProgressIndicator) {
                     progressIndicator = indicator
+                    updateProgress()
                     run()
                 }
             }.queue()
