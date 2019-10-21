@@ -1,4 +1,3 @@
-// IGNORE_BACKEND: JVM_IR
 // FILE: 1.kt
 inline fun f(crossinline g: () -> Unit) = Runnable(object : () -> Unit {
     override fun invoke() = g()
