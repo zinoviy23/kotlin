@@ -57,9 +57,9 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         val syncResult = reloadConfigurationBy(isFirstLoad, loadEvenWillNotBeApplied, virtualFile, file, scriptDefinition, syncLoaders)
 
         if (asyncLoaders.isNotEmpty()) {
-            val hasSomething = isFirstLoad || syncResult != null
+            val asyncFirstLoad = isFirstLoad && syncResult == null
             backgroundExecutor.ensureScheduled(virtualFile) {
-                reloadConfigurationBy(hasSomething, loadEvenWillNotBeApplied, virtualFile, file, scriptDefinition, asyncLoaders)
+                reloadConfigurationBy(asyncFirstLoad, loadEvenWillNotBeApplied, virtualFile, file, scriptDefinition, asyncLoaders)
             }
         }
 
