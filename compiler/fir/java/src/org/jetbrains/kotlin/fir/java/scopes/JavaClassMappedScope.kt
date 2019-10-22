@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.java.scopes
 import org.jetbrains.kotlin.builtins.jvm.JvmBuiltInsSettings
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.java.computeJvmDescriptor
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.impl.FirSuperTypeScope
@@ -24,11 +25,19 @@ class JavaClassMappedScope(
 ) : JavaClassUseSiteScope(klass, session, FirSuperTypeScope(session, listOf(mappedKotlinScope)), declaredMemberScope) {
 
     override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> ProcessorAction): ProcessorAction {
-        if (name !in whiteListSignaturesByName) {
-            return mappedKotlinScope.processFunctionsByName(name, processor)
-        }
-        // TODO: we should check also parameter types
-        return super.processFunctionsByName(name, processor)
+        val whiteListSignatures = whiteListSignaturesByName[name]
+            ?: return mappedKotlinScope.processFunctionsByName(name, processor)
+        if (!declaredMemberScope.processFunctionsByName(name) { symbol ->
+                val jvmSignature = symbol.fir.computeJvmDescriptor()
+                if (jvmSignature !in whiteListSignatures) {
+                    ProcessorAction.NEXT
+                } else {
+                    processor(symbol)
+                }
+            }
+        ) return ProcessorAction.STOP
+
+        return mappedKotlinScope.processFunctionsByName(name, processor)
     }
 
     override fun processPropertiesByName(name: Name, processor: (FirCallableSymbol<*>) -> ProcessorAction): ProcessorAction {
