@@ -65,11 +65,18 @@ internal abstract class AbstractScriptConfigurationManager(
      * Implementation should initiate loading of [file]'s script configuration and call [saveChangedConfiguration]
      * immediately or in some future
      * (e.g. after user will click "apply context" or/and configuration will be calculated by some background thread).
+     *
+     * @param isFirstLoad may be set explicitly for optimization reasons (to avoid expensive fs cache access)
+     * @param loadEvenWillNotBeApplied may should be set to false only on requests from particular editor, when
+     * user can see potential notification and accept new configuration. In other cases this should `false` since
+     * loaded configuration will be just leaved in hidden user notification cannot be used in any way, so there is
+     * no reason to load it
+     * @param forceSync should be used in tests only
      */
     protected abstract fun reloadConfigurationInTransaction(
         file: KtFile,
         isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null,
-        loadEvenWillNotBeApplied: Boolean = true,
+        loadEvenWillNotBeApplied: Boolean = false,
         /* Test only */ forceSync: Boolean = false
     )
 
@@ -137,7 +144,7 @@ internal abstract class AbstractScriptConfigurationManager(
 
     internal fun forceReload(file: KtFile) {
         rootsIndexer.transaction {
-            reloadConfigurationInTransaction(file)
+            reloadConfigurationInTransaction(file, loadEvenWillNotBeApplied = true)
         }
     }
 
@@ -152,7 +159,7 @@ internal abstract class AbstractScriptConfigurationManager(
         if (cache[file.virtualFile]?.isUpToDate == true) return
 
         rootsIndexer.transaction {
-            reloadConfigurationInTransaction(file as KtFile, isFirstLoad = true, loadEvenWillNotBeApplied = true, forceSync = true)
+            reloadConfigurationInTransaction(file as KtFile, isFirstLoad = true, forceSync = true)
         }
     }
 
@@ -184,9 +191,6 @@ internal abstract class AbstractScriptConfigurationManager(
         }
     }
 
-    ///////////////////
-    // Highlighting
-
     /**
      * Clear configuration caches
      * Start re-highlighting for opened scripts
@@ -194,23 +198,12 @@ internal abstract class AbstractScriptConfigurationManager(
     override fun clearConfigurationCachesAndRehighlight() {
         ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
 
+        // todo: invalidate caches?
+
         if (project.isOpen) {
-            rehighlightOpenedScripts()
+            val openedScripts = FileEditorManager.getInstance(project).openFiles.filterNot { it.isNonScript() }
+            updateHighlighting(openedScripts)
         }
-    }
-
-    private fun rehighlightOpenedScripts() {
-        val openedScripts = FileEditorManager.getInstance(project).openFiles.filterNot { it.isNonScript() }
-
-        rootsIndexer.transaction {
-            openedScripts.forEach {
-                val ktFile = project.getKtFile(it)
-                if (ktFile != null) {
-                    reloadConfigurationInTransaction(ktFile)
-                }
-            }
-        }
-        updateHighlighting(openedScripts)
     }
 
     private fun updateHighlighting(files: List<VirtualFile>) {

@@ -74,10 +74,12 @@ import kotlin.script.experimental.api.valueOrNull
  * ## Concurrency
  *
  * Each files may be in on of this states:
- * - unknown
+ * - scriptDefinition is not ready
+ * - not loaded
  * - up-to-date
- * - invalid (in [BackgroundExecutor] queue)
- * - loading
+ * - invalid, in queue (in [BackgroundExecutor] queue)
+ * - invalid, loading
+ * - invalid, waiting for apply
  *
  * [reloadConfigurationInTransaction] guard this states. See it's docs for more details.
  */
@@ -103,11 +105,14 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
      *
      * ## Concurrency
      *
-     * Each files may be in on of the states described below.
-     *
-     * ### Unknown
-     *
-     * When [isFirstLoad] true (no [cache] )
+     * Each files may be in on of the states described below:
+     * - scriptDefinition is not ready. `ScriptDefinitionsManager.getInstance(project).isReady() == false`.
+     * [clearConfigurationCachesAndRehighlight] will be called when [ScriptDefinitionsManager] will be ready
+     * which will call cause [reloadConfigurationInTransaction] for opened editors.
+     * - unknown. When [isFirstLoad] true (`cache[file] == null`).
+     * - up-to-date. `cache[file]?.upToDate == true`.
+     * - invalid, in queue. `cache[file]?.upToDate == false && file in backgroundExecutor`.
+     * - invalid, loading. `cache[file]?.upToDate == false && file !in backgroundExecutor`.
      */
     override fun reloadConfigurationInTransaction(
         file: KtFile,
@@ -121,7 +126,6 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
 
         val virtualFile = file.originalFile.virtualFile ?: return
 
-        // todo: who will initiate loading of scripts configuration when definition manager will be ready?
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return
         val scriptDefinition = file.findScriptDefinition() ?: return
 

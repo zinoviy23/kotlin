@@ -24,12 +24,11 @@ internal class ScriptClassRootsIndexer(val project: Project) {
     private var newRootsPresent: Boolean = false
     private val concurrentTransactions = AtomicInteger()
 
+    @Synchronized
     fun markNewRoot(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper) {
-        synchronized(this) {
-            debug(file) { "new class roots found: $configuration" }
-            checkInTransaction()
-            newRootsPresent = true
-        }
+        debug(file) { "new class roots found: $configuration" }
+        checkInTransaction()
+        newRootsPresent = true
     }
 
     fun checkInTransaction() {
