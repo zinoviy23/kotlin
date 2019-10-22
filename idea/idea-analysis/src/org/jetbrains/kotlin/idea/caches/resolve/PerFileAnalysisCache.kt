@@ -63,29 +63,6 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
 
     private val cache = HashMap<PsiElement, AnalysisResult>()
 
-    private fun lookUp(analyzableElement: KtElement): AnalysisResult? {
-        // Looking for parent elements that are already analyzed
-        // Also removing all elements whose parents are already analyzed, to guarantee consistency
-        val descendantsOfCurrent = arrayListOf<PsiElement>()
-        val toRemove = hashSetOf<PsiElement>()
-
-        var result: AnalysisResult? = null
-        for (current in analyzableElement.parentsWithSelf) {
-            val cached = cache[current]
-            if (cached != null) {
-                result = cached
-                toRemove.addAll(descendantsOfCurrent)
-                descendantsOfCurrent.clear()
-            }
-
-            descendantsOfCurrent.add(current)
-        }
-
-        cache.keys.removeAll(toRemove)
-
-        return result
-    }
-
     fun getAnalysisResults(element: KtElement): AnalysisResult {
         assert(element.containingKtFile == file) { "Wrong file. Expected $file, but was ${element.containingKtFile}" }
 
@@ -123,22 +100,38 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
                     // otherwise those results are potentially stale
                     cache.clear()
 
-                    // check IF incremental analysis is applicable
-                    val resultCtx = result.bindingContext
+                    var analysisResult = result
+                    for (inBlockModification in inBlockModifications) {
+                        val resultCtx = analysisResult.bindingContext
 
-                    val incrementalAnalysisApplicable =
-                        if (resultCtx is StackedCompositeBindingContext) resultCtx.isIncrementalAnalysisApplicable()
-                        else true
+                        val stackedCtx =
+                            if (resultCtx is StackedCompositeBindingContextTrace.StackedCompositeBindingContext) resultCtx else null
 
-                    if (incrementalAnalysisApplicable) {
-                        var analysisResult = result
-                        for (inBlockModification in inBlockModifications) {
-                            val inBlockResult = analyze(inBlockModification)
-                            analysisResult = mergeResults(inBlockModification, inBlockResult, result)
-                        }
-                        cache[file] = analysisResult
-                        return analysisResult
+                        // no incremental analysis IF it is not applicable
+                        if (stackedCtx?.isIncrementalAnalysisApplicable() == false) return null
+
+                        val trace: StackedCompositeBindingContextTrace =
+                            if (stackedCtx != null && stackedCtx.element() == inBlockModification) {
+                                val trace = stackedCtx.bindingTrace()
+                                trace.clear()
+                                trace
+                            } else {
+                                // to reflect a depth of stacked binding context
+                                val depth = (stackedCtx?.depth() ?: 0) + 1
+
+                                StackedCompositeBindingContextTrace(
+                                    depth,
+                                    element = inBlockModification,
+                                    resolveContext = resolveSession.bindingContext,
+                                    parentContext = resultCtx
+                                )
+                            }
+
+                        analyze(inBlockModification, trace)
+                        analysisResult = mergeResults(trace, result)
                     }
+                    cache[file] = analysisResult
+                    return analysisResult
                 }
             } finally {
                 file.clearInBlockModifications()
@@ -147,12 +140,34 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
         return null
     }
 
+    private fun lookUp(analyzableElement: KtElement): AnalysisResult? {
+        // Looking for parent elements that are already analyzed
+        // Also removing all elements whose parents are already analyzed, to guarantee consistency
+        val descendantsOfCurrent = arrayListOf<PsiElement>()
+        val toRemove = hashSetOf<PsiElement>()
+
+        var result: AnalysisResult? = null
+        for (current in analyzableElement.parentsWithSelf) {
+            val cached = cache[current]
+            if (cached != null) {
+                result = cached
+                toRemove.addAll(descendantsOfCurrent)
+                descendantsOfCurrent.clear()
+            }
+
+            descendantsOfCurrent.add(current)
+        }
+
+        cache.keys.removeAll(toRemove)
+
+        return result
+    }
+
     private fun mergeResults(
-        element: KtElement,
-        elementResult: AnalysisResult,
+        elementBindingTrace: StackedCompositeBindingContextTrace,
         parentResult: AnalysisResult
     ): AnalysisResult {
-        val newBindingCtx = mergeContexts(elementResult, parentResult, element)
+        val newBindingCtx = elementBindingTrace.stackedContext
         return if (parentResult.isError())
             AnalysisResult.internalError(newBindingCtx, parentResult.error)
         else AnalysisResult.success(
@@ -162,55 +177,7 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
         )
     }
 
-    private fun mergeContexts(
-        analysisResult: AnalysisResult,
-        parentAnalysis: AnalysisResult,
-        element: KtElement
-    ): BindingContext {
-        val parentCtx = parentAnalysis.bindingContext
-        val thisCtx = analysisResult.bindingContext
-
-        val thisDiagnosticsAll = thisCtx.diagnostics.all()
-
-        // to reflect a depth of stacked binding context, when it exceeds some limit how long it could be a list of delegates ? is it worth to perform full analysis when we got too deep ?
-        val depth: Int
-        val ctx: BindingContext
-        val parentDiagnostics: List<Diagnostic>
-
-        if (parentCtx is StackedCompositeBindingContext && parentCtx.element == element) {
-            depth = parentCtx.depth
-            ctx = parentCtx.parentContext
-            parentDiagnostics = parentCtx.parentDiagnostics
-        } else {
-            depth = (if (parentCtx is StackedCompositeBindingContext) parentCtx.depth else 0) + 1
-            ctx = parentCtx
-            // parentCtx diagnostics can have potentially outdated psi elements
-            // so far - traverse from children to parent (expensive) to identify that it is out of this element diagnostic
-            val parentDiagnosticsAll = parentCtx.diagnostics.all()
-            parentDiagnostics = parentDiagnosticsAll.filter { d ->
-                // do not copy diagnostic that is built on a top level as it could be outdated
-                d.psiElement.parentsWithSelf.none { it == element }
-            }.toList()
-        }
-
-        // copy all diagnostics those belongs to `element`
-        val diagnosticList = parentDiagnostics + thisDiagnosticsAll
-
-        val diagnostics: Diagnostics =
-            if (diagnosticList.isNotEmpty())
-                MergedDiagnostics(diagnosticList, parentCtx.diagnostics.modificationTracker)
-            else Diagnostics.EMPTY
-
-        return StackedCompositeBindingContext(
-            depth,
-            element,
-            thisCtx, ctx,
-            parentDiagnostics,
-            diagnostics
-        )
-    }
-
-    private fun analyze(analyzableElement: KtElement): AnalysisResult {
+    private fun analyze(analyzableElement: KtElement, bindingTrace: BindingTrace? = null): AnalysisResult {
         ProgressIndicatorProvider.checkCanceled()
 
         val project = analyzableElement.project
@@ -226,7 +193,8 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
                 resolveSession,
                 codeFragmentAnalyzer,
                 bodyResolveCache,
-                analyzableElement
+                analyzableElement,
+                bindingTrace
             )
         } catch (e: ProcessCanceledException) {
             throw e
@@ -252,52 +220,86 @@ private class MergedDiagnostics(val diagnostics: Collection<Diagnostic>, overrid
     override fun noSuppression() = this
 }
 
-/**
- * Effectively SCBC holds up-to-date and outdated contexts
- *
- * The top item has most recent result while the most deep has most old one
- *
- * To retrieve result SCBC goes from the top of stack to the bottom trying to find most up-to-date result.
- *
- * Note: It does not delete outdated results rather hide it therefore there is some extra memory footprint.
- */
-private class StackedCompositeBindingContext(
+private class StackedCompositeBindingContextTrace(
     val depth: Int, // depth of stack over original ktFile bindingContext
     val element: KtElement,
-    val elementContext: BindingContext,
-    val parentContext: BindingContext,
-    val parentDiagnostics: List<Diagnostic>,
-    private val diagnostics: Diagnostics
-) : BindingContext {
+    val resolveContext: BindingContext,
+    val parentContext: BindingContext
+) : DelegatingBindingTrace(
+    resolveContext,
+    "Stacked trace for resolution of $element",
+    allowSliceRewrite = true
+) {
+    /**
+     * Effectively StackedCompositeBindingContext holds up-to-date and partially outdated contexts (parentContext)
+     *
+     * The most up-to-date results for element are stored here (in a DelegatingBindingTrace#map)
+     *
+     * Note: It does not delete outdated results rather hide it therefore there is some extra memory footprint.
+     *
+     * Note: stackedContext differs from DelegatingBindingTrace#bindingContext:
+     *      if result is not present in this context it goes to parentContext rather to resolveContext
+     *      diagnostics are aggregated from this context and parentContext
+     */
+    val stackedContext = StackedCompositeBindingContext()
 
-    val delegates = listOf(elementContext, parentContext)
+    /**
+     * All diagnostics from parentContext apart those diagnostics those belongs to the element or its descendants
+     */
+    val parentDiagnosticsApartElement: List<Diagnostic> = parentContext.diagnostics.all().filter { d ->
+        d.psiElement.parentsWithSelf.none { it == element }
+    }.toList()
 
-    // to prevent too deep stacked binding context
-    fun isIncrementalAnalysisApplicable(): Boolean = depth < 16
+    inner class StackedCompositeBindingContext : BindingContext {
+        var cachedDiagnostics: Diagnostics? = null
 
-    override fun getType(expression: KtExpression): KotlinType? {
-        return elementContext.getType(expression) ?: parentContext.getType(expression)
+        fun bindingTrace(): StackedCompositeBindingContextTrace = this@StackedCompositeBindingContextTrace
+
+        fun element(): KtElement = this@StackedCompositeBindingContextTrace.element
+
+        fun depth(): Int = this@StackedCompositeBindingContextTrace.depth
+
+        // to prevent too deep stacked binding context
+        fun isIncrementalAnalysisApplicable(): Boolean = this@StackedCompositeBindingContextTrace.depth < 16
+
+        override fun getDiagnostics(): Diagnostics {
+            if (cachedDiagnostics == null) {
+                val diagnosticList =
+                    parentDiagnosticsApartElement + (this@StackedCompositeBindingContextTrace.mutableDiagnostics?.all() ?: emptyList())
+                cachedDiagnostics = MergedDiagnostics(diagnosticList, parentContext.diagnostics.modificationTracker)
+            }
+            return cachedDiagnostics!!
+        }
+
+        override fun <K : Any?, V : Any?> get(slice: ReadOnlySlice<K, V>, key: K): V? {
+            return selfGet(slice, key) ?: parentContext.get(slice, key)
+        }
+
+        override fun getType(expression: KtExpression): KotlinType? {
+            val typeInfo = get(BindingContext.EXPRESSION_TYPE_INFO, expression)
+            return typeInfo?.type
+        }
+
+        override fun <K, V> getKeys(slice: WritableSlice<K, V>): Collection<K> {
+            val keys = map.getKeys(slice)
+            val fromParent = parentContext.getKeys(slice)
+            if (keys.isEmpty()) return fromParent
+            if (fromParent.isEmpty()) return keys
+
+            return keys + fromParent
+        }
+
+        override fun <K : Any?, V : Any?> getSliceContents(slice: ReadOnlySlice<K, V>): ImmutableMap<K, V> {
+            return ImmutableMap.copyOf(parentContext.getSliceContents(slice) + map.getSliceContents(slice))
+        }
+
+        override fun addOwnDataTo(trace: BindingTrace, commitDiagnostics: Boolean) = throw UnsupportedOperationException()
     }
 
-    override fun <K, V> get(slice: ReadOnlySlice<K, V>?, key: K?): V? {
-        return elementContext.get(slice, key) ?: parentContext.get(slice, key)
+    override fun clear() {
+        super.clear()
+        stackedContext.cachedDiagnostics = null
     }
-
-    override fun <K, V> getKeys(slice: WritableSlice<K, V>?): Collection<K> {
-        return delegates.flatMap { it.getKeys(slice) }
-    }
-
-    override fun <K, V> getSliceContents(slice: ReadOnlySlice<K, V>): ImmutableMap<K, V> {
-        //we need intermediate map cause ImmutableMap doesn't support same entries obtained from different slices
-        val map = hashMapOf<K, V>()
-        delegates.forEach { map.putAll(it.getSliceContents(slice)) }
-        return ImmutableMap.builder<K, V>().putAll(map).build()
-    }
-
-    override fun getDiagnostics(): Diagnostics = diagnostics
-
-    override fun addOwnDataTo(trace: BindingTrace, commitDiagnostics: Boolean) = throw UnsupportedOperationException()
-
 }
 
 private object KotlinResolveDataProvider {
@@ -349,7 +351,8 @@ private object KotlinResolveDataProvider {
         resolveSession: ResolveSession,
         codeFragmentAnalyzer: CodeFragmentAnalyzer,
         bodyResolveCache: BodyResolveCache,
-        analyzableElement: KtElement
+        analyzableElement: KtElement,
+        bindingTrace: BindingTrace?
     ): AnalysisResult {
         try {
             if (analyzableElement is KtCodeFragment) {
@@ -357,6 +360,17 @@ private object KotlinResolveDataProvider {
                 val bindingContext = codeFragmentAnalyzer.analyzeCodeFragment(analyzableElement, bodyResolveMode).bindingContext
                 return AnalysisResult.success(bindingContext, moduleDescriptor)
             }
+
+            val trace = bindingTrace ?: DelegatingBindingTrace(
+                resolveSession.bindingContext,
+                "Trace for resolution of $analyzableElement",
+                allowSliceRewrite = true
+            )
+
+            val moduleInfo = analyzableElement.containingKtFile.getModuleInfo()
+
+            // TODO: should return proper platform!
+            val targetPlatform = moduleInfo.platform ?: TargetPlatformDetector.getPlatform(analyzableElement.containingKtFile)
 
             /*
             Note that currently we *have* to re-create LazyTopDownAnalyzer with custom trace in order to disallow resolution of
@@ -368,17 +382,6 @@ private object KotlinResolveDataProvider {
             (see 'functionAdditionalResolve'). However, this trace is still needed, because we have other
             codepaths for other KtDeclarationWithBodies (like property accessors/secondary constructors/class initializers)
              */
-            val trace = DelegatingBindingTrace(
-                resolveSession.bindingContext,
-                "Trace for resolution of " + analyzableElement,
-                allowSliceRewrite = true
-            )
-
-            val moduleInfo = analyzableElement.containingKtFile.getModuleInfo()
-
-            // TODO: should return proper platform!
-            val targetPlatform = moduleInfo.platform ?: TargetPlatformDetector.getPlatform(analyzableElement.containingKtFile)
-
             val lazyTopDownAnalyzer = createContainerForLazyBodyResolve(
                 //TODO: should get ModuleContext
                 globalContext.withProject(project).withModule(moduleDescriptor),
