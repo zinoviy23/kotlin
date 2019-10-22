@@ -141,7 +141,7 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
         irClass.annotations.add(
             IrConstructorCallImpl.fromSymbolOwner(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, documentedConstructor.returnType, documentedConstructor.symbol
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET, documentedConstructor.returnType, documentedConstructor.symbol, 0
             )
         )
     }
@@ -162,7 +162,7 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
         irClass.annotations.add(
             IrConstructorCallImpl.fromSymbolOwner(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, retentionConstructor.returnType, retentionConstructor.symbol
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET, retentionConstructor.returnType, retentionConstructor.symbol, 0
             ).apply {
                 putValueArgument(
                     0,
@@ -230,7 +230,7 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
         irClass.annotations.add(
             IrConstructorCallImpl.fromSymbolOwner(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, targetConstructor.returnType, targetConstructor.symbol
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET, targetConstructor.returnType, targetConstructor.symbol, 0
             ).apply {
                 putValueArgument(0, vararg)
             }

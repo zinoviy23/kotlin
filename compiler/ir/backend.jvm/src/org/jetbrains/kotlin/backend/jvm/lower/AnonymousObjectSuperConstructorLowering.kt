@@ -100,9 +100,10 @@ private class AnonymousObjectSuperConstructorLowering(val context: JvmBackendCon
             }
         }
 
+        val classTypeParametersCount = objectConstructorCall.typeArgumentsCount - objectConstructorCall.symbol.owner.typeParameters.size
         expression.statements[expression.statements.size - 1] = IrConstructorCallImpl.fromSymbolOwner(
             objectConstructorCall.startOffset, objectConstructorCall.endOffset, objectConstructorCall.type,
-            objectConstructorCall.symbol, objectConstructorCall.origin
+            objectConstructorCall.symbol, classTypeParametersCount, objectConstructorCall.origin
         ).apply {
             for (i in 0 until objectConstructorCall.valueArgumentsCount)
                 putValueArgument(i, objectConstructorCall.getValueArgument(i))

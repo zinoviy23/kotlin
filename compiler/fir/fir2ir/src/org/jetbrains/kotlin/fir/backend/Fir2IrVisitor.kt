@@ -674,7 +674,8 @@ class Fir2IrVisitor(
         val symbol = calleeReference.toSymbol(declarationStorage)
         return typeRef.convertWithOffsets { startOffset, endOffset ->
             when {
-                symbol is IrConstructorSymbol -> IrConstructorCallImpl.fromSymbolOwner(startOffset, endOffset, type, symbol)
+                // TODO: how to get class type parameters?
+                symbol is IrConstructorSymbol -> IrConstructorCallImpl.fromSymbolOwner(startOffset, endOffset, type, symbol, 0)
                 symbol is IrSimpleFunctionSymbol -> IrCallImpl(
                     startOffset, endOffset, type, symbol, origin = calleeReference.statementOrigin()
                 )
