@@ -71,12 +71,14 @@ internal abstract class AbstractScriptConfigurationManager(
      * user can see potential notification and accept new configuration. In other cases this should `false` since
      * loaded configuration will be just leaved in hidden user notification cannot be used in any way, so there is
      * no reason to load it
+     * @param force skip up-to-date check for async loading process
      * @param forceSync should be used in tests only
      */
     protected abstract fun reloadConfigurationInTransaction(
         file: KtFile,
         isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null,
         loadEvenWillNotBeApplied: Boolean = false,
+        force: Boolean = false,
         /* Test only */ forceSync: Boolean = false
     )
 
@@ -116,11 +118,14 @@ internal abstract class AbstractScriptConfigurationManager(
 
         val ktFile = project.getKtFile(virtualFile, preloadedKtFile) ?: return null
         rootsIndexer.transaction {
-            reloadConfigurationInTransaction(ktFile, true)
+            reloadConfigurationInTransaction(ktFile, isFirstLoad = true)
         }
 
         return getCachedConfiguration(fileOrigin)
     }
+
+    protected open fun isUpToDate(file: KtFile) =
+        cache[file.virtualFile]?.isUpToDate == true
 
     override fun ensureUpToDate(files: List<KtFile>, loadEvenWillNotBeApplied: Boolean): Boolean {
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return false
@@ -133,7 +138,11 @@ internal abstract class AbstractScriptConfigurationManager(
                     val state = cache[virtualFile]
                     if (state == null || !state.isUpToDate) {
                         upToDate = false
-                        reloadConfigurationInTransaction(file, state == null, loadEvenWillNotBeApplied)
+                        reloadConfigurationInTransaction(
+                            file,
+                            isFirstLoad = state == null,
+                            loadEvenWillNotBeApplied = loadEvenWillNotBeApplied
+                        )
                     }
                 }
             }
@@ -144,7 +153,7 @@ internal abstract class AbstractScriptConfigurationManager(
 
     internal fun forceReload(file: KtFile) {
         rootsIndexer.transaction {
-            reloadConfigurationInTransaction(file, loadEvenWillNotBeApplied = true)
+            reloadConfigurationInTransaction(file, loadEvenWillNotBeApplied = true, force = true)
         }
     }
 
@@ -163,7 +172,7 @@ internal abstract class AbstractScriptConfigurationManager(
         }
     }
 
-    protected fun saveChangedConfiguration(
+    protected open fun saveChangedConfiguration(
         file: VirtualFile,
         newConfiguration: ScriptCompilationConfigurationWrapper?
     ) {

@@ -13,6 +13,7 @@ import com.intellij.ui.EditorNotifications
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.jetbrains.kotlin.idea.core.script.*
+import org.jetbrains.kotlin.idea.core.script.configuration.cache.CachedConfiguration
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCompositeCache
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCache
 import org.jetbrains.kotlin.idea.core.script.configuration.utils.BackgroundExecutor
@@ -24,11 +25,13 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition
 import org.jetbrains.kotlin.scripting.definitions.findScriptDefinition
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
+import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import org.jetbrains.kotlin.scripting.resolve.ScriptReportSink
-import java.util.concurrent.ConcurrentHashMap
+import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.script.experimental.api.ScriptDiagnostic
+import kotlin.script.experimental.api.asSuccess
 import kotlin.script.experimental.api.valueOrNull
 
 /**
@@ -92,9 +95,12 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
     private val backgroundExecutor = BackgroundExecutor(project, rootsIndexer)
     private val listener = ScriptsListener(project, this)
 
-    data class Input(val file: VirtualFile, val modificationStamp: Int)
-
-    private val loading = ConcurrentHashMap<Input, Unit>()
+    /**
+     * Loaded but not applied result.
+     * Thread safe since [backgroundExecutor] works in single thread.
+     * Weakness required since it is hard to track editor and notification hiding.
+     */
+    private val notApplied = WeakHashMap<VirtualFile, CachedConfiguration>()
     private val saveLock = ReentrantLock()
 
     override fun createCache(): ScriptConfigurationCache {
@@ -113,12 +119,6 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
      *
      * ## Concurrency
      *
-     * todo: for now, it will make duplicated requests for *same* input, when configuration is being
-     *       loaded or already loaded, but just not applied.
-     *       (no reason to do same expansive work, as it is already in progress or just not applied)
-     *       it may be fixed by adding some extra guard for this case (e.g. by checking readyForApply[file]).
-     *       It is not yet implemented since we have no notion of `same input`, just modification stamp that
-     *
      * Each files may be in on of the states described below:
      * - scriptDefinition is not ready. `ScriptDefinitionsManager.getInstance(project).isReady() == false`.
      * [clearConfigurationCachesAndRehighlight] will be called when [ScriptDefinitionsManager] will be ready
@@ -135,10 +135,12 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
      * - `unknown` and `invalid, in queue`:
      *   Concurrent async loading will be guarded by ensureSchedule
      *   (only one task per file will be scheduled at same time)
-     * - `invalid, loading` and `invalid, ready for apply`:
+     * - `invalid`:
      *   Loading should be rescheduled, since the work already started for old input.
      *   This will work, since file will be removed backgroundExecutor.
-     *   todo: btw, we should not start work for same input
+     *   - `loading`: Scheduled loading for unchanged file will be noop thanks to isUpToDate check
+     *   - `not applied`: Scheduled loading for unchanged file with loaded but not applied
+     *      configuration will be also noop thanks check in [notApplied] map.
      *
      * Sync:
      * - up-to-date:
@@ -151,6 +153,7 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
         file: KtFile,
         isFirstLoad: Boolean,
         loadEvenWillNotBeApplied: Boolean,
+        force: Boolean,
         /* Test only */ forceSync: Boolean
     ) {
         val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
@@ -164,7 +167,21 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
 
         if (loader.isAsync(scriptDefinition) && !forceSync) {
             backgroundExecutor.ensureScheduled(virtualFile) {
-                doReloadConfiguration(virtualFile, file, scriptDefinition)
+                // don't start loading if nothing was changed
+                // (in case we checking for up-to-date and loading concurrently)
+                if (force) {
+                    doReloadConfiguration(virtualFile, file, scriptDefinition)
+                } else if (!isUpToDate(file)) {
+                    val prevNotApplied = notApplied[virtualFile]
+                    if (prevNotApplied?.isUpToDate == true) {
+                        // reuse loaded but not applied result
+                        // (in case we checking for up-to-date and waiting notification answer concurrently)
+                        saveConfiguration(virtualFile, prevNotApplied.result.asSuccess(), false)
+                    } else {
+                        notApplied.remove(virtualFile)
+                        doReloadConfiguration(virtualFile, file, scriptDefinition)
+                    }
+                }
             }
         } else {
             doReloadConfiguration(virtualFile, file, scriptDefinition)
@@ -229,6 +246,7 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
                         debug(file) {
                             "configuration changed, notification is shown: old = $oldConfiguration, new = $newConfiguration"
                         }
+                        notApplied[file] = CachedConfiguration(file, newConfiguration)
                         file.addScriptDependenciesNotificationPanel(
                             newConfiguration, project,
                             onClick = {
@@ -236,12 +254,20 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
                                 rootsIndexer.transaction {
                                     saveChangedConfiguration(file, it)
                                 }
+                            },
+                            onHide = {
+                                notApplied.remove(file)
                             }
                         )
                     }
                 }
             }
         }
+    }
+
+    override fun saveChangedConfiguration(file: VirtualFile, newConfiguration: ScriptCompilationConfigurationWrapper?) {
+        super.saveChangedConfiguration(file, newConfiguration)
+        notApplied.remove(file)
     }
 
     private fun saveReports(
