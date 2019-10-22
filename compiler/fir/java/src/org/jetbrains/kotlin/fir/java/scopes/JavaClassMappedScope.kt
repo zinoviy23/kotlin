@@ -22,7 +22,7 @@ class JavaClassMappedScope(
     private val mappedKotlinScope: FirScope,
     declaredMemberScope: FirScope,
     private val whiteListSignaturesByName: Map<Name, List<String>>
-) : JavaClassUseSiteScope(klass, session, FirSuperTypeScope(session, listOf(mappedKotlinScope)), declaredMemberScope) {
+) : JavaClassUseSiteMemberScope(klass, session, FirSuperTypeScope(session, listOf(mappedKotlinScope)), declaredMemberScope) {
 
     override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> ProcessorAction): ProcessorAction {
         val whiteListSignatures = whiteListSignaturesByName[name]

@@ -22,7 +22,7 @@ import org.jetbrains.kotlin.fir.java.declarations.FirJavaField
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaMethod
 import org.jetbrains.kotlin.fir.java.scopes.JavaClassEnhancementScope
 import org.jetbrains.kotlin.fir.java.scopes.JavaClassMappedScope
-import org.jetbrains.kotlin.fir.java.scopes.JavaClassUseSiteScope
+import org.jetbrains.kotlin.fir.java.scopes.JavaClassUseSiteMemberScope
 import org.jetbrains.kotlin.fir.java.types.FirJavaSuperTypeRef
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.scopes.FirScope
@@ -83,7 +83,7 @@ class JavaSymbolProvider(
         visitedSymbols: MutableSet<FirClassLikeSymbol<*>>
     ): JavaClassEnhancementScope {
         return scopeSession.getOrBuild(symbol, JAVA_ENHANCEMENT) {
-            JavaClassEnhancementScope(useSiteSession, buildJavaUseSiteScope(symbol.fir, useSiteSession, scopeSession, visitedSymbols))
+            JavaClassEnhancementScope(useSiteSession, buildJavaUseSiteMemberScope(symbol.fir, useSiteSession, scopeSession, visitedSymbols))
         }
     }
 
@@ -103,12 +103,12 @@ class JavaSymbolProvider(
         }
     }
 
-    private fun buildJavaUseSiteScope(
+    private fun buildJavaUseSiteMemberScope(
         regularClass: FirRegularClass,
         useSiteSession: FirSession,
         scopeSession: ScopeSession,
         visitedSymbols: MutableSet<FirClassLikeSymbol<*>>
-    ): JavaClassUseSiteScope {
+    ): JavaClassUseSiteMemberScope {
         return scopeSession.getOrBuild(regularClass.symbol, JAVA_USE_SITE) {
             val declaredScope = declaredMemberScope(regularClass)
             val superTypeEnhancementScopes = when (regularClass) {
@@ -130,13 +130,13 @@ class JavaSymbolProvider(
                                     val unmappedClass = unmappedSymbol.fir
                                     val preparedSignatures = JavaClassMappedScope.prepareSignatures(unmappedClass)
                                     if (preparedSignatures.isNotEmpty()) {
-                                        val useSiteScope = JavaClassMappedScope(
+                                        val useSiteMemberScope = JavaClassMappedScope(
                                             unmappedClass, useSiteSession,
                                             mappedTypeScope,
                                             declaredMemberScope(unmappedClass),
                                             preparedSignatures
                                         )
-                                        return@mapNotNull JavaClassEnhancementScope(session, useSiteScope)
+                                        return@mapNotNull JavaClassEnhancementScope(session, useSiteMemberScope)
                                     }
                                 }
                             }
@@ -150,7 +150,7 @@ class JavaSymbolProvider(
                         useSiteSuperConeType.toJavaScope(useSiteSession, scopeSession, visitedSymbols)
                     }
             }
-            JavaClassUseSiteScope(
+            JavaClassUseSiteMemberScope(
                 regularClass, useSiteSession,
                 FirSuperTypeScope(useSiteSession, superTypeEnhancementScopes), declaredScope
             )
@@ -354,4 +354,4 @@ fun FqName.topLevelName() =
 
 
 private val JAVA_ENHANCEMENT = scopeSessionKey<JavaClassEnhancementScope>()
-private val JAVA_USE_SITE = scopeSessionKey<JavaClassUseSiteScope>()
+private val JAVA_USE_SITE = scopeSessionKey<JavaClassUseSiteMemberScope>()

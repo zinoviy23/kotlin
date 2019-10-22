@@ -35,9 +35,9 @@ import org.jetbrains.kotlin.utils.Jsr305State
 
 class JavaClassEnhancementScope(
     private val session: FirSession,
-    private val useSiteScope: JavaClassUseSiteScope
+    private val useSiteMemberScope: JavaClassUseSiteMemberScope
 ) : FirScope() {
-    private val owner: FirRegularClass = useSiteScope.symbol.fir
+    private val owner: FirRegularClass = useSiteMemberScope.symbol.fir
 
     private val javaTypeParameterStack: JavaTypeParameterStack =
         if (owner is FirJavaClass) owner.javaTypeParameterStack else JavaTypeParameterStack.EMPTY
@@ -52,7 +52,7 @@ class JavaClassEnhancementScope(
     private val enhancements = mutableMapOf<FirCallableSymbol<*>, FirCallableSymbol<*>>()
 
     override fun processPropertiesByName(name: Name, processor: (FirCallableSymbol<*>) -> ProcessorAction): ProcessorAction {
-        useSiteScope.processPropertiesByName(name) process@{ original ->
+        useSiteMemberScope.processPropertiesByName(name) process@{ original ->
 
             val field = enhancements.getOrPut(original) { enhance(original, name) }
             processor(field)
@@ -62,7 +62,7 @@ class JavaClassEnhancementScope(
     }
 
     override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> ProcessorAction): ProcessorAction {
-        useSiteScope.processFunctionsByName(name) process@{ original ->
+        useSiteMemberScope.processFunctionsByName(name) process@{ original ->
 
             val function = enhancements.getOrPut(original) { enhance(original, name) }
             processor(function as FirFunctionSymbol<*>)
@@ -301,8 +301,8 @@ class JavaClassEnhancementScope(
 
     private fun FirCallableMemberDeclaration<*>.overriddenMembers(): List<FirCallableMemberDeclaration<*>> {
         val backMap = overrideBindCache.getOrPut(this.name) {
-            useSiteScope.bindOverrides(this.name)
-            useSiteScope
+            useSiteMemberScope.bindOverrides(this.name)
+            useSiteMemberScope
                 .overrideByBase
                 .toList()
                 .groupBy({ (_, key) -> key }, { (value) -> value })
