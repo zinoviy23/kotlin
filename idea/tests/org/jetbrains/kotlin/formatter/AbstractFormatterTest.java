@@ -17,6 +17,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.codeStyle.CodeStyleSettings;
+import com.intellij.testFramework.LightIdeaTestCase;
 import com.intellij.util.IncorrectOperationException;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -32,7 +33,7 @@ import java.util.Map;
 
 // Based on from com.intellij.psi.formatter.java.AbstractJavaFormatterTest
 @SuppressWarnings("UnusedDeclaration")
-public abstract class AbstractFormatterTest extends KotlinLightIdeaTestCase {
+public abstract class AbstractFormatterTest extends LightIdeaTestCase {
 
     protected enum Action {REFORMAT, INDENT}
 
@@ -40,20 +41,12 @@ public abstract class AbstractFormatterTest extends KotlinLightIdeaTestCase {
         void run(PsiFile psiFile, int startOffset, int endOffset);
     }
 
-    private static final Map<Action, TestFormatAction> ACTIONS = new EnumMap<Action, TestFormatAction>(Action.class);
+    private static final Map<Action, TestFormatAction> ACTIONS = new EnumMap<>(Action.class);
     static {
-        ACTIONS.put(Action.REFORMAT, new TestFormatAction() {
-            @Override
-            public void run(PsiFile psiFile, int startOffset, int endOffset) {
-                CodeStyleManager.getInstance(getProject()).reformatText(psiFile, startOffset, endOffset);
-            }
-        });
-        ACTIONS.put(Action.INDENT, new TestFormatAction() {
-            @Override
-            public void run(PsiFile psiFile, int startOffset, int endOffset) {
-                CodeStyleManager.getInstance(getProject()).adjustLineIndent(psiFile, startOffset);
-            }
-        });
+        ACTIONS.put(Action.REFORMAT,
+                    (psiFile, startOffset, endOffset) -> CodeStyleManager.getInstance(psiFile.getProject()).reformatText(psiFile, startOffset, endOffset));
+        ACTIONS.put(Action.INDENT,
+                    (psiFile, startOffset, endOffset) -> CodeStyleManager.getInstance(psiFile.getProject()).adjustLineIndent(psiFile, startOffset));
     }
 
     private static final String BASE_PATH =

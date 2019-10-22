@@ -4,21 +4,20 @@
  */
 package org.jetbrains.kotlin.idea.debugger.test.sequence
 
+import com.intellij.debugger.streams.test.StreamChainBuilderTestCase
 import com.intellij.debugger.streams.wrapper.StreamChain
 import com.intellij.debugger.streams.wrapper.StreamChainBuilder
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.impl.libraries.ProjectLibraryTable
-import com.intellij.testFramework.LightPlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
 import junit.framework.TestCase
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.idea.caches.project.LibraryModificationTracker
 import org.jetbrains.kotlin.idea.debugger.test.DEBUGGER_TESTDATA_PATH_BASE
-import org.jetbrains.kotlin.idea.debugger.test.sequence.compat.KotlinStreamChainBuilderTestCase
 import org.jetbrains.kotlin.idea.test.PluginTestCaseBase
 
-abstract class KotlinPsiChainBuilderTestCase(private val relativePath: String) : KotlinStreamChainBuilderTestCase() {
+abstract class KotlinPsiChainBuilderTestCase(private val relativePath: String) : StreamChainBuilderTestCase() {
     override fun getTestDataPath(): String = "$DEBUGGER_TESTDATA_PATH_BASE/sequence/psi/$relativeTestPath"
 
     override fun getFileExtension(): String = ".kt"
@@ -34,18 +33,18 @@ abstract class KotlinPsiChainBuilderTestCase(private val relativePath: String) :
         super.setUp()
         ApplicationManager.getApplication().runWriteAction {
             @Suppress("UnstableApiUsage")
-            if (ProjectLibraryTable.getInstance(LightPlatformTestCase.getProject()).getLibraryByName(stdLibName) == null) {
+            if (ProjectLibraryTable.getInstance(project).getLibraryByName(stdLibName) == null) {
                 val stdLibPath = ForTestCompileRuntime.runtimeJarForTests()
                 PsiTestUtil.addLibrary(
                     testRootDisposable,
-                    LightPlatformTestCase.getModule(),
+                    module,
                     stdLibName,
                     stdLibPath.parent,
                     stdLibPath.name
                 )
             }
         }
-        LibraryModificationTracker.getInstance(LightPlatformTestCase.getProject()).incModificationCount()
+        LibraryModificationTracker.getInstance(project).incModificationCount()
     }
 
 
