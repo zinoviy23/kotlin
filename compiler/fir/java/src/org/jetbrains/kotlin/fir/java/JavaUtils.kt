@@ -348,6 +348,7 @@ internal fun FirFunction<*>.computeJvmDescriptor(): String = buildString {
     }
 }
 
+// TODO: primitive types, arrays, etc.
 private fun StringBuilder.appendErasedType(typeRef: FirTypeRef) {
     when (typeRef) {
         is FirResolvedTypeRef -> appendConeType(typeRef.type)
