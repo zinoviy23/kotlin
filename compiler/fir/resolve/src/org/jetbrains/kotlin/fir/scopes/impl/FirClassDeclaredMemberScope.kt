@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.FirSessionComponent
 import org.jetbrains.kotlin.fir.declarations.FirCallableMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.resolve.firSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.memberScopeProvider
 import org.jetbrains.kotlin.fir.scopes.FirPosition
 import org.jetbrains.kotlin.fir.scopes.FirScope
@@ -60,8 +61,9 @@ fun nestedClassifierScope(klass: FirRegularClass): FirNestedClassifierScope {
         .nestedClassifierScope(klass)
 }
 
-fun nestedClassifierScope(classId: ClassId, session: FirSession): FirLazyNestedClassifierScope {
-    return FirLazyNestedClassifierScope(classId, session)
+fun nestedClassifierScope(classId: ClassId, session: FirSession): FirNestedClassifierScope? {
+    val classSymbol = session.firSymbolProvider.getClassLikeSymbolByFqName(classId) as? FirClassSymbol ?: return null
+    return nestedClassifierScope(classSymbol.fir)
 }
 
 fun selfImportingScope(fqName: FqName, session: FirSession): FirSelfImportingScope {
