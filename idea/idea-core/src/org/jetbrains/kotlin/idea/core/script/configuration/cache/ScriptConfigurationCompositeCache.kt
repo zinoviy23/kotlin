@@ -7,9 +7,9 @@ package org.jetbrains.kotlin.idea.core.script.configuration.cache
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.kotlin.idea.core.script.configuration.AbstractScriptConfigurationManager
 import org.jetbrains.kotlin.idea.core.script.debug
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
-import org.jetbrains.kotlin.idea.core.script.configuration.AbstractScriptConfigurationManager
 
 /**
  * Configuration may be loaded from [memoryCache] or from [fileAttributeCache], on [memoryCache] miss.
@@ -18,18 +18,14 @@ import org.jetbrains.kotlin.idea.core.script.configuration.AbstractScriptConfigu
  * [all] will return only [memoryCache]-ed configuration, so each loading from [fileAttributeCache]
  * should call [AbstractScriptConfigurationManager.clearClassRootsCaches]. This should be done in the [afterLoadFromFs]
  */
-abstract class ScriptConfigurationCompositeCache(val project: Project):
+abstract class ScriptConfigurationCompositeCache(val project: Project) :
     ScriptConfigurationCache {
     companion object {
         const val MAX_SCRIPTS_CACHED = 50
     }
 
-    private val memoryCache =
-        BlockingSLRUMap<VirtualFile, CachedConfiguration>(
-            MAX_SCRIPTS_CACHED
-        )
-    private val fileAttributeCache =
-        ScriptConfigurationFileAttributeCache(project)
+    private val memoryCache = BlockingSLRUMap<VirtualFile, CachedConfiguration>(MAX_SCRIPTS_CACHED)
+    private val fileAttributeCache = ScriptConfigurationFileAttributeCache(project)
 
     override operator fun get(file: VirtualFile): CachedConfiguration? {
         val fromMemory = memoryCache.get(file)

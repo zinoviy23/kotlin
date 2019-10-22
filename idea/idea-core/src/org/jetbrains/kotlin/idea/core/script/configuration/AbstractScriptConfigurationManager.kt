@@ -37,8 +37,8 @@ import kotlin.script.experimental.api.valueOrNull
 
 /**
  * Abstract [ScriptConfigurationManager] implementation based on [cache] and [reloadConfigurationInTransaction].
- * Among this two methods concrete implementation should implement script changes listening
- * (by calling [ensureUpToDate] and [forceReload] when it is required).
+ * Among this two methods concrete implementation should provide script changes listening
+ * (by calling [ensureUpToDate] and [forceReload] on some event).
  *
  * Basically all requests routed to [cache]. If there is no entry in [cache] or it is considered out-of-date,
  * then [reloadConfigurationInTransaction] will be called, which, in turn, should call [saveChangedConfiguration]

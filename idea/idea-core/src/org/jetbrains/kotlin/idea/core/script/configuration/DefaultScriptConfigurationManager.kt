@@ -25,6 +25,9 @@ import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition
 import org.jetbrains.kotlin.scripting.definitions.findScriptDefinition
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
 import org.jetbrains.kotlin.scripting.resolve.ScriptReportSink
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.script.experimental.api.ScriptDiagnostic
 import kotlin.script.experimental.api.valueOrNull
 
@@ -48,7 +51,7 @@ import kotlin.script.experimental.api.valueOrNull
  *  - after each typing [ensureUpToDate] will be called
  *
  * Also, [ensureUpToDate] may be called from [UnusedSymbolInspection] to ensure that configuration of all scripts
- * containing some symbol are loaded.
+ * containing some symbol are up-to-date. Note: it makes sence only in case of "auto apply" mode and sync loader.
  *
  * ## Loading
  *
@@ -89,6 +92,11 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
     private val backgroundExecutor = BackgroundExecutor(project, rootsIndexer)
     private val listener = ScriptsListener(project, this)
 
+    data class Input(val file: VirtualFile, val modificationStamp: Int)
+
+    private val loading = ConcurrentHashMap<Input, Unit>()
+    private val saveLock = ReentrantLock()
+
     override fun createCache(): ScriptConfigurationCache {
         return object : ScriptConfigurationCompositeCache(project) {
             override fun afterLoadFromFs() {
@@ -105,6 +113,12 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
      *
      * ## Concurrency
      *
+     * todo: for now, it will make duplicated requests for *same* input, when configuration is being
+     *       loaded or already loaded, but just not applied.
+     *       (no reason to do same expansive work, as it is already in progress or just not applied)
+     *       it may be fixed by adding some extra guard for this case (e.g. by checking readyForApply[file]).
+     *       It is not yet implemented since we have no notion of `same input`, just modification stamp that
+     *
      * Each files may be in on of the states described below:
      * - scriptDefinition is not ready. `ScriptDefinitionsManager.getInstance(project).isReady() == false`.
      * [clearConfigurationCachesAndRehighlight] will be called when [ScriptDefinitionsManager] will be ready
@@ -113,6 +127,25 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
      * - up-to-date. `cache[file]?.upToDate == true`.
      * - invalid, in queue. `cache[file]?.upToDate == false && file in backgroundExecutor`.
      * - invalid, loading. `cache[file]?.upToDate == false && file !in backgroundExecutor`.
+     * - invalid, waiting for apply. `cache[file]?.upToDate == false && file !in backgroundExecutor` and has notification panel?
+     *
+     * Async:
+     * - up-to-date:
+     *   [reloadConfigurationInTransaction] will not be called.
+     * - `unknown` and `invalid, in queue`:
+     *   Concurrent async loading will be guarded by ensureSchedule
+     *   (only one task per file will be scheduled at same time)
+     * - `invalid, loading` and `invalid, ready for apply`:
+     *   Loading should be rescheduled, since the work already started for old input.
+     *   This will work, since file will be removed backgroundExecutor.
+     *   todo: btw, we should not start work for same input
+     *
+     * Sync:
+     * - up-to-date:
+     *   [reloadConfigurationInTransaction] will not be called.
+     * - all other states, i.e: `unknown`, `invalid, in queue`, `invalid, loading` and `invalid, ready for apply`:
+     *   everything will be computed just in place, possible concurrently.
+     *   [saveConfiguration] calls will be serialized by the [saveLock]
      */
     override fun reloadConfigurationInTransaction(
         file: KtFile,
@@ -171,39 +204,41 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
         newResult: ScriptCompilationConfigurationResult,
         skipNotification: Boolean
     ) {
-        debug(file) { "configuration received = $newResult" }
+        saveLock.withLock {
+            debug(file) { "configuration received = $newResult" }
 
-        saveReports(file, newResult.reports)
+            saveReports(file, newResult.reports)
 
-        val newConfiguration = newResult.valueOrNull()
-        if (newConfiguration != null) {
-            val oldConfiguration = getCachedConfiguration(file)
-            if (oldConfiguration == newConfiguration) {
-                file.removeScriptDependenciesNotificationPanel(project)
-            } else {
-                val autoReload = skipNotification
-                        || oldConfiguration == null
-                        || KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
-                        || ApplicationManager.getApplication().isUnitTestMode
-
-                if (autoReload) {
-                    if (oldConfiguration != null) {
-                        file.removeScriptDependenciesNotificationPanel(project)
-                    }
-                    saveChangedConfiguration(file, newConfiguration)
+            val newConfiguration = newResult.valueOrNull()
+            if (newConfiguration != null) {
+                val oldConfiguration = getCachedConfiguration(file)
+                if (oldConfiguration == newConfiguration) {
+                    file.removeScriptDependenciesNotificationPanel(project)
                 } else {
-                    debug(file) {
-                        "configuration changed, notification is shown: old = $oldConfiguration, new = $newConfiguration"
-                    }
-                    file.addScriptDependenciesNotificationPanel(
-                        newConfiguration, project,
-                        onClick = {
+                    val autoReload = skipNotification
+                            || oldConfiguration == null
+                            || KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
+                            || ApplicationManager.getApplication().isUnitTestMode
+
+                    if (autoReload) {
+                        if (oldConfiguration != null) {
                             file.removeScriptDependenciesNotificationPanel(project)
-                            rootsIndexer.transaction {
-                                saveChangedConfiguration(file, it)
-                            }
                         }
-                    )
+                        saveChangedConfiguration(file, newConfiguration)
+                    } else {
+                        debug(file) {
+                            "configuration changed, notification is shown: old = $oldConfiguration, new = $newConfiguration"
+                        }
+                        file.addScriptDependenciesNotificationPanel(
+                            newConfiguration, project,
+                            onClick = {
+                                file.removeScriptDependenciesNotificationPanel(project)
+                                rootsIndexer.transaction {
+                                    saveChangedConfiguration(file, it)
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
