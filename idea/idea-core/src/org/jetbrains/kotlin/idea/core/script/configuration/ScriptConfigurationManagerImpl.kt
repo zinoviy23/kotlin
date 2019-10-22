@@ -27,9 +27,10 @@ import org.jetbrains.kotlin.scripting.resolve.ScriptReportSink
 import kotlin.script.experimental.api.ScriptDiagnostic
 import kotlin.script.experimental.api.valueOrNull
 
-internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScriptConfigurationManager(project) {
-    override val cache = ScriptCompositeCache(project)
-
+internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScriptConfigurationManager(
+    project,
+    ScriptCompositeCache(project)
+) {
     private val loader = FromRefinedConfigurationLoader()
 
     private val backgroundExecutor = BackgroundExecutor(project, rootsManager)
@@ -38,7 +39,8 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
     override fun reloadConfigurationInTransaction(
         file: KtFile,
         isFirstLoad: Boolean,
-        loadEvenWillNotBeApplied: Boolean
+        loadEvenWillNotBeApplied: Boolean,
+        /* Test only */ forceSync: Boolean
     ): ScriptCompilationConfigurationResult? {
         val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
         val shouldLoad = isFirstLoad || loadEvenWillNotBeApplied || autoReloadEnabled
@@ -50,7 +52,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
         val scriptDefinition = file.findScriptDefinition() ?: return null
 
-        return if (loader.isAsync(scriptDefinition)) {
+        return if (loader.isAsync(scriptDefinition) && !forceSync) {
             backgroundExecutor.ensureScheduled(virtualFile) {
                 doReloadConfiguration(virtualFile, file, scriptDefinition)
             }
@@ -63,7 +65,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         file: KtFile,
         scriptDefinition: ScriptDefinition
     ) = loader.loadDependencies(file, scriptDefinition)
-        ?.also { saveConfiguration(virtualFile, it) }
+        ?.also { saveConfiguration(virtualFile, it, false) }
 
     /**
      * Save configurations into cache.
@@ -73,7 +75,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
     override fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>) {
         rootsManager.transaction {
             for ((file, result) in files) {
-                saveConfiguration(file, result)
+                saveConfiguration(file, result, skipNotification = true)
             }
         }
     }
@@ -88,7 +90,8 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
      */
     private fun saveConfiguration(
         file: VirtualFile,
-        newResult: ScriptCompilationConfigurationResult
+        newResult: ScriptCompilationConfigurationResult,
+        skipNotification: Boolean
     ) {
         debug(file) { "configuration received = $newResult" }
 
@@ -100,7 +103,8 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
             if (oldConfiguration == newConfiguration) {
                 file.removeScriptDependenciesNotificationPanel(project)
             } else {
-                val autoReload = oldConfiguration == null
+                val autoReload = skipNotification
+                        || oldConfiguration == null
                         || KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
                         || ApplicationManager.getApplication().isUnitTestMode
 
@@ -127,26 +131,6 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
         }
     }
 
-    private fun saveChangedConfiguration(
-        file: VirtualFile,
-        newConfiguration: ScriptCompilationConfigurationWrapper?
-    ) {
-        rootsManager.checkInTransaction()
-        debug(file) { "configuration changed = $newConfiguration" }
-
-        if (newConfiguration != null) {
-            if (hasNotCachedRoots(newConfiguration)) {
-                rootsManager.markNewRoot(file, newConfiguration)
-            }
-
-            this.cache[file] = newConfiguration
-
-            clearClassRootsCaches()
-        }
-
-        updateHighlighting(listOf(file))
-    }
-
     private fun saveReports(
         file: VirtualFile,
         newReports: List<ScriptDiagnostic>
@@ -161,23 +145,6 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
                 if (project.isDisposed) return@launch
 
                 EditorNotifications.getInstance(project).updateAllNotifications()
-            }
-        }
-    }
-
-    @TestOnly
-    fun updateScriptDependenciesSynchronously(file: PsiFile) {
-        val scriptDefinition = file.findScriptDefinition() ?: return
-        assert(file is KtFile) {
-            "PsiFile should be a KtFile, otherwise script dependencies cannot be loaded"
-        }
-
-        if (cache[file.virtualFile]?.isUpToDate == true) return
-
-        rootsManager.transaction {
-            val result = loader.loadDependencies(file as KtFile, scriptDefinition)
-            if (result != null) {
-                saveConfiguration(file.originalFile.virtualFile, result)
             }
         }
     }

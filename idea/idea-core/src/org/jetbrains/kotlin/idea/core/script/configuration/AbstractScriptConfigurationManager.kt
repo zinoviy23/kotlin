@@ -16,12 +16,14 @@ import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElementFinder
+import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.NonClasspathDirectoriesScope
 import com.intellij.util.containers.ConcurrentFactoryMap
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
 import org.jetbrains.kotlin.idea.core.script.*
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager.Companion.toVfsRoots
@@ -30,6 +32,7 @@ import org.jetbrains.kotlin.idea.core.util.EDT
 import org.jetbrains.kotlin.idea.highlighter.OutsidersPsiFileSupportUtils
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.scripting.definitions.findScriptDefinition
 import org.jetbrains.kotlin.scripting.definitions.isNonScript
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
@@ -41,10 +44,31 @@ import kotlin.reflect.KProperty0
 import kotlin.reflect.jvm.isAccessible
 import kotlin.script.experimental.api.valueOrNull
 
-internal abstract class AbstractScriptConfigurationManager(protected val project: Project) : ScriptConfigurationManager {
-    protected abstract val cache: ScriptConfigurationCache
-
+/**
+ * Abstract [ScriptConfigurationManager] implementation based on [cache] and [reloadConfigurationInTransaction].
+ *
+ * Basically all requests routed to [cache]. If there is no entry in [cache], then [reloadConfigurationInTransaction]
+ * will be called. see [reloadConfigurationInTransaction] for more details.
+ *
+ * Some additional info calculated based on [cache]. This information additionally
+ * On top of [cache]-ed configuration some additional info calculated
+ * Based on [cache] entries, there
+ */
+internal abstract class AbstractScriptConfigurationManager(
+    protected val project: Project,
+    private val cache: ScriptConfigurationCache
+) : ScriptConfigurationManager {
     protected val rootsManager = ScriptClassRootsManager(project)
+
+    /**
+     * [saveChangedConfiguration] should be called to update
+     */
+    protected abstract fun reloadConfigurationInTransaction(
+        file: KtFile,
+        isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null,
+        loadEvenWillNotBeApplied: Boolean = true,
+        /* Test only */ forceSync: Boolean = false
+    ): ScriptCompilationConfigurationResult?
 
     @Deprecated("Use getScriptClasspath(KtFile) instead")
     override fun getScriptClasspath(file: VirtualFile): List<VirtualFile> {
@@ -89,19 +113,21 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
     override fun ensureUpToDate(files: List<KtFile>, loadEvenWillNotBeApplied: Boolean): Boolean {
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return false
 
+        var upToDate = true
         rootsManager.transaction {
             files.forEach { file ->
                 val virtualFile = file.originalFile.virtualFile
                 if (virtualFile != null) {
                     val state = cache[virtualFile]
                     if (state == null || !state.isUpToDate) {
+                        upToDate = false
                         reloadConfigurationInTransaction(file, state == null, loadEvenWillNotBeApplied)
                     }
                 }
             }
         }
 
-        return false
+        return upToDate
     }
 
     internal fun forceReload(file: KtFile) {
@@ -109,12 +135,49 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
             reloadConfigurationInTransaction(file)
         }
     }
-    
-    protected abstract fun reloadConfigurationInTransaction(
-        file: KtFile,
-        isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null,
-        loadEvenWillNotBeApplied: Boolean = true
-    ): ScriptCompilationConfigurationResult?
+
+    @TestOnly
+    internal fun updateScriptDependenciesSynchronously(file: PsiFile) {
+        file.findScriptDefinition() ?: return
+
+        assert(file is KtFile) {
+            "PsiFile should be a KtFile, otherwise script dependencies cannot be loaded"
+        }
+
+        if (cache[file.virtualFile]?.isUpToDate == true) return
+
+        rootsManager.transaction {
+            reloadConfigurationInTransaction(file as KtFile, isFirstLoad = true, loadEvenWillNotBeApplied = true, forceSync = true)
+        }
+    }
+
+    protected fun saveChangedConfiguration(
+        file: VirtualFile,
+        newConfiguration: ScriptCompilationConfigurationWrapper?
+    ) {
+        rootsManager.checkInTransaction()
+        debug(file) { "configuration changed = $newConfiguration" }
+
+        if (newConfiguration != null) {
+            if (hasNotCachedRoots(newConfiguration)) {
+                rootsManager.markNewRoot(file, newConfiguration)
+            }
+
+            this.cache[file] = newConfiguration
+
+            clearClassRootsCaches()
+        }
+
+        updateHighlighting(listOf(file))
+    }
+
+    override fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>) {
+        rootsManager.transaction {
+            for ((file, result) in files) {
+                saveChangedConfiguration(file, result.valueOrNull())
+            }
+        }
+    }
 
     /**
      * Clear configuration caches
@@ -133,7 +196,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
         updateHighlighting(openedScripts)
     }
 
-    protected fun updateHighlighting(files: List<VirtualFile>) {
+    private fun updateHighlighting(files: List<VirtualFile>) {
         if (files.isEmpty()) return
 
         GlobalScope.launch(EDT(project)) {
@@ -165,7 +228,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
 
     ///////////////////
 
-    fun clearClassRootsCaches() {
+    private fun clearClassRootsCaches() {
         debug { "class roots caches cleared" }
 
         this::allSdks.clearValue()
@@ -221,7 +284,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
             return true
         }
 
-        val newClassRoots = ScriptConfigurationManager.toVfsRoots(
+        val newClassRoots = toVfsRoots(
             compilationConfiguration.dependenciesClassPath
         )
         for (newClassRoot in newClassRoots) {
@@ -231,7 +294,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
             }
         }
 
-        val newSourceRoots = ScriptConfigurationManager.toVfsRoots(
+        val newSourceRoots = toVfsRoots(
             compilationConfiguration.dependenciesSources
         )
         for (newSourceRoot in newSourceRoots) {
@@ -275,7 +338,7 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
         val scriptDependenciesClasspath = cache.all()
             .flatMap { it.result.dependenciesClassPath }.distinct()
 
-        sdkFiles + ScriptConfigurationManager.toVfsRoots(
+        sdkFiles + toVfsRoots(
             scriptDependenciesClasspath
         )
     }
@@ -286,14 +349,12 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
 
         val scriptDependenciesSources = cache.all()
             .flatMap { it.result.dependenciesSources }.distinct()
-        sdkSources + ScriptConfigurationManager.toVfsRoots(
+        sdkSources + toVfsRoots(
             scriptDependenciesSources
         )
     }
 
-    val allDependenciesClassFilesScope by ClearableLazyValue(
-        cacheLock
-    ) {
+    val allDependenciesClassFilesScope by ClearableLazyValue(cacheLock) {
         NonClasspathDirectoriesScope.compose(allDependenciesClassFiles)
     }
 
@@ -320,14 +381,14 @@ internal abstract class AbstractScriptConfigurationManager(protected val project
             @Suppress("FoldInitializerAndIfToElvis")
             if (sdk == null) {
                 return@createWeakMap NonClasspathDirectoriesScope.compose(
-                    ScriptConfigurationManager.toVfsRoots(
+                    toVfsRoots(
                         roots
                     )
                 )
             }
 
             return@createWeakMap NonClasspathDirectoriesScope.compose(
-                sdk.rootProvider.getFiles(OrderRootType.CLASSES).toList() + ScriptConfigurationManager.toVfsRoots(
+                sdk.rootProvider.getFiles(OrderRootType.CLASSES).toList() + toVfsRoots(
                     roots
                 )
             )

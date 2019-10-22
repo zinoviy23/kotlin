@@ -136,7 +136,7 @@ class UnusedSymbolInspection : AbstractKotlinInspection() {
 
             val usedScripts = findScriptsWithUsages(declaration)
             if (usedScripts.isNotEmpty()) {
-                if (ScriptConfigurationManager.getInstance(declaration.project).ensureUpToDate(usedScripts, false)) {
+                if (!ScriptConfigurationManager.getInstance(declaration.project).ensureUpToDate(usedScripts, false)) {
                     return TOO_MANY_OCCURRENCES
                 }
             }

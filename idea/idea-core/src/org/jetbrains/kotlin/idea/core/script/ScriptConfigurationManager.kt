@@ -28,6 +28,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.io.URLUtil
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
+import org.jetbrains.kotlin.idea.core.script.configuration.AbstractScriptConfigurationManager
 import org.jetbrains.kotlin.idea.core.script.configuration.ScriptConfigurationManagerImpl
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.definitions.ScriptDependenciesProvider
@@ -79,11 +80,11 @@ interface ScriptConfigurationManager {
     fun isConfigurationCached(file: KtFile): Boolean
 
     /**
-     * Start configuration update for [files] if configuration isn't up to date and not started already.
+     * Start configuration update for [files] if configuration isn't up-to-date and not started already.
      * Start indexing for new class/source roots.
      *
      * @param loadEvenWillNotBeApplied start loading even if the result will be not applied automatically
-     * @return true if update was started for any file, false if all configurations are cached
+     * @return true if all files is already up-to-date
      */
     fun ensureUpToDate(files: List<KtFile>, loadEvenWillNotBeApplied: Boolean): Boolean
 
@@ -153,7 +154,7 @@ interface ScriptConfigurationManager {
 
         @TestOnly
         fun updateScriptDependenciesSynchronously(file: PsiFile, project: Project) {
-            (getInstance(project) as ScriptConfigurationManagerImpl).updateScriptDependenciesSynchronously(file)
+            (getInstance(project) as AbstractScriptConfigurationManager).updateScriptDependenciesSynchronously(file)
         }
     }
 }
