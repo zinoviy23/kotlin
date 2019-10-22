@@ -29,7 +29,6 @@ import com.intellij.util.io.URLUtil
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.idea.caches.project.getAllProjectSdks
 import org.jetbrains.kotlin.idea.core.script.configuration.AbstractScriptConfigurationManager
-import org.jetbrains.kotlin.idea.core.script.configuration.ScriptConfigurationManagerImpl
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.definitions.ScriptDependenciesProvider
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
@@ -59,29 +58,35 @@ class IdeScriptDependenciesProvider(project: Project) : ScriptDependenciesProvid
 /**
  * Facade for loading and caching Kotlin script files configuration.
  *
- * Loaded configuration will be cached in [memoryCache] and [fileAttributesCache].
  * This service also starts indexing of new dependency roots and runs highlighting
- * of opened files.
+ * of opened files when configuration will be loaded or updated.
  */
 interface ScriptConfigurationManager {
+    /**
+     * Get cached configuration for [file] or load it.
+     * May return null even configuration was loaded but was not yet applied.
+     */
     fun getConfiguration(file: KtFile): ScriptCompilationConfigurationWrapper?
 
     @Deprecated("Use getScriptClasspath(KtFile) instead")
     fun getScriptClasspath(file: VirtualFile): List<VirtualFile>
 
+    /**
+     * @see [getConfiguration]
+     */
     fun getScriptClasspath(file: KtFile): List<VirtualFile>
 
     /**
      * Check if configuration is already cached for [file] (in cache or FileAttributes).
-     * Don't check if file was changed after the last update.
-     * Supposed to be used to switch highlighting off for scripts without configuration.
+     * The result may be true, even cached configuration is considered out-of-date.
+     *
+     * Supposed to be used to switch highlighting off for scripts without configuration
      * to avoid all file being highlighted in red.
      */
-    fun isConfigurationCached(file: KtFile): Boolean
+    fun hasConfiguration(file: KtFile): Boolean
 
     /**
-     * Start configuration update for [files] if configuration isn't up-to-date and not started already.
-     * Start indexing for new class/source roots.
+     * Start configuration update for [files] it isn't already up-to-date and not started already.
      *
      * @param loadEvenWillNotBeApplied start loading even if the result will be not applied automatically
      * @return true if all files is already up-to-date
@@ -89,8 +94,7 @@ interface ScriptConfigurationManager {
     fun ensureUpToDate(files: List<KtFile>, loadEvenWillNotBeApplied: Boolean): Boolean
 
     /**
-     * Clear configuration caches
-     * Start re-highlighting for opened scripts
+     * Clear all caches and re-highlighting opened scripts
      */
     fun clearConfigurationCachesAndRehighlight()
 
@@ -101,7 +105,8 @@ interface ScriptConfigurationManager {
      */
     fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>)
 
-///////////////
+    ///////////////
+    // classpath roots info:
 
     fun getScriptSdk(file: VirtualFile): Sdk?
     fun getFirstScriptsSdk(): Sdk?

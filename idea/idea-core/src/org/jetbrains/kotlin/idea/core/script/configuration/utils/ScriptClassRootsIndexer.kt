@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.core.script.configuration
+package org.jetbrains.kotlin.idea.core.script.configuration.utils
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.TransactionGuard
@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Utility for postponing indexing of new roots to the end of some bulk operation.
  */
-internal class ScriptClassRootsManager(val project: Project) {
+internal class ScriptClassRootsIndexer(val project: Project) {
     private var newRootsPresent: Boolean = false
     private val concurrentTransactions = AtomicInteger()
 
@@ -69,8 +69,7 @@ internal class ScriptClassRootsManager(val project: Project) {
                 debug { "roots change event" }
 
                 ProjectRootManagerEx.getInstanceEx(project)?.makeRootsChange(EmptyRunnable.getInstance(), false, true)
-                ScriptDependenciesModificationTracker.getInstance(project)
-                    .incModificationCount()
+                ScriptDependenciesModificationTracker.getInstance(project).incModificationCount()
             }
         }
 

@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.core.script.configuration
+package org.jetbrains.kotlin.idea.core.script.configuration.utils
 
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
@@ -16,8 +16,11 @@ import org.jetbrains.kotlin.idea.core.script.debug
 import java.util.*
 
 /**
- * Sequentially loads script dependencies in background requested by [ensureScheduled].
- * Progress indicator will be shown
+ * Sequentially loads script configuration in background.
+ * Loading tasks scheduled by calling [ensureScheduled].
+ *
+ * Progress indicator will be shown after [PROGRESS_INDICATOR_DELAY] ms or if
+ * more then [PROGRESS_INDICATOR_MIN_QUEUE] tasks scheduled.
  *
  * States:
  *                                 silentWorker     underProgressWorker
@@ -28,8 +31,13 @@ import java.util.*
  */
 internal class BackgroundExecutor(
     val project: Project,
-    val rootsManager: ScriptClassRootsManager
+    val rootsManager: ScriptClassRootsIndexer
 ) {
+    companion object {
+        const val PROGRESS_INDICATOR_DELAY = 1000
+        const val PROGRESS_INDICATOR_MIN_QUEUE = 3
+    }
+
     private val work = Any()
     private val queue: Queue<LoadTask> = HashSetQueue()
 
@@ -64,8 +72,8 @@ internal class BackgroundExecutor(
 
             updateProgress()
 
-            // If the queue is longer than 3, show progress and cancel button
-            if (queue.size > 3) {
+            // If the queue is longer than PROGRESS_INDICATOR_MIN_QUEUE, show progress and cancel button
+            if (queue.size > PROGRESS_INDICATOR_MIN_QUEUE) {
                 requireUnderProgressWorker()
             } else {
                 requireSilentWorker()
@@ -77,7 +85,7 @@ internal class BackgroundExecutor(
                             longRunningAlaramRequested = false
                             requireUnderProgressWorker()
                         },
-                        1000
+                        PROGRESS_INDICATOR_DELAY
                     )
                 }
             }

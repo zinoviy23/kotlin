@@ -9,55 +9,129 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiFile
 import com.intellij.ui.EditorNotifications
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.idea.core.script.*
-import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptCompositeCache
+import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCompositeCache
+import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCache
+import org.jetbrains.kotlin.idea.core.script.configuration.utils.BackgroundExecutor
+import org.jetbrains.kotlin.idea.core.script.configuration.utils.ScriptConfigurationLoader
+import org.jetbrains.kotlin.idea.core.script.configuration.utils.ScriptsListener
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.EDT
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition
 import org.jetbrains.kotlin.scripting.definitions.findScriptDefinition
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult
-import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import org.jetbrains.kotlin.scripting.resolve.ScriptReportSink
 import kotlin.script.experimental.api.ScriptDiagnostic
 import kotlin.script.experimental.api.valueOrNull
 
-internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScriptConfigurationManager(
-    project,
-    ScriptCompositeCache(project)
-) {
-    private val loader = FromRefinedConfigurationLoader()
+/**
+ * Standard implementation of scripts configuration loading and caching
+ * (we have plans for separate implementation for Gradle scripts).
+ *
+ * ## Loading initiation
+ *
+ * [getConfiguration] will be called when we need to show or analyze some script file.
+ *
+ * As described in [AbstractScriptConfigurationManager], configuration may be loaded from [cache]
+ * or [reloadConfigurationInTransaction] will be called on [cache] miss.
+ *
+ * There are 2 tiers [ScriptConfigurationCompositeCache] [cache]: memory and FS.
+ * Please see [ScriptConfigurationCompositeCache] for more details.
+ *
+ * [listener] will initiate scripts configuration reloading:
+ *  - configuration will be reloaded after editor activation, even it is already up-to-date
+ *    this is required for Gradle scripts, since it's classpath may depend on other files (`.properties` for example)
+ *  - after each typing [ensureUpToDate] will be called
+ *
+ * Also, [ensureUpToDate] may be called from [UnusedSymbolInspection] to ensure that configuration of all scripts
+ * containing some symbol are loaded.
+ *
+ * ## Loading
+ *
+ * When requested, configuration will be loaded using [loader]. [loader] may work synchronously or asynchronously.
+ *
+ * Synchronous [loader] will be called just immediately. Despite this, its result may not be applied immediately,
+ * see next section for details.
+ *
+ * Asynchronous [loader] will be called in background thread (by [BackgroundExecutor]).
+ *
+ * ## Applying
+ *
+ * By default loaded configuration will *not* be applied immediately. Instead, we show in editor notification
+ * that suggests user to apply changed configuration. This was done to avoid sporadically starting indexing of new roots,
+ * which may happens regularly for large Gradle projects.
+ *
+ * Notification will be displayed when configuration is going to be updated. First configuration will be loaded
+ * without notification.
+ *
+ * This behavior may be disabled by enabling "auto reload" in project settings.
+ * When enabled, all loaded configurations will be applied immediately, without any notification.
+ *
+ * ## Concurrency
+ *
+ * Each files may be in on of this states:
+ * - unknown
+ * - up-to-date
+ * - invalid (in [BackgroundExecutor] queue)
+ * - loading
+ *
+ * [reloadConfigurationInTransaction] guard this states. See it's docs for more details.
+ */
+internal class DefaultScriptConfigurationManager(project: Project) : AbstractScriptConfigurationManager(project) {
+    private val loader = ScriptConfigurationLoader()
 
-    private val backgroundExecutor = BackgroundExecutor(project, rootsManager)
+    private val backgroundExecutor = BackgroundExecutor(project, rootsIndexer)
     private val listener = ScriptsListener(project, this)
 
+    override fun createCache(): ScriptConfigurationCache {
+        return object : ScriptConfigurationCompositeCache(project) {
+            override fun afterLoadFromFs() {
+                // each loading from fileAttributeCache should clear roots cache,
+                // since ScriptConfigurationCompositeCache.all() will return only memory cached configuration
+                // so, result of all() will be changed on each load from fileAttributeCache
+                clearClassRootsCaches()
+            }
+        }
+    }
+
+    /**
+     * Will be called on [cache] miss to initiate loading of [file]'s script configuration.
+     *
+     * ## Concurrency
+     *
+     * Each files may be in on of the states described below.
+     *
+     * ### Unknown
+     *
+     * When [isFirstLoad] true (no [cache] )
+     */
     override fun reloadConfigurationInTransaction(
         file: KtFile,
         isFirstLoad: Boolean,
         loadEvenWillNotBeApplied: Boolean,
         /* Test only */ forceSync: Boolean
-    ): ScriptCompilationConfigurationResult? {
+    ) {
         val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
         val shouldLoad = isFirstLoad || loadEvenWillNotBeApplied || autoReloadEnabled
-        if (!shouldLoad) return null
+        if (!shouldLoad) return
 
-        val virtualFile = file.originalFile.virtualFile ?: return null
+        val virtualFile = file.originalFile.virtualFile ?: return
 
         // todo: who will initiate loading of scripts configuration when definition manager will be ready?
-        if (!ScriptDefinitionsManager.getInstance(project).isReady()) return null
-        val scriptDefinition = file.findScriptDefinition() ?: return null
+        if (!ScriptDefinitionsManager.getInstance(project).isReady()) return
+        val scriptDefinition = file.findScriptDefinition() ?: return
 
-        return if (loader.isAsync(scriptDefinition) && !forceSync) {
+        if (loader.isAsync(scriptDefinition) && !forceSync) {
             backgroundExecutor.ensureScheduled(virtualFile) {
                 doReloadConfiguration(virtualFile, file, scriptDefinition)
             }
-            null
-        } else doReloadConfiguration(virtualFile, file, scriptDefinition)
+        } else {
+            doReloadConfiguration(virtualFile, file, scriptDefinition)
+        }
     }
 
     private fun doReloadConfiguration(
@@ -73,7 +147,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
      * Re-highlight opened scripts with changed configuration.
      */
     override fun saveCompilationConfigurationAfterImport(files: List<Pair<VirtualFile, ScriptCompilationConfigurationResult>>) {
-        rootsManager.transaction {
+        rootsIndexer.transaction {
             for ((file, result) in files) {
                 saveConfiguration(file, result, skipNotification = true)
             }
@@ -121,7 +195,7 @@ internal class ScriptConfigurationManagerImpl(project: Project) : AbstractScript
                         newConfiguration, project,
                         onClick = {
                             file.removeScriptDependenciesNotificationPanel(project)
-                            rootsManager.transaction {
+                            rootsIndexer.transaction {
                                 saveChangedConfiguration(file, it)
                             }
                         }
