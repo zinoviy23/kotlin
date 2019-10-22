@@ -355,7 +355,7 @@ class ExpressionCodegen(
                     }
                 }
             }
-            expression.descriptor is ConstructorDescriptor ->
+            expression.symbol.descriptor is ConstructorDescriptor ->
                 throw AssertionError("IrCall with ConstructorDescriptor: ${expression.javaClass.simpleName}")
             callee.isSuspend && !irFunction.shouldNotContainSuspendMarkers(classCodegen.context) ->
                 addInlineMarker(mv, isStartNotEnd = true)

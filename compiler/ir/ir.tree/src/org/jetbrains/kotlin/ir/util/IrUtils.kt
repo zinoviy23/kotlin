@@ -33,7 +33,7 @@ import org.jetbrains.kotlin.utils.DFS
  */
 fun IrMemberAccessExpression.getArguments(): List<Pair<ParameterDescriptor, IrExpression>> {
     val res = mutableListOf<Pair<ParameterDescriptor, IrExpression>>()
-    val descriptor = descriptor
+    val descriptor = symbol.descriptor as CallableDescriptor
 
     // TODO: ensure the order below corresponds to the one defined in Kotlin specs.
 
@@ -115,6 +115,7 @@ fun IrMemberAccessExpression.getArgumentsWithIr(): List<Pair<IrValueParameter, I
  * Sets arguments that are specified by given mapping of parameters.
  */
 fun IrMemberAccessExpression.addArguments(args: Map<ParameterDescriptor, IrExpression>) {
+    val descriptor = symbol.descriptor as CallableDescriptor
     descriptor.dispatchReceiverParameter?.let {
         val arg = args[it]
         if (arg != null) {
@@ -173,7 +174,7 @@ fun IrExpression.coerceToUnitIfNeeded(valueType: IrType, irBuiltIns: IrBuiltIns)
 }
 
 fun IrMemberAccessExpression.usesDefaultArguments(): Boolean =
-    this.descriptor.valueParameters.any { this.getValueArgument(it) == null }
+    (symbol.descriptor as CallableDescriptor).valueParameters.any { this.getValueArgument(it) == null }
 
 val DeclarationDescriptorWithSource.startOffset: Int? get() = (this.source as? PsiSourceElement)?.psi?.startOffset
 val DeclarationDescriptorWithSource.endOffset: Int? get() = (this.source as? PsiSourceElement)?.psi?.endOffset
@@ -373,7 +374,7 @@ fun IrDeclaration.isEffectivelyExternal(): Boolean {
 
     fun IrFunction.effectiveParentDeclaration(): IrDeclaration? =
         when (this) {
-            is IrSimpleFunction -> correspondingProperty ?: parent as? IrDeclaration
+            is IrSimpleFunction -> correspondingPropertySymbol?.owner ?: parent as? IrDeclaration
             else -> parent as? IrDeclaration
         }
 
