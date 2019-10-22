@@ -270,7 +270,6 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                     endOffset,
                     context.irBuiltIns.unitType,
                     enumConstructorCall.symbol,
-                    enumConstructorCall.descriptor,
                     enumConstructorCall.typeArgumentsCount
                 )
 
@@ -308,7 +307,6 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                     endOffset,
                     context.irBuiltIns.unitType,
                     loweredDelegatedConstructor.symbol,
-                    loweredDelegatedConstructor.descriptor,
                     loweredDelegatedConstructor.typeParameters.size
                 )
 
@@ -369,7 +367,6 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                     endOffset,
                     context.irBuiltIns.unitType,
                     loweredConstructor.symbol,
-                    loweredConstructor.descriptor,
                     loweredConstructor.typeParameters.size
                 )
         }
@@ -488,7 +485,6 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                         UNDEFINED_OFFSET,
                         returnType,
                         enumValueOf,
-                        substitutedValueOfDescriptor,
                         enumValueOf.owner.typeParameters.size
                     )
                 irValueOfCall.putTypeArgument(0, irClass.defaultType)
@@ -514,7 +510,7 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                 val cloneFun = context.irBuiltIns.arrayClass.owner.functions.find { it.name.asString() == "clone" }!!
                 val returnType = valuesFunction.symbol.owner.returnType
                 val irCloneValues =
-                    IrCallImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, returnType, cloneFun.symbol, cloneFun.descriptor, 0).apply {
+                    IrCallImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, returnType, cloneFun.symbol, 0).apply {
                         dispatchReceiver =
                             IrGetFieldImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, valuesField.symbol, valuesField.symbol.owner.type)
                     }

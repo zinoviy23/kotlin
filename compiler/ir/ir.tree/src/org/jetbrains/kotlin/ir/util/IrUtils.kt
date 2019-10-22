@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.resolve.source.PsiSourceElement
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.utils.DFS
-import java.util.*
 
 /**
  * Binds the arguments explicitly represented in the IR to the parameters of the accessed function.
@@ -473,7 +472,6 @@ fun irConstructorCall(
             endOffset,
             type,
             newSymbol,
-            newSymbol.descriptor,
             typeArgumentsCount,
             0,
             call.valueArgumentsCount,
@@ -512,7 +510,6 @@ fun irCall(
             endOffset,
             type,
             newSymbol,
-            newSymbol.descriptor,
             typeArgumentsCount,
             origin
         ).apply {
