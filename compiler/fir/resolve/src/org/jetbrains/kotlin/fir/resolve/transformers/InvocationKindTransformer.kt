@@ -13,19 +13,18 @@ import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirLambdaArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.compose
 
 object InvocationKindTransformer : FirTransformer<InvocationKind?>() {
-    override fun <E : FirElement> transformElement(element: E, data: InvocationKind?): CompositeTransformResult<E> {
+    override fun <E : FirElement> transformElement(element: E, data: InvocationKind?): E {
         return element.compose()
     }
 
     override fun transformAnonymousFunction(
         anonymousFunction: FirAnonymousFunction,
         data: InvocationKind?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         if (data != null) {
             anonymousFunction.replaceInvocationKind(data)
         }
@@ -35,7 +34,7 @@ object InvocationKindTransformer : FirTransformer<InvocationKind?>() {
     override fun transformLambdaArgumentExpression(
         lambdaArgumentExpression: FirLambdaArgumentExpression,
         data: InvocationKind?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         lambdaArgumentExpression.transformChildren(this, data)
         return lambdaArgumentExpression.compose()
     }
@@ -43,12 +42,12 @@ object InvocationKindTransformer : FirTransformer<InvocationKind?>() {
     override fun transformNamedArgumentExpression(
         namedArgumentExpression: FirNamedArgumentExpression,
         data: InvocationKind?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         namedArgumentExpression.transformChildren(this, data)
         return namedArgumentExpression.compose()
     }
 
-    override fun transformFunctionCall(functionCall: FirFunctionCall, data: InvocationKind?): CompositeTransformResult<FirStatement> {
+    override fun transformFunctionCall(functionCall: FirFunctionCall, data: InvocationKind?): FirStatement {
         // TODO: add contracts handling and inline handling
         return (functionCall.transformChildren(this, InvocationKind.EXACTLY_ONCE) as FirFunctionCall).compose()
     }

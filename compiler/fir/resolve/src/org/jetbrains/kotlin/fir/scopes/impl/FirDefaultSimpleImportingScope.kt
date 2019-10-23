@@ -19,7 +19,7 @@ class FirDefaultSimpleImportingScope(
 ) : FirAbstractSimpleImportingScope(session, scopeSession) {
 
     private fun FirImportImpl.resolve(importResolveTransformer: FirImportResolveTransformer) =
-        importResolveTransformer.transformImport(this, null).single as FirResolvedImportImpl
+        importResolveTransformer.transformImport(this, null) as FirResolvedImportImpl
 
     override val simpleImports = run {
         val importResolveTransformer = FirImportResolveTransformer(session)

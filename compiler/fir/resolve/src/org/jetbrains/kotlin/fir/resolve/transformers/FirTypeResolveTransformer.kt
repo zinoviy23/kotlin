@@ -18,7 +18,6 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirNestedClassifierScope
 import org.jetbrains.kotlin.fir.scopes.impl.withReplacedConeType
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitBuiltinTypeRef
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.compose
 
 open class FirTypeResolveTransformer : FirAbstractTreeTransformerWithSuperTypes(
@@ -27,7 +26,7 @@ open class FirTypeResolveTransformer : FirAbstractTreeTransformerWithSuperTypes(
 ) {
     override lateinit var session: FirSession
 
-    override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
+    override fun transformFile(file: FirFile, data: Nothing?): FirFile {
         session = file.session
         val scopeSession = ScopeSession()
         return withScopeCleanup {
@@ -36,7 +35,7 @@ open class FirTypeResolveTransformer : FirAbstractTreeTransformerWithSuperTypes(
         }
     }
 
-    override fun transformRegularClass(regularClass: FirRegularClass, data: Nothing?): CompositeTransformResult<FirStatement> {
+    override fun transformRegularClass(regularClass: FirRegularClass, data: Nothing?): FirStatement {
         withScopeCleanup {
             regularClass.addTypeParametersScope()
             regularClass.typeParameters.forEach {
@@ -59,18 +58,18 @@ open class FirTypeResolveTransformer : FirAbstractTreeTransformerWithSuperTypes(
             towerScope.scopes += FirNestedClassifierScope(classId, firProvider)
             regularClass.addTypeParametersScope()
 
-            transformDeclaration(regularClass, data) as CompositeTransformResult<FirStatement>
+            transformDeclaration(regularClass, data) as FirStatement
         }
     }
 
-    override fun transformConstructor(constructor: FirConstructor, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+    override fun transformConstructor(constructor: FirConstructor, data: Nothing?): FirDeclaration {
         return withScopeCleanup {
             constructor.addTypeParametersScope()
             transformDeclaration(constructor, data)
         }
     }
 
-    override fun transformTypeAlias(typeAlias: FirTypeAlias, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+    override fun transformTypeAlias(typeAlias: FirTypeAlias, data: Nothing?): FirDeclaration {
         return withScopeCleanup {
             typeAlias.addTypeParametersScope()
             transformDeclaration(typeAlias, data)
@@ -78,31 +77,31 @@ open class FirTypeResolveTransformer : FirAbstractTreeTransformerWithSuperTypes(
     }
 
 
-    override fun transformProperty(property: FirProperty, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+    override fun transformProperty(property: FirProperty, data: Nothing?): FirDeclaration {
         return withScopeCleanup {
             property.addTypeParametersScope()
             transformDeclaration(property, data)
         }
     }
 
-    override fun transformSimpleFunction(simpleFunction: FirSimpleFunction, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+    override fun transformSimpleFunction(simpleFunction: FirSimpleFunction, data: Nothing?): FirDeclaration {
         return withScopeCleanup {
             simpleFunction.addTypeParametersScope()
             transformDeclaration(simpleFunction, data)
         }
     }
 
-    override fun transformImplicitTypeRef(implicitTypeRef: FirImplicitTypeRef, data: Nothing?): CompositeTransformResult<FirTypeRef> {
+    override fun transformImplicitTypeRef(implicitTypeRef: FirImplicitTypeRef, data: Nothing?): FirTypeRef {
         if (implicitTypeRef is FirImplicitBuiltinTypeRef) return transformTypeRef(implicitTypeRef, data)
         return implicitTypeRef.compose()
     }
 
-    override fun transformTypeRef(typeRef: FirTypeRef, data: Nothing?): CompositeTransformResult<FirTypeRef> {
+    override fun transformTypeRef(typeRef: FirTypeRef, data: Nothing?): FirTypeRef {
         return FirSpecificTypeResolverTransformer(towerScope, FirPosition.OTHER, session).transformTypeRef(typeRef, data)
     }
 
-    override fun transformValueParameter(valueParameter: FirValueParameter, data: Nothing?): CompositeTransformResult<FirStatement> {
-        val result = transformDeclaration(valueParameter, data).single as FirValueParameter
+    override fun transformValueParameter(valueParameter: FirValueParameter, data: Nothing?): FirStatement {
+        val result = transformDeclaration(valueParameter, data) as FirValueParameter
         if (result.isVararg) {
             val returnTypeRef = result.returnTypeRef
             val returnType = returnTypeRef.coneTypeUnsafe<ConeKotlinType>()

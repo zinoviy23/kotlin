@@ -22,7 +22,6 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
 import org.jetbrains.kotlin.fir.types.impl.FirTypeProjectionWithVarianceImpl
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.types.Variance
 
@@ -35,7 +34,7 @@ class FirCallCompletionResultsWriterTransformer(
     override fun transformQualifiedAccessExpression(
         qualifiedAccessExpression: FirQualifiedAccessExpression,
         data: Nothing?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         val calleeReference =
             qualifiedAccessExpression.calleeReference as? FirNamedReferenceWithCandidate ?: return qualifiedAccessExpression.compose()
         calleeReference.candidate.substitutor
@@ -61,7 +60,7 @@ class FirCallCompletionResultsWriterTransformer(
     override fun transformVariableAssignment(
         variableAssignment: FirVariableAssignment,
         data: Nothing?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         val calleeReference = variableAssignment.calleeReference as? FirNamedReferenceWithCandidate
             ?: return variableAssignment.compose()
         return variableAssignment.transformCalleeReference(
@@ -74,7 +73,7 @@ class FirCallCompletionResultsWriterTransformer(
         ).compose()
     }
 
-    override fun transformFunctionCall(functionCall: FirFunctionCall, data: Nothing?): CompositeTransformResult<FirStatement> {
+    override fun transformFunctionCall(functionCall: FirFunctionCall, data: Nothing?): FirStatement {
         val calleeReference = functionCall.calleeReference as? FirNamedReferenceWithCandidate ?: return functionCall.compose()
         val functionCall = functionCall.transformArguments(this, data) as FirFunctionCall
 
@@ -134,7 +133,7 @@ class FirCallCompletionResultsWriterTransformer(
     override fun transformAnonymousFunction(
         anonymousFunction: FirAnonymousFunction,
         data: Nothing?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         val initialType = anonymousFunction.returnTypeRef.coneTypeSafe<ConeKotlinType>()
         if (initialType != null) {
             val finalType = finalSubstitutor.substituteOrNull(initialType)
@@ -148,7 +147,7 @@ class FirCallCompletionResultsWriterTransformer(
         return transformElement(anonymousFunction, data)
     }
 
-    override fun transformBlock(block: FirBlock, data: Nothing?): CompositeTransformResult<FirStatement> {
+    override fun transformBlock(block: FirBlock, data: Nothing?): FirStatement {
         val initialType = block.resultType.coneTypeSafe<ConeKotlinType>()
         if (initialType != null) {
             val finalType = finalSubstitutor.substituteOrNull(initialType)
@@ -158,7 +157,7 @@ class FirCallCompletionResultsWriterTransformer(
         return transformElement(block, data)
     }
 
-    override fun transformWhenExpression(whenExpression: FirWhenExpression, data: Nothing?): CompositeTransformResult<FirStatement> {
+    override fun transformWhenExpression(whenExpression: FirWhenExpression, data: Nothing?): FirStatement {
         val calleeReference = whenExpression.calleeReference as? FirNamedReferenceWithCandidate ?: return whenExpression.compose()
 
         val whenExpression = whenExpression.transformChildren(this, data) as FirWhenExpression
@@ -184,7 +183,7 @@ class FirCallCompletionResultsWriterTransformer(
         ).compose()
     }
 
-    override fun transformTryExpression(tryExpression: FirTryExpression, data: Nothing?): CompositeTransformResult<FirStatement> {
+    override fun transformTryExpression(tryExpression: FirTryExpression, data: Nothing?): FirStatement {
         val calleeReference = tryExpression.calleeReference as? FirNamedReferenceWithCandidate ?: return tryExpression.compose()
 
         val tryExpression = tryExpression.transformChildren(this, data) as FirTryExpression

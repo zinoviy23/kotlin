@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.FirDefaultTransformer
 
 abstract class FirAbstractPhaseTransformer<D>(
@@ -32,7 +31,7 @@ abstract class FirAbstractPhaseTransformer<D>(
             return phasedFir(session, requiredPhase)
         }
 
-    override fun transformDeclaration(declaration: FirDeclaration, data: D): CompositeTransformResult<FirDeclaration> {
+    override fun transformDeclaration(declaration: FirDeclaration, data: D): FirDeclaration {
         declaration.replaceResolvePhase(transformerPhase)
 
         return super.transformDeclaration(declaration, data)

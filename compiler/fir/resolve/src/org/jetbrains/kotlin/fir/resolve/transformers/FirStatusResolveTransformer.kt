@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.compose
 
 class FirStatusResolveTransformer : FirAbstractTreeTransformer(phase = FirResolvePhase.STATUS) {
@@ -62,7 +61,7 @@ class FirStatusResolveTransformer : FirAbstractTreeTransformer(phase = FirResolv
 
     override lateinit var session: FirSession
 
-    override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
+    override fun transformFile(file: FirFile, data: Nothing?): FirFile {
         session = file.session
         return transformElement(file, data)
     }
@@ -70,7 +69,7 @@ class FirStatusResolveTransformer : FirAbstractTreeTransformer(phase = FirResolv
     override fun transformDeclarationStatus(
         declarationStatus: FirDeclarationStatus,
         data: Nothing?
-    ): CompositeTransformResult<FirDeclarationStatus> {
+    ): FirDeclarationStatus {
         if (declarationStatus.visibility == Visibilities.UNKNOWN || declarationStatus.modality == null) {
             val declaration = declarationsWithStatuses.last()
             val visibility = when (declarationStatus.visibility) {
@@ -87,8 +86,8 @@ class FirStatusResolveTransformer : FirAbstractTreeTransformer(phase = FirResolv
 
     private inline fun storeDeclaration(
         declaration: FirDeclaration,
-        computeResult: () -> CompositeTransformResult<FirDeclaration>
-    ): CompositeTransformResult<FirDeclaration> {
+        computeResult: () -> FirDeclaration
+    ): FirDeclaration {
         declarationsWithStatuses += declaration
         val result = computeResult()
         declarationsWithStatuses.removeAt(declarationsWithStatuses.lastIndex)
@@ -97,28 +96,28 @@ class FirStatusResolveTransformer : FirAbstractTreeTransformer(phase = FirResolv
 
     private inline fun storeClass(
         klass: FirRegularClass,
-        computeResult: () -> CompositeTransformResult<FirDeclaration>
-    ): CompositeTransformResult<FirDeclaration> {
+        computeResult: () -> FirDeclaration
+    ): FirDeclaration {
         classes += klass
         val result = computeResult()
         classes.removeAt(classes.lastIndex)
         return result
     }
 
-    override fun transformTypeAlias(typeAlias: FirTypeAlias, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+    override fun transformTypeAlias(typeAlias: FirTypeAlias, data: Nothing?): FirDeclaration {
         return transformMemberDeclaration(typeAlias, data)
     }
 
-    override fun transformRegularClass(regularClass: FirRegularClass, data: Nothing?): CompositeTransformResult<FirStatement> {
+    override fun transformRegularClass(regularClass: FirRegularClass, data: Nothing?): FirStatement {
         return storeClass(regularClass) {
             transformMemberDeclaration(regularClass, data)
-        } as CompositeTransformResult<FirStatement>
+        } as FirStatement
     }
 
     override fun transformMemberDeclaration(
         memberDeclaration: FirMemberDeclaration,
         data: Nothing?
-    ): CompositeTransformResult<FirDeclaration> {
+    ): FirDeclaration {
         return storeDeclaration(memberDeclaration) {
             transformDeclaration(memberDeclaration, data)
         }
@@ -127,22 +126,22 @@ class FirStatusResolveTransformer : FirAbstractTreeTransformer(phase = FirResolv
     override fun transformPropertyAccessor(
         propertyAccessor: FirPropertyAccessor,
         data: Nothing?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         return storeDeclaration(propertyAccessor) {
             transformDeclaration(propertyAccessor, data)
-        } as CompositeTransformResult<FirStatement>
+        } as FirStatement
     }
 
     override fun transformConstructor(
         constructor: FirConstructor,
         data: Nothing?
-    ): CompositeTransformResult<FirDeclaration> {
+    ): FirDeclaration {
         return storeDeclaration(constructor) {
             transformDeclaration(constructor, data)
         }
     }
 
-    override fun transformSimpleFunction(simpleFunction: FirSimpleFunction, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+    override fun transformSimpleFunction(simpleFunction: FirSimpleFunction, data: Nothing?): FirDeclaration {
         return storeDeclaration(simpleFunction) {
             transformDeclaration(simpleFunction, data)
         }
@@ -151,13 +150,13 @@ class FirStatusResolveTransformer : FirAbstractTreeTransformer(phase = FirResolv
     override fun transformProperty(
         property: FirProperty,
         data: Nothing?
-    ): CompositeTransformResult<FirDeclaration> {
+    ): FirDeclaration {
         return storeDeclaration(property) {
             transformDeclaration(property, data)
         }
     }
 
-    override fun transformValueParameter(valueParameter: FirValueParameter, data: Nothing?): CompositeTransformResult<FirStatement> {
-        return (transformDeclaration(valueParameter, data).single as FirStatement).compose()
+    override fun transformValueParameter(valueParameter: FirValueParameter, data: Nothing?): FirStatement {
+        return (transformDeclaration(valueParameter, data) as FirStatement).compose()
     }
 }

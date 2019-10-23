@@ -10,24 +10,9 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.renderWithType
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.calls.ConeInferenceContext
-import org.jetbrains.kotlin.fir.resolve.calls.InferenceComponents
-import org.jetbrains.kotlin.fir.resolve.dfa.DataFlowInferenceContext
-import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculator
-import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.types.ConeClassErrorType
-import org.jetbrains.kotlin.fir.types.ErrorTypeConstructor
-import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.compose
-import org.jetbrains.kotlin.types.model.KotlinTypeMarker
-import org.jetbrains.kotlin.types.model.SimpleTypeMarker
-import org.jetbrains.kotlin.types.model.TypeConstructorMarker
-import org.jetbrains.kotlin.types.model.TypeSystemInferenceExtensionContextDelegate
 
 class FirDesignatedBodyResolveTransformer(
     private val designation: Iterator<FirElement>,
@@ -40,7 +25,7 @@ class FirDesignatedBodyResolveTransformer(
     implicitTypeOnly = implicitTypeOnly,
     scopeSession = scopeSession
 ) {
-    override fun <E : FirElement> transformElement(element: E, data: Any?): CompositeTransformResult<E> {
+    override fun <E : FirElement> transformElement(element: E, data: Any?): E {
         if (designation.hasNext()) {
             designation.next().visitNoTransform(this, data)
             return element.compose()
@@ -48,7 +33,7 @@ class FirDesignatedBodyResolveTransformer(
         return super.transformElement(element, data)
     }
 
-    override fun transformDeclaration(declaration: FirDeclaration, data: Any?): CompositeTransformResult<FirDeclaration> {
+    override fun transformDeclaration(declaration: FirDeclaration, data: Any?): FirDeclaration {
         return components.withContainer(declaration) {
             declaration.replaceResolvePhase(transformerPhase)
             transformElement(declaration, data)
@@ -61,11 +46,11 @@ class FirDesignatedBodyResolveTransformer(
 class FirImplicitTypeBodyResolveTransformerAdapter : FirTransformer<Nothing?>() {
     private val scopeSession = ScopeSession()
 
-    override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
+    override fun <E : FirElement> transformElement(element: E, data: Nothing?): E {
         return element.compose()
     }
 
-    override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
+    override fun transformFile(file: FirFile, data: Nothing?): FirFile {
         val transformer = FirBodyResolveTransformer(
             file.session,
             phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
@@ -81,11 +66,11 @@ class FirImplicitTypeBodyResolveTransformerAdapter : FirTransformer<Nothing?>() 
 class FirBodyResolveTransformerAdapter : FirTransformer<Nothing?>() {
     private val scopeSession = ScopeSession()
 
-    override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
+    override fun <E : FirElement> transformElement(element: E, data: Nothing?): E {
         return element.compose()
     }
 
-    override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
+    override fun transformFile(file: FirFile, data: Nothing?): FirFile {
         // Despite of real phase is EXPRESSIONS, we state IMPLICIT_TYPES here, because DECLARATIONS previous phase is OK for us
         val transformer = FirBodyResolveTransformer(
             file.session,

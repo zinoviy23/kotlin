@@ -21,7 +21,6 @@ import org.jetbrains.kotlin.fir.expressions.FirWrappedDelegateExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirWrappedDelegateExpressionImpl
 import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.fir.visitors.transformSingle
@@ -144,7 +143,7 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
     private class ConsistencyTransformer : FirTransformer<Unit>() {
         var result = hashSetOf<FirElement>()
 
-        override fun <E : FirElement> transformElement(element: E, data: Unit): CompositeTransformResult<E> {
+        override fun <E : FirElement> transformElement(element: E, data: Unit): E {
             if (!result.add(element)) {
                 if (element !is FirTypeRef && element !is FirNoReceiverExpression) {
                     val elementDump = StringBuilder().also { element.accept(FirRenderer(it)) }.toString()
@@ -155,7 +154,7 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
             } else {
                 element.delegateProvider = element.delegateProvider.transformSingle(this, data)
             }
-            return CompositeTransformResult.single(element)
+            return element
         }
     }
 

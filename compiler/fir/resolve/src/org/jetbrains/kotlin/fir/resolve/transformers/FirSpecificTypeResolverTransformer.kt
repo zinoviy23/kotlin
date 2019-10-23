@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedFunctionTypeRefImpl
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.compose
 
 class FirSpecificTypeResolverTransformer(
@@ -21,13 +20,13 @@ class FirSpecificTypeResolverTransformer(
     private val position: FirPosition,
     override val session: FirSession
 ) : FirAbstractTreeTransformer(phase = FirResolvePhase.SUPER_TYPES) {
-    override fun transformTypeRef(typeRef: FirTypeRef, data: Nothing?): CompositeTransformResult<FirTypeRef> {
+    override fun transformTypeRef(typeRef: FirTypeRef, data: Nothing?): FirTypeRef {
         val typeResolver = FirTypeResolver.getInstance(session)
         typeRef.transformChildren(FirSpecificTypeResolverTransformer(towerScope, FirPosition.OTHER, session), null)
         return transformType(typeRef, typeResolver.resolveType(typeRef, towerScope, position))
     }
 
-    override fun transformFunctionTypeRef(functionTypeRef: FirFunctionTypeRef, data: Nothing?): CompositeTransformResult<FirTypeRef> {
+    override fun transformFunctionTypeRef(functionTypeRef: FirFunctionTypeRef, data: Nothing?): FirTypeRef {
         val typeResolver = FirTypeResolver.getInstance(session)
         functionTypeRef.transformChildren(this, data)
         return FirResolvedFunctionTypeRefImpl(
@@ -42,7 +41,7 @@ class FirSpecificTypeResolverTransformer(
         }.compose()
     }
 
-    private fun transformType(typeRef: FirTypeRef, resolvedType: ConeKotlinType): CompositeTransformResult<FirTypeRef> {
+    private fun transformType(typeRef: FirTypeRef, resolvedType: ConeKotlinType): FirTypeRef {
         return FirResolvedTypeRefImpl(
             typeRef.psi,
             resolvedType
@@ -51,11 +50,11 @@ class FirSpecificTypeResolverTransformer(
         }.compose()
     }
 
-    override fun transformResolvedTypeRef(resolvedTypeRef: FirResolvedTypeRef, data: Nothing?): CompositeTransformResult<FirTypeRef> {
+    override fun transformResolvedTypeRef(resolvedTypeRef: FirResolvedTypeRef, data: Nothing?): FirTypeRef {
         return resolvedTypeRef.compose()
     }
 
-    override fun transformImplicitTypeRef(implicitTypeRef: FirImplicitTypeRef, data: Nothing?): CompositeTransformResult<FirTypeRef> {
+    override fun transformImplicitTypeRef(implicitTypeRef: FirImplicitTypeRef, data: Nothing?): FirTypeRef {
         return implicitTypeRef.compose()
     }
 }

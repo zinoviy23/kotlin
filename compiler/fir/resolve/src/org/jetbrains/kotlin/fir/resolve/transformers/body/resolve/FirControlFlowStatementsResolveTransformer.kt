@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirLocalScope
 import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirErrorTypeRefImpl
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 
@@ -30,14 +29,14 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirBodyResolveTran
 
     // ------------------------------- Loops -------------------------------
 
-    override fun transformWhileLoop(whileLoop: FirWhileLoop, data: Any?): CompositeTransformResult<FirStatement> {
+    override fun transformWhileLoop(whileLoop: FirWhileLoop, data: Any?): FirStatement {
         return whileLoop.also(dataFlowAnalyzer::enterWhileLoop)
             .transformCondition(transformer, data).also(dataFlowAnalyzer::exitWhileLoopCondition)
             .transformBlock(transformer, data).also(dataFlowAnalyzer::exitWhileLoop)
             .transformOtherChildren(transformer, data).compose()
     }
 
-    override fun transformDoWhileLoop(doWhileLoop: FirDoWhileLoop, data: Any?): CompositeTransformResult<FirStatement> {
+    override fun transformDoWhileLoop(doWhileLoop: FirDoWhileLoop, data: Any?): FirStatement {
         return doWhileLoop.also(dataFlowAnalyzer::enterDoWhileLoop)
             .transformBlock(transformer, data).also(dataFlowAnalyzer::enterDoWhileLoopCondition)
             .transformCondition(transformer, data).also(dataFlowAnalyzer::exitDoWhileLoop)
@@ -46,7 +45,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirBodyResolveTran
 
     // ------------------------------- When expressions -------------------------------
 
-    override fun transformWhenExpression(whenExpression: FirWhenExpression, data: Any?): CompositeTransformResult<FirStatement> {
+    override fun transformWhenExpression(whenExpression: FirWhenExpression, data: Any?): FirStatement {
         if (whenExpression.calleeReference is FirResolvedCallableReference && whenExpression.resultType !is FirImplicitTypeRef) {
             return whenExpression.compose()
         }
@@ -99,7 +98,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirBodyResolveTran
         return lastBranch.condition is FirElseIfTrueCondition && lastBranch.result is FirEmptyExpressionBlock
     }
 
-    override fun transformWhenBranch(whenBranch: FirWhenBranch, data: Any?): CompositeTransformResult<FirWhenBranch> {
+    override fun transformWhenBranch(whenBranch: FirWhenBranch, data: Any?): FirWhenBranch {
         return whenBranch.also { dataFlowAnalyzer.enterWhenBranchCondition(whenBranch) }
             .transformCondition(transformer, data).also { dataFlowAnalyzer.exitWhenBranchCondition(it) }
             .transformResult(transformer, data).also { dataFlowAnalyzer.exitWhenBranchResult(it) }
@@ -109,7 +108,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirBodyResolveTran
     override fun transformWhenSubjectExpression(
         whenSubjectExpression: FirWhenSubjectExpression,
         data: Any?
-    ): CompositeTransformResult<FirStatement> {
+    ): FirStatement {
         val parentWhen = whenSubjectExpression.whenSubject.whenExpression
         val subjectType = parentWhen.subject?.resultType ?: parentWhen.subjectVariable?.returnTypeRef
         if (subjectType != null) {
@@ -120,7 +119,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirBodyResolveTran
 
     // ------------------------------- Try/catch expressions -------------------------------
 
-    override fun transformTryExpression(tryExpression: FirTryExpression, data: Any?): CompositeTransformResult<FirStatement> {
+    override fun transformTryExpression(tryExpression: FirTryExpression, data: Any?): FirStatement {
         if (tryExpression.calleeReference is FirResolvedCallableReference && tryExpression.resultType !is FirImplicitTypeRef) {
             return tryExpression.compose()
         }
@@ -150,7 +149,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirBodyResolveTran
         return result.compose()
     }
 
-    override fun transformCatch(catch: FirCatch, data: Any?): CompositeTransformResult<FirCatch> {
+    override fun transformCatch(catch: FirCatch, data: Any?): FirCatch {
         dataFlowAnalyzer.enterCatchClause(catch)
         return withScopeCleanup(localScopes) {
             localScopes += FirLocalScope()
@@ -161,15 +160,15 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirBodyResolveTran
 
     // ------------------------------- Jumps -------------------------------
 
-    override fun <E : FirTargetElement> transformJump(jump: FirJump<E>, data: Any?): CompositeTransformResult<FirStatement> {
+    override fun <E : FirTargetElement> transformJump(jump: FirJump<E>, data: Any?): FirStatement {
         val result = transformer.transformExpression(jump, data)
         dataFlowAnalyzer.exitJump(jump)
         return result
     }
 
-    override fun transformThrowExpression(throwExpression: FirThrowExpression, data: Any?): CompositeTransformResult<FirStatement> {
+    override fun transformThrowExpression(throwExpression: FirThrowExpression, data: Any?): FirStatement {
         return transformer.transformExpression(throwExpression, data).also {
-            dataFlowAnalyzer.exitThrowExceptionNode(it.single as FirThrowExpression)
+            dataFlowAnalyzer.exitThrowExceptionNode(it as FirThrowExpression)
         }
     }
 }

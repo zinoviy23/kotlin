@@ -186,7 +186,7 @@ fun Element.collectImports(): List<String> {
     baseTypes += parentsArguments.values.flatMap { it.values }.mapNotNull { it.fullQualifiedName }
     val isBaseFirElement = this == AbstractFirTreeBuilder.baseFirElement
     if (isBaseFirElement) {
-        baseTypes += compositeTransformResultType.fullQualifiedName!!
+//        baseTypes += compositeTransformResultType.fullQualifiedName!!
     }
     if (needPureAbstractElement) {
         baseTypes += pureAbstractElementType.fullQualifiedName!!
@@ -587,14 +587,14 @@ fun printTransformer(elements: List<Element>, generationPath: String) {
             println("package $VISITOR_PACKAGE")
             println()
             elements.forEach { println("import ${it.fullQualifiedName}") }
-            println("import ${compositeTransformResultType.fullQualifiedName}")
+//            println("import ${compositeTransformResultType.fullQualifiedName}")
             println()
             printGeneratedMessage()
 
-            println("abstract class FirTransformer<in D> : FirVisitor<CompositeTransformResult<FirElement>, D>() {")
+            println("abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {")
             println()
             indent()
-            println("abstract fun <E : FirElement> transformElement(element: E, data: D): CompositeTransformResult<E>")
+            println("abstract fun <E : FirElement> transformElement(element: E, data: D): E")
             println()
             for (element in elements) {
                 if (element == AbstractFirTreeBuilder.baseFirElement) continue
@@ -602,7 +602,7 @@ fun printTransformer(elements: List<Element>, generationPath: String) {
                 val varName = element.safeDecapitalizedName
                 print("open fun ")
                 element.typeParameters.takeIf { it.isNotBlank() }?.let { print(it) }
-                println("transform${element.name}($varName: ${element.typeWithArguments}, data: D): CompositeTransformResult<${element.transformerType.typeWithArguments}>${element.multipleUpperBoundsList()}{")
+                println("transform${element.name}($varName: ${element.typeWithArguments}, data: D): ${element.transformerType.typeWithArguments}${element.multipleUpperBoundsList()}{")
                 indent(2)
                 println("return transformElement($varName, data)")
                 indent()
@@ -616,7 +616,7 @@ fun printTransformer(elements: List<Element>, generationPath: String) {
                 print("final override fun ")
                 element.typeParameters.takeIf { it.isNotBlank() }?.let { print(it) }
 
-                println("visit${element.name}($varName: ${element.typeWithArguments}, data: D): CompositeTransformResult<${element.transformerType.typeWithArguments}>${element.multipleUpperBoundsList()}{")
+                println("visit${element.name}($varName: ${element.typeWithArguments}, data: D): ${element.transformerType.typeWithArguments}${element.multipleUpperBoundsList()}{")
                 indent(2)
                 println("return transform${element.name}($varName, data)")
                 indent()
@@ -760,9 +760,9 @@ fun PrintWriter.printElement(element: Element) {
             indent()
             println("@Suppress(\"UNCHECKED_CAST\")")
             indent()
-            println("fun <E : FirElement, D> transform(visitor: FirTransformer<D>, data: D): CompositeTransformResult<E> =")
+            println("fun <E : FirElement, D> transform(visitor: FirTransformer<D>, data: D): E =")
             indent(2)
-            println("accept(visitor, data) as CompositeTransformResult<E>")
+            println("accept(visitor, data) as E")
             println()
             indent()
             println("fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirElement")

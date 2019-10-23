@@ -24,11 +24,11 @@ import org.jetbrains.kotlin.fir.visitors.*
 import org.jetbrains.kotlin.name.ClassId
 
 class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyResolveComponents) : FirTransformer<Nothing?>() {
-    override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
+    override fun <E : FirElement> transformElement(element: E, data: Nothing?): E {
         throw IllegalArgumentException("Should not be there")
     }
 
-    override fun transformWhenExpression(whenExpression: FirWhenExpression, data: Nothing?): CompositeTransformResult<FirStatement> {
+    override fun transformWhenExpression(whenExpression: FirWhenExpression, data: Nothing?): FirStatement {
         val resultExpression = processExhaustivenessCheck(whenExpression) ?: whenExpression
         return resultExpression.compose()
     }

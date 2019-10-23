@@ -17,18 +17,17 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.ConeLookupTagBasedType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.name.ClassId
 
 class FirSealedClassInheritorsTransformer : FirTransformer<Nothing?>() {
-    override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
+    override fun <E : FirElement> transformElement(element: E, data: Nothing?): E {
         throw IllegalStateException("Should not be there")
     }
 
-    override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+    override fun transformFile(file: FirFile, data: Nothing?): FirDeclaration {
         val sealedClassInheritorsMap = mutableMapOf<FirSealedClass, MutableList<ClassId>>()
         file.accept(InheritorsCollector, sealedClassInheritorsMap)
         if (sealedClassInheritorsMap.isEmpty()) return file.compose()
@@ -36,20 +35,20 @@ class FirSealedClassInheritorsTransformer : FirTransformer<Nothing?>() {
     }
 
     private class InheritorsTransformer(private val inheritorsMap: MutableMap<FirSealedClass, MutableList<ClassId>>) : FirTransformer<Nothing?>() {
-        override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
+        override fun <E : FirElement> transformElement(element: E, data: Nothing?): E {
             return element.compose()
         }
 
-        override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+        override fun transformFile(file: FirFile, data: Nothing?): FirDeclaration {
             return (file.transformChildren(this, data) as FirFile).compose()
         }
 
-        override fun transformRegularClass(regularClass: FirRegularClass, data: Nothing?): CompositeTransformResult<FirStatement> {
+        override fun transformRegularClass(regularClass: FirRegularClass, data: Nothing?): FirStatement {
             if (inheritorsMap.isEmpty()) return regularClass.compose()
             return (regularClass.transformChildren(this, data) as FirRegularClass).compose()
         }
 
-        override fun transformSealedClass(sealedClass: FirSealedClass, data: Nothing?): CompositeTransformResult<FirStatement> {
+        override fun transformSealedClass(sealedClass: FirSealedClass, data: Nothing?): FirStatement {
             val inheritors = inheritorsMap.remove(sealedClass)
             if (inheritors != null) {
                 sealedClass.replaceInheritors(inheritors)
