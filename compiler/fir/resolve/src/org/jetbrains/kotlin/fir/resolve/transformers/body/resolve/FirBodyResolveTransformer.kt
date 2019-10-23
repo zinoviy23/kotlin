@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.name.FqName
 
-open class FirMainBodyResolveTransformer(
+open class FirBodyResolveTransformer(
     session: FirSession,
     phase: FirResolvePhase,
     override var implicitTypeOnly: Boolean,

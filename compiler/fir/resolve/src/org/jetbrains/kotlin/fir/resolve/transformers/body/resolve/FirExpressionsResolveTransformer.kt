@@ -35,7 +35,7 @@ import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.ir.expressions.IrConstKind
 import org.jetbrains.kotlin.name.ClassId
 
-class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransformer) : FirPartialBodyResolveTransformer(mainTransformer) {
+class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransformer) : FirPartialBodyResolveTransformer(transformer) {
     private val qualifiedResolver: FirQualifiedNameResolver = FirQualifiedNameResolver(components)
     private val callResolver: FirCallResolver = FirCallResolver(
         this,
@@ -52,7 +52,7 @@ class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransf
             val type = FirErrorTypeRefImpl(expression.psi, "Type calculating for ${expression::class} is not supported")
             expression.resultType = type
         }
-        return (expression.transformChildren(mainTransformer, data) as FirStatement).compose()
+        return (expression.transformChildren(transformer, data) as FirStatement).compose()
     }
 
     override fun transformQualifiedAccessExpression(
@@ -154,7 +154,7 @@ class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransf
     override fun transformBlock(block: FirBlock, data: Any?): CompositeTransformResult<FirStatement> {
         dataFlowAnalyzer.enterBlock(block)
         @Suppress("NAME_SHADOWING")
-        val block = block.transformChildren(mainTransformer, data) as FirBlock
+        val block = block.transformChildren(transformer, data) as FirBlock
         val statement = block.statements.lastOrNull()
 
         val resultExpression = when (statement) {
@@ -180,7 +180,7 @@ class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransf
 
     override fun transformOperatorCall(operatorCall: FirOperatorCall, data: Any?): CompositeTransformResult<FirStatement> {
         val result = if (operatorCall.operation in FirOperation.BOOLEANS) {
-            (operatorCall.transformChildren(mainTransformer, noExpectedType) as FirOperatorCall).also {
+            (operatorCall.transformChildren(transformer, noExpectedType) as FirOperatorCall).also {
                 it.resultType = builtinTypes.booleanType
             }
         } else {
@@ -230,7 +230,7 @@ class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransf
                 binaryLogicExpression.also(dataFlowAnalyzer::enterBinaryOr)
                     .transformLeftOperand(this, booleanType).also(dataFlowAnalyzer::exitLeftBinaryOrArgument)
                     .transformRightOperand(this, booleanType).also(dataFlowAnalyzer::exitBinaryOr)
-        }.transformOtherChildren(mainTransformer, booleanType).also {
+        }.transformOtherChildren(transformer, booleanType).also {
             it.resultType = booleanType
         }.compose()
     }
@@ -244,7 +244,7 @@ class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransf
         val result = if (resolvedAssignment is FirVariableAssignment) {
             val completeAssignment = callCompleter.completeCall(resolvedAssignment, noExpectedType)
             val expectedType = components.typeFromCallee(completeAssignment)
-            completeAssignment.transformRValue(mainTransformer, expectedType)
+            completeAssignment.transformRValue(transformer, expectedType)
         } else {
             // This can happen in erroneous code only
             resolvedAssignment
@@ -340,7 +340,7 @@ class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransf
 
     override fun transformAnnotationCall(annotationCall: FirAnnotationCall, data: Any?): CompositeTransformResult<FirStatement> {
         dataFlowAnalyzer.enterAnnotationCall(annotationCall)
-        return (annotationCall.transformChildren(mainTransformer, data) as FirAnnotationCall).also {
+        return (annotationCall.transformChildren(transformer, data) as FirAnnotationCall).also {
             dataFlowAnalyzer.exitAnnotationCall(it)
         }.compose()
     }

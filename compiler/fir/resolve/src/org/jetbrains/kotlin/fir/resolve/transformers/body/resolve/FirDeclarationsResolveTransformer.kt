@@ -32,13 +32,13 @@ import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addIfNotNull
 
-class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTransformer) : FirPartialBodyResolveTransformer(mainTransformer) {
+class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransformer) : FirPartialBodyResolveTransformer(transformer) {
     private var primaryConstructorParametersScope: FirLocalScope? = null
 
     override fun transformDeclaration(declaration: FirDeclaration, data: Any?): CompositeTransformResult<FirDeclaration> {
         return components.withContainer(declaration) {
             declaration.replaceResolvePhase(transformerPhase)
-            mainTransformer.transformElement(declaration, data)
+            transformer.transformElement(declaration, data)
         }
     }
 
@@ -76,7 +76,7 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
 
     private fun transformLocalVariable(variable: FirProperty, data: Any?): CompositeTransformResult<FirDeclaration> {
         assert(variable.isLocal)
-        variable.transformOtherChildren(mainTransformer, variable.returnTypeRef)
+        variable.transformOtherChildren(transformer, variable.returnTypeRef)
         if (variable.initializer != null) {
             storeVariableReturnType(variable)
         }
@@ -88,8 +88,8 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
     }
 
     private fun FirProperty.transformChildrenWithoutAccessors(returnTypeRef: FirTypeRef): FirProperty {
-        return transformReturnTypeRef(mainTransformer, returnTypeRef).
-            transformOtherChildren(mainTransformer, returnTypeRef)
+        return transformReturnTypeRef(transformer, returnTypeRef).
+            transformOtherChildren(transformer, returnTypeRef)
     }
 
     private fun <F : FirVariable<F>> FirVariable<F>.transformAccessors() {
@@ -161,7 +161,7 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
             val result = transformFunction(anonymousFunction, expectedReturnType).single as FirAnonymousFunction
             val body = result.body
             return if (result.returnTypeRef is FirImplicitTypeRef && body != null) {
-                result.transformReturnTypeRef(mainTransformer, body.resultType)
+                result.transformReturnTypeRef(transformer, body.resultType)
                 result
             } else {
                 result
@@ -211,7 +211,7 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
         val result = transformFunction(function, returnTypeRef).single as FirFunction<*>
         val body = result.body
         return if (result.returnTypeRef is FirImplicitTypeRef && body != null) {
-            result.transformReturnTypeRef(mainTransformer, body.resultType)
+            result.transformReturnTypeRef(transformer, body.resultType)
             result
         } else {
             result
@@ -370,7 +370,7 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
             when {
                 initializer != null -> {
                     variable.transformReturnTypeRef(
-                        mainTransformer,
+                        transformer,
                         when (val resultType = initializer.resultType) {
                             is FirImplicitTypeRef -> FirErrorTypeRefImpl(
                                 null,
@@ -382,7 +382,7 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
                 }
                 variable.getter != null && variable.getter !is FirDefaultPropertyAccessor -> {
                     variable.transformReturnTypeRef(
-                        mainTransformer,
+                        transformer,
                         when (val resultType = variable.getter?.returnTypeRef) {
                             is FirImplicitTypeRef -> FirErrorTypeRefImpl(
                                 null,
@@ -394,12 +394,12 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
                 }
                 else -> {
                     variable.transformReturnTypeRef(
-                        mainTransformer, FirErrorTypeRefImpl(null, "Cannot infer variable type without initializer / getter / delegate")
+                        transformer, FirErrorTypeRefImpl(null, "Cannot infer variable type without initializer / getter / delegate")
                     )
                 }
             }
             if (variable.getter?.returnTypeRef is FirImplicitTypeRef) {
-                variable.getter?.transformReturnTypeRef(mainTransformer, variable.returnTypeRef)
+                variable.getter?.transformReturnTypeRef(transformer, variable.returnTypeRef)
             }
         }
     }

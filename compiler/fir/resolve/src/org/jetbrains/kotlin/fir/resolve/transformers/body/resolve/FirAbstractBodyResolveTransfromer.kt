@@ -79,7 +79,7 @@ abstract class FirAbstractBodyResolveTransformer(phase: FirResolvePhase) : FirAb
     class BodyResolveTransformerComponents(
         override val session: FirSession,
         override val scopeSession: ScopeSession,
-        val transformer: FirMainBodyResolveTransformer
+        val transformer: FirBodyResolveTransformer
     ) : BodyResolveComponents {
         val topLevelScopes: MutableList<FirScope> = mutableListOf()
         val localScopes: MutableList<FirLocalScope> = mutableListOf()

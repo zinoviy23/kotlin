@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.calls.ConeInferenceContext
 import org.jetbrains.kotlin.fir.resolve.calls.InferenceComponents
 import org.jetbrains.kotlin.fir.resolve.dfa.DataFlowInferenceContext
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirMainBodyResolveTransformer
+import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirBodyResolveTransformer
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.types.ConeClassErrorType
 import org.jetbrains.kotlin.fir.types.ErrorTypeConstructor
@@ -28,107 +28,6 @@ import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.SimpleTypeMarker
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
 import org.jetbrains.kotlin.types.model.TypeSystemInferenceExtensionContextDelegate
-
-/*
-open class FirBodyResolveTransformer(
-    final override val session: FirSession,
-    phase: FirResolvePhase,
-    implicitTypeOnly: Boolean,
-    final override val scopeSession: ScopeSession = ScopeSession()
-) : FirAbstractPhaseTransformer<Any?>(phase), BodyResolveComponents {
-    var implicitTypeOnly: Boolean = implicitTypeOnly
-        private set
-
-    final override val returnTypeCalculator: ReturnTypeCalculator = ReturnTypeCalculatorWithJump(session, scopeSession)
-    final override val noExpectedType = FirImplicitTypeRefImpl(null)
-    private inline val builtinTypes: BuiltinTypes get() = session.builtinTypes
-
-    final override val symbolProvider = session.firSymbolProvider
-
-    private var packageFqName = FqName.ROOT
-    final override lateinit var file: FirFile
-        private set
-
-    private var _container: FirDeclaration? = null
-    final override var container: FirDeclaration
-        get() = _container!!
-        private set(value) {
-            _container = value
-        }
-
-    private val localScopes = mutableListOf<FirLocalScope>()
-    private val topLevelScopes = mutableListOf<FirScope>()
-    final override val implicitReceiverStack: ImplicitReceiverStackImpl = ImplicitReceiverStackImpl()
-    final override val inferenceComponents = inferenceComponents(session, returnTypeCalculator, scopeSession)
-    final override val samResolver: FirSamResolver = FirSamResolverImpl(session, scopeSession)
-
-    private var primaryConstructorParametersScope: FirLocalScope? = null
-
-    private val callCompleter: FirCallCompleter = FirCallCompleter(this)
-
-    final override val resolutionStageRunner: ResolutionStageRunner = ResolutionStageRunner(inferenceComponents)
-    private val callResolver: FirCallResolver = FirCallResolver(
-        this,
-        topLevelScopes,
-        localScopes,
-        implicitReceiverStack,
-        qualifiedResolver
-    )
-
-    private val syntheticCallGenerator: FirSyntheticCallGenerator = FirSyntheticCallGenerator(this)
-    private val dataFlowAnalyzer: FirDataFlowAnalyzer = FirDataFlowAnalyzer(this)
-
-
-    override val <D> AbstractFirBasedSymbol<D>.phasedFir: D where D : FirDeclaration, D : FirSymbolOwner<D>
-        get() {
-            val requiredPhase = transformerPhase.prev
-            return phasedFir(session, requiredPhase)
-        }
-
-
-
-    override fun <E : FirElement> transformElement(element: E, data: Any?): CompositeTransformResult<E> {
-        @Suppress("UNCHECKED_CAST")
-        return (element.transformChildren(this, data) as E).compose()
-    }
-
-    // ----------------------- Util functions -----------------------
-
-
-    protected inline fun <T> withScopeCleanup(scopes: MutableList<*>, crossinline l: () -> T): T {
-        val sizeBefore = scopes.size
-        return try {
-            l()
-        } finally {
-            val size = scopes.size
-            assert(size >= sizeBefore)
-            repeat(size - sizeBefore) {
-                scopes.let { it.removeAt(it.size - 1) }
-            }
-        }
-    }
-
-    private inline fun <T> withFullBodyResolve(crossinline l: () -> T): T {
-        if (!implicitTypeOnly) return l()
-        implicitTypeOnly = false
-        return try {
-            l()
-        } finally {
-            implicitTypeOnly = true
-        }
-    }
-
-
-
-    private fun <T> withContainer(declaration: FirDeclaration, f: () -> T): T {
-        val prevContainer = _container
-        _container = declaration
-        val result = f()
-        _container = prevContainer
-        return result
-    }
-}
-*/
 
 internal fun inferenceComponents(session: FirSession, returnTypeCalculator: ReturnTypeCalculator, scopeSession: ScopeSession) =
     InferenceComponents(object : ConeInferenceContext, TypeSystemInferenceExtensionContextDelegate, DataFlowInferenceContext {
@@ -160,7 +59,7 @@ class FirDesignatedBodyResolveTransformer(
     session: FirSession,
     scopeSession: ScopeSession = ScopeSession(),
     implicitTypeOnly: Boolean = true
-) : FirMainBodyResolveTransformer(
+) : FirBodyResolveTransformer(
     session,
     phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
     implicitTypeOnly = implicitTypeOnly,
@@ -192,7 +91,7 @@ class FirImplicitTypeBodyResolveTransformerAdapter : FirTransformer<Nothing?>() 
     }
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
-        val transformer = FirMainBodyResolveTransformer(
+        val transformer = FirBodyResolveTransformer(
             file.session,
             phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
             implicitTypeOnly = true,
@@ -213,7 +112,7 @@ class FirBodyResolveTransformerAdapter : FirTransformer<Nothing?>() {
 
     override fun transformFile(file: FirFile, data: Nothing?): CompositeTransformResult<FirFile> {
         // Despite of real phase is EXPRESSIONS, we state IMPLICIT_TYPES here, because DECLARATIONS previous phase is OK for us
-        val transformer = FirMainBodyResolveTransformer(
+        val transformer = FirBodyResolveTransformer(
             file.session,
             phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE,
             implicitTypeOnly = false,
