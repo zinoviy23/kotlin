@@ -93,7 +93,8 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
     private fun getIncrementalAnalysisResult(): AnalysisResult? {
         val inBlockModifications = file.inBlockModifications
         if (inBlockModifications.isNotEmpty()) {
-            try {// there is a cached result for ktFile and there are inBlockModifications
+            try {
+                // IF there is a cached result for ktFile and there are inBlockModifications
                 cache[file]?.let { result ->
                     // drop existed results for entire cache:
                     // if incremental analysis is applicable it will produce a single value for file
@@ -127,8 +128,8 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
                                 )
                             }
 
-                        analyze(inBlockModification, trace)
-                        analysisResult = mergeResults(trace, result)
+                        val newResult = analyze(inBlockModification, trace)
+                        analysisResult = wrapResult(result, newResult, trace)
                     }
                     cache[file] = analysisResult
                     return analysisResult
@@ -163,18 +164,21 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
         return result
     }
 
-    private fun mergeResults(
-        elementBindingTrace: StackedCompositeBindingContextTrace,
-        parentResult: AnalysisResult
+    private fun wrapResult(
+        oldResult: AnalysisResult,
+        newResult: AnalysisResult,
+        elementBindingTrace: StackedCompositeBindingContextTrace
     ): AnalysisResult {
         val newBindingCtx = elementBindingTrace.stackedContext
-        return if (parentResult.isError())
-            AnalysisResult.internalError(newBindingCtx, parentResult.error)
-        else AnalysisResult.success(
-            newBindingCtx,
-            parentResult.moduleDescriptor,
-            parentResult.shouldGenerateCode
-        )
+        return when {
+            oldResult.isError() -> AnalysisResult.internalError(newBindingCtx, oldResult.error)
+            newResult.isError() -> AnalysisResult.internalError(newBindingCtx, newResult.error)
+            else -> AnalysisResult.success(
+                newBindingCtx,
+                oldResult.moduleDescriptor,
+                oldResult.shouldGenerateCode
+            )
+        }
     }
 
     private fun analyze(analyzableElement: KtElement, bindingTrace: BindingTrace? = null): AnalysisResult {
