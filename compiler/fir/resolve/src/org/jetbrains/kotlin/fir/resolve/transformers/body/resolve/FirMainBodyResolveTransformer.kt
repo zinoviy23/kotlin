@@ -30,26 +30,6 @@ open class FirMainBodyResolveTransformer(
 
     override val components: BodyResolveTransformerComponents = BodyResolveTransformerComponents(session, scopeSession, this)
 
-//    final override val topLevelScopes: MutableList<FirScope> = mutableListOf()
-//    final override val localScopes: MutableList<FirLocalScope> = mutableListOf()
-//
-//    final override val noExpectedType: FirTypeRef = FirImplicitTypeRefImpl(null)
-//
-//    final override lateinit var file: FirFile
-//        private set
-//
-//    final override var _container: FirDeclaration? = null
-//
-//    final override val symbolProvider: FirSymbolProvider = session.firSymbolProvider
-//
-//    final override val returnTypeCalculator: ReturnTypeCalculator = ReturnTypeCalculatorWithJump(session, scopeSession)
-//    final override val implicitReceiverStack: ImplicitReceiverStack = ImplicitReceiverStackImpl()
-//    final override val inferenceComponents: InferenceComponents = inferenceComponents(session, returnTypeCalculator, scopeSession)
-//    final override val resolutionStageRunner: ResolutionStageRunner = ResolutionStageRunner(inferenceComponents)
-//    final override val samResolver: FirSamResolver = FirSamResolverImpl(session, scopeSession)
-//    final override val callCompleter: FirCallCompleter = FirCallCompleter(this)
-//    final override val dataFlowAnalyzer: FirDataFlowAnalyzer = FirDataFlowAnalyzer(this)
-
     private val expressionsTransformer = FirExpressionsResolveTransformer(this)
     private val declarationsTransformer = FirDeclarationsResolveTransformer(this)
     private val controlFlowStatementsTransformer = FirControlFlowStatementsResolveTransformer(this)

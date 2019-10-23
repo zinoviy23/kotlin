@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 abstract class FirPartialBodyResolveTransformer(
     val mainTransformer: FirMainBodyResolveTransformer
 ) : FirAbstractBodyResolveTransformer(mainTransformer.transformerPhase) {
+    @Suppress("OVERRIDE_BY_INLINE")
     final override inline val components: BodyResolveTransformerComponents get() = mainTransformer.components
 
     override var implicitTypeOnly: Boolean
