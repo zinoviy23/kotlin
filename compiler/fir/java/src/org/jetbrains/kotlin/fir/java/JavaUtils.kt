@@ -382,16 +382,30 @@ private fun StringBuilder.appendErasedType(typeRef: FirTypeRef) {
 }
 
 private fun StringBuilder.appendConeType(coneType: ConeKotlinType) {
+    fun appendClassLikeType(type: ConeClassLikeType) {
+        append("L")
+        val classId = type.lookupTag.classId
+        append(classId.packageFqName.asString().replace(".", "/"))
+        append("/")
+        append(classId.relativeClassName)
+    }
+
     if (coneType is ConeClassErrorType) return
-    append("L")
     when (coneType) {
         is ConeClassLikeType -> {
-            val classId = coneType.lookupTag.classId
-            append(classId.packageFqName.asString().replace(".", "/"))
-            append("/")
-            append(classId.relativeClassName)
+            appendClassLikeType(coneType)
         }
-        is ConeTypeParameterType -> append(coneType.lookupTag.name)
+        is ConeTypeParameterType -> {
+            val representative = coneType.lookupTag.typeParameterSymbol.fir.bounds.firstOrNull {
+                (it as? FirResolvedTypeRef)?.type is ConeClassLikeType
+            }
+            if (representative == null) {
+                append("Ljava/lang/Object")
+            } else {
+                appendClassLikeType(representative.coneTypeUnsafe())
+            }
+            append(coneType.lookupTag.name)
+        }
     }
     append(";")
 }
