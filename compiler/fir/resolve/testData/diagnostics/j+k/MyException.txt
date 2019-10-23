@@ -15,3 +15,8 @@ FILE: test.kt
         R|<local>/e|.R|kotlin/printStackTrace|(R|<local>/stream|)
         lval result: <ERROR TYPE REF: Inapplicable(WRONG_RECEIVER): [java/lang/Throwable.getLocalizedMessage]> = R|<local>/e|.<Inapplicable(WRONG_RECEIVER): [java/lang/Throwable.getLocalizedMessage]>#()
     }
+    public final fun test(e: R|kotlin/Exception|, stream: R|java/io/PrintStream|): R|kotlin/Unit| {
+        R|<local>/e|.R|kotlin/printStackTrace|()
+        R|<local>/e|.R|kotlin/printStackTrace|(R|<local>/stream|)
+        lval result: <ERROR TYPE REF: Inapplicable(WRONG_RECEIVER): [java/lang/Throwable.getLocalizedMessage]> = R|<local>/e|.<Inapplicable(WRONG_RECEIVER): [java/lang/Throwable.getLocalizedMessage]>#()
+    }

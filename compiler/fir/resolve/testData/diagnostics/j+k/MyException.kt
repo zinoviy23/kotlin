@@ -20,3 +20,9 @@ fun test(e: YourException, stream: PrintStream) {
     e.printStackTrace(stream)
     val result = e.getLocalizedMessage()
 }
+
+fun test(e: Exception, stream: PrintStream) {
+    e.printStackTrace()
+    e.printStackTrace(stream)
+    val result = e.getLocalizedMessage()
+}
