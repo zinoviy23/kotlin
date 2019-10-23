@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.references.impl.FirStubReference
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.*
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirMainBodyResolveTransformer
+import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBodyResolveTransformer
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.SyntheticCallableId
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
@@ -34,7 +34,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
 import org.jetbrains.kotlin.types.Variance
 
-class FirSyntheticCallGenerator(private val transformer: FirMainBodyResolveTransformer) : BodyResolveComponents by transformer {
+class FirSyntheticCallGenerator(private val components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents) : BodyResolveComponents by components {
     private val whenSelectFunction: FirSimpleFunctionImpl = generateSyntheticSelectFunction(SyntheticCallableId.WHEN)
     private val trySelectFunction: FirSimpleFunctionImpl = generateSyntheticSelectFunction(SyntheticCallableId.TRY)
 
@@ -92,7 +92,7 @@ class FirSyntheticCallGenerator(private val transformer: FirMainBodyResolveTrans
     }
 
     private fun generateCandidate(callInfo: CallInfo, function: FirSimpleFunctionImpl): Candidate =
-        CandidateFactory(transformer, callInfo).createCandidate(
+        CandidateFactory(components, callInfo).createCandidate(
             symbol = function.symbol,
             dispatchReceiverValue = null,
             implicitExtensionReceiverValue = null,

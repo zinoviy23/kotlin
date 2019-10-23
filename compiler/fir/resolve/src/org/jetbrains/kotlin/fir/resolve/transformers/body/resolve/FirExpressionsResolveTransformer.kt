@@ -36,7 +36,7 @@ import org.jetbrains.kotlin.ir.expressions.IrConstKind
 import org.jetbrains.kotlin.name.ClassId
 
 class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransformer) : FirPartialBodyResolveTransformer(mainTransformer) {
-    private val qualifiedResolver: FirQualifiedNameResolver = FirQualifiedNameResolver(this)
+    private val qualifiedResolver: FirQualifiedNameResolver = FirQualifiedNameResolver(components)
     private val callResolver: FirCallResolver = FirCallResolver(
         this,
         topLevelScopes,
@@ -243,7 +243,7 @@ class FirExpressionsResolveTransformer(mainTransformer: FirMainBodyResolveTransf
         val resolvedAssignment = callResolver.resolveVariableAccessAndSelectCandidate(variableAssignment, file)
         val result = if (resolvedAssignment is FirVariableAssignment) {
             val completeAssignment = callCompleter.completeCall(resolvedAssignment, noExpectedType)
-            val expectedType = typeFromCallee(completeAssignment)
+            val expectedType = components.typeFromCallee(completeAssignment)
             completeAssignment.transformRValue(mainTransformer, expectedType)
         } else {
             // This can happen in erroneous code only

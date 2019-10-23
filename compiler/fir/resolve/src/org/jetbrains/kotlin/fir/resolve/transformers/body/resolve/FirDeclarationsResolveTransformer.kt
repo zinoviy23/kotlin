@@ -36,7 +36,7 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
     private var primaryConstructorParametersScope: FirLocalScope? = null
 
     override fun transformDeclaration(declaration: FirDeclaration, data: Any?): CompositeTransformResult<FirDeclaration> {
-        return withContainer(declaration) {
+        return components.withContainer(declaration) {
             declaration.replaceResolvePhase(transformerPhase)
             mainTransformer.transformElement(declaration, data)
         }
@@ -54,7 +54,7 @@ class FirDeclarationsResolveTransformer(mainTransformer: FirMainBodyResolveTrans
         return withFullBodyResolve {
             withScopeCleanup(localScopes) {
                 localScopes.addIfNotNull(primaryConstructorParametersScope)
-                withContainer(property) {
+                components.withContainer(property) {
                     property.transformChildrenWithoutAccessors(returnTypeRef)
                     if (property.initializer != null) {
                         storeVariableReturnType(property)

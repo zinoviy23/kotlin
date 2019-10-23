@@ -11,52 +11,44 @@ import org.jetbrains.kotlin.fir.FirTargetElement
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.render
-import org.jetbrains.kotlin.fir.resolve.*
-import org.jetbrains.kotlin.fir.resolve.calls.InferenceComponents
-import org.jetbrains.kotlin.fir.resolve.calls.ResolutionStageRunner
-import org.jetbrains.kotlin.fir.resolve.dfa.FirDataFlowAnalyzer
-import org.jetbrains.kotlin.fir.resolve.inference.FirCallCompleter
-import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculator
-import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculatorWithJump
-import org.jetbrains.kotlin.fir.resolve.transformers.inferenceComponents
-import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.scopes.addImportingScopes
-import org.jetbrains.kotlin.fir.scopes.impl.FirLocalScope
 import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImpl
 import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.name.FqName
 
 open class FirMainBodyResolveTransformer(
-    final override val session: FirSession,
+    session: FirSession,
     phase: FirResolvePhase,
     override var implicitTypeOnly: Boolean,
-    final override val scopeSession: ScopeSession = ScopeSession()
+    scopeSession: ScopeSession
 ) : FirAbstractBodyResolveTransformer(phase) {
     private var packageFqName = FqName.ROOT
 
-    final override val topLevelScopes: MutableList<FirScope> = mutableListOf()
-    final override val localScopes: MutableList<FirLocalScope> = mutableListOf()
+    override val components: BodyResolveTransformerComponents = BodyResolveTransformerComponents(session, scopeSession, this)
 
-    final override val noExpectedType: FirTypeRef = FirImplicitTypeRefImpl(null)
-
-    final override lateinit var file: FirFile
-        private set
-
-    final override var _container: FirDeclaration? = null
-
-    final override val symbolProvider: FirSymbolProvider = session.firSymbolProvider
-
-    final override val returnTypeCalculator: ReturnTypeCalculator = ReturnTypeCalculatorWithJump(session, scopeSession)
-    final override val implicitReceiverStack: ImplicitReceiverStack = ImplicitReceiverStackImpl()
-    final override val inferenceComponents: InferenceComponents = inferenceComponents(session, returnTypeCalculator, scopeSession)
-    final override val resolutionStageRunner: ResolutionStageRunner = ResolutionStageRunner(inferenceComponents)
-    final override val samResolver: FirSamResolver = FirSamResolverImpl(session, scopeSession)
-    final override val callCompleter: FirCallCompleter = FirCallCompleter(this)
-    final override val dataFlowAnalyzer: FirDataFlowAnalyzer = FirDataFlowAnalyzer(this)
+//    final override val topLevelScopes: MutableList<FirScope> = mutableListOf()
+//    final override val localScopes: MutableList<FirLocalScope> = mutableListOf()
+//
+//    final override val noExpectedType: FirTypeRef = FirImplicitTypeRefImpl(null)
+//
+//    final override lateinit var file: FirFile
+//        private set
+//
+//    final override var _container: FirDeclaration? = null
+//
+//    final override val symbolProvider: FirSymbolProvider = session.firSymbolProvider
+//
+//    final override val returnTypeCalculator: ReturnTypeCalculator = ReturnTypeCalculatorWithJump(session, scopeSession)
+//    final override val implicitReceiverStack: ImplicitReceiverStack = ImplicitReceiverStackImpl()
+//    final override val inferenceComponents: InferenceComponents = inferenceComponents(session, returnTypeCalculator, scopeSession)
+//    final override val resolutionStageRunner: ResolutionStageRunner = ResolutionStageRunner(inferenceComponents)
+//    final override val samResolver: FirSamResolver = FirSamResolverImpl(session, scopeSession)
+//    final override val callCompleter: FirCallCompleter = FirCallCompleter(this)
+//    final override val dataFlowAnalyzer: FirDataFlowAnalyzer = FirDataFlowAnalyzer(this)
 
     private val expressionsTransformer = FirExpressionsResolveTransformer(this)
     private val declarationsTransformer = FirDeclarationsResolveTransformer(this)
@@ -64,9 +56,9 @@ open class FirMainBodyResolveTransformer(
 
     override fun transformFile(file: FirFile, data: Any?): CompositeTransformResult<FirFile> {
         packageFqName = file.packageFqName
-        this.file = file
-        return withScopeCleanup(topLevelScopes) {
-            topLevelScopes.addImportingScopes(file, session, scopeSession)
+        components.file = file
+        return withScopeCleanup(components.topLevelScopes) {
+            components.topLevelScopes.addImportingScopes(file, session, components.scopeSession)
             @Suppress("UNCHECKED_CAST")
             super.transformFile(file, data) as CompositeTransformResult<FirFile>
         }
