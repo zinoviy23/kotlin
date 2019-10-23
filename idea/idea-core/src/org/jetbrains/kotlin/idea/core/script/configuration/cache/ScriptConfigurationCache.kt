@@ -6,9 +6,10 @@
 package org.jetbrains.kotlin.idea.core.script.configuration.cache
 
 import com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 
-class CachedConfiguration(
+data class CachedConfiguration(
     val file: VirtualFile,
     val result: ScriptCompilationConfigurationWrapper,
     val modificationStamp: Long = file.modificationStamp
@@ -20,6 +21,7 @@ class CachedConfiguration(
 interface ScriptConfigurationCache {
     operator fun get(file: VirtualFile): CachedConfiguration?
     operator fun set(file: VirtualFile, configuration: ScriptCompilationConfigurationWrapper)
+    fun markOutOfDate(file: VirtualFile)
 
     fun all(): Collection<CachedConfiguration>
 }

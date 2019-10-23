@@ -71,15 +71,13 @@ internal abstract class AbstractScriptConfigurationManager(
      * user can see potential notification and accept new configuration. In other cases this should `false` since
      * loaded configuration will be just leaved in hidden user notification cannot be used in any way, so there is
      * no reason to load it
-     * @param force skip up-to-date check for async loading process
      * @param forceSync should be used in tests only
      */
     protected abstract fun reloadConfigurationInTransaction(
         file: KtFile,
         isFirstLoad: Boolean = getCachedConfiguration(file.originalFile.virtualFile) == null,
         loadEvenWillNotBeApplied: Boolean = false,
-        force: Boolean = false,
-        /* Test only */ forceSync: Boolean = false
+        forceSync: Boolean = false
     )
 
     @Deprecated("Use getScriptClasspath(KtFile) instead")
@@ -152,8 +150,11 @@ internal abstract class AbstractScriptConfigurationManager(
     }
 
     internal fun forceReload(file: KtFile) {
+        val virtualFile = file.originalFile.virtualFile ?: return
+        cache.markOutOfDate(virtualFile)
+
         rootsIndexer.transaction {
-            reloadConfigurationInTransaction(file, loadEvenWillNotBeApplied = true, force = true)
+            reloadConfigurationInTransaction(file, loadEvenWillNotBeApplied = true)
         }
     }
 

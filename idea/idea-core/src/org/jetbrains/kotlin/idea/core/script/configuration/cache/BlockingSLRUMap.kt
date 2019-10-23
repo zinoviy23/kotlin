@@ -47,4 +47,12 @@ internal class BlockingSLRUMap<K, V>(val size: Int) {
         cache.put(file, value)
         return old
     }
+
+    @Synchronized
+    fun update(file: K, updater: (V?) -> V?) {
+        val new = updater(get(file))
+        if (new != null) {
+            cache.put(file, new)
+        }
+    }
 }

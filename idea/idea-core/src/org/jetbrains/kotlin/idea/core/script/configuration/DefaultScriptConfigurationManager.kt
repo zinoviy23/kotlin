@@ -79,7 +79,7 @@ import kotlin.script.experimental.api.valueOrNull
  *
  * ## Concurrency
  *
- * Each files may be in on of this states:
+ * Each files may be in on of this state:
  * - scriptDefinition is not ready
  * - not loaded
  * - up-to-date
@@ -137,7 +137,7 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
      *   (only one task per file will be scheduled at same time)
      * - `invalid`:
      *   Loading should be rescheduled, since the work already started for old input.
-     *   This will work, since file will be removed backgroundExecutor.
+     *   This will work, because file will be removed from backgroundExecutor.
      *   - `loading`: Scheduled loading for unchanged file will be noop thanks to isUpToDate check
      *   - `not applied`: Scheduled loading for unchanged file with loaded but not applied
      *      configuration will be also noop thanks check in [notApplied] map.
@@ -153,8 +153,7 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
         file: KtFile,
         isFirstLoad: Boolean,
         loadEvenWillNotBeApplied: Boolean,
-        force: Boolean,
-        /* Test only */ forceSync: Boolean
+        forceSync: Boolean
     ) {
         val autoReloadEnabled = KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled
         val shouldLoad = isFirstLoad || loadEvenWillNotBeApplied || autoReloadEnabled
@@ -169,9 +168,7 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
             backgroundExecutor.ensureScheduled(virtualFile) {
                 // don't start loading if nothing was changed
                 // (in case we checking for up-to-date and loading concurrently)
-                if (force) {
-                    doReloadConfiguration(virtualFile, file, scriptDefinition)
-                } else if (!isUpToDate(file)) {
+                if (!isUpToDate(file)) {
                     val prevNotApplied = notApplied[virtualFile]
                     if (prevNotApplied?.isUpToDate == true) {
                         // reuse loaded but not applied result
@@ -192,8 +189,12 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
         virtualFile: VirtualFile,
         file: KtFile,
         scriptDefinition: ScriptDefinition
-    ) = loader.loadDependencies(file, scriptDefinition)
-        ?.also { saveConfiguration(virtualFile, it, false) }
+    ) {
+        val result = loader.loadDependencies(file, scriptDefinition)
+        if (result != null) {
+            saveConfiguration(virtualFile, result, false)
+        }
+    }
 
     /**
      * Save configurations into cache.
@@ -209,7 +210,7 @@ internal class DefaultScriptConfigurationManager(project: Project) : AbstractScr
     }
 
     /**
-     * Save [newResult] for [file] into caches and update highlight.
+     * Save [newResult] for [file] into caches and update highlighting.
      * Should be called inside `rootsManager.transaction { ... }`.
      *
      * @param skipNotification forces loading new configuration even if auto reload is disabled.

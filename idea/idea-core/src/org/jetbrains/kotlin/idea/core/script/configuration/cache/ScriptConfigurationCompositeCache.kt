@@ -62,5 +62,11 @@ abstract class ScriptConfigurationCompositeCache(val project: Project) :
         fileAttributeCache.save(file, configuration)
     }
 
+    override fun markOutOfDate(file: VirtualFile) {
+        memoryCache.update(file) {
+            it?.copy(modificationStamp = 0)
+        }
+    }
+
     override fun all(): Collection<CachedConfiguration> = memoryCache.getAll().map { it.value }
 }
