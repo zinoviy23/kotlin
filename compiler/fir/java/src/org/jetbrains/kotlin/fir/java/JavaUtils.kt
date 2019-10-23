@@ -350,19 +350,27 @@ internal fun FirFunction<*>.computeJvmDescriptor(): String = buildString {
 
 // TODO: primitive types, arrays, etc.
 private fun StringBuilder.appendErasedType(typeRef: FirTypeRef) {
+    fun appendClass(klass: JavaClass) {
+        klass.fqName?.let {
+            append("L")
+            append(it.asString().replace(".", "/"))
+        }
+    }
+
     when (typeRef) {
         is FirResolvedTypeRef -> appendConeType(typeRef.type)
         is FirJavaTypeRef -> {
             when (val javaType = typeRef.type) {
                 is JavaClassifierType -> {
                     when (val classifier = javaType.classifier) {
-                        is JavaClass -> classifier.fqName?.let {
-                            append("L")
-                            append(it.asString().replace(".", "/"))
-                        }
+                        is JavaClass -> appendClass(classifier)
                         is JavaTypeParameter -> {
-                            append("L")
-                            append(classifier.name)
+                            val representative = classifier.upperBounds.firstOrNull { it.classifier is JavaClass }
+                            if (representative == null) {
+                                append("Ljava/lang/Object")
+                            } else {
+                                appendClass(representative.classifier as JavaClass)
+                            }
                         }
                         else -> return
                     }
